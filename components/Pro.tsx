@@ -19,7 +19,10 @@ const TIP_URL = process.env.NEXT_PUBLIC_TIP_URL;
 
 const PERKS = [
   ["Pick 6 lines, filled in", "Open any game and every posted line is already set. No typing numbers in."],
+  ["Build my best slip", "One tap builds a 2 to 6 pick slip from the model's strongest picks, one per game."],
+  ["Your insights", "Profit over time, ROI, streaks, and the stats you hit most (and least)."],
   ["Model report card", "See how often the model's 55%, 60% and 65% picks really hit."],
+  ["Export to CSV", "Download every slip and result for your own spreadsheet."],
   ["Support the site", "Pro pays for the live odds feed and keeps LegUp running."],
 ];
 
@@ -127,7 +130,7 @@ export default function Pro() {
         <p className="muted">
           {isPro
             ? `Thanks for supporting LegUp${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
-            : "Pick 6 lines filled in for every game, plus the model's report card."}
+            : "Lines filled in for every game, one-tap best slips, and insights on how you really do."}
         </p>
       </section>
 

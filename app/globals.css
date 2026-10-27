@@ -93,6 +93,10 @@ button:where(:not([class*="cl-"])):disabled { opacity: 0.5; cursor: default; }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-weight: 600; }
 button.ghost:hover:not(:disabled) { background: var(--panel-2); filter: none; }
 button.small { padding: 6px 10px; font-size: 13px; }
+a.button {
+  display: inline-flex; align-items: center; justify-content: center; background: var(--brand); color: var(--accent-ink);
+  border-radius: 10px; padding: 9px 16px; font-weight: 700; text-decoration: none;
+}
 button.icon { padding: 8px 12px; font-size: 16px; line-height: 1; }
 :where(input, select, textarea):not([class*="cl-"]) {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px;
@@ -343,7 +347,7 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
 .inputs label { flex: 1; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
 .inputs input { width: 100%; }
 .actions { display: flex; gap: 8px; margin-top: 10px; }
-.actions button:first-child { flex: 1; }
+.actions > :first-child { flex: 1; }
 .slipbar { display: none; }
 .toast {
   position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 40;
@@ -523,3 +527,40 @@ button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
 @media (max-width: 400px) {
   .topright:has(> :not(.mainnav)) .mainnav .navlabel { display: none; }
 }
+
+/* ---------- Best slip, tracker extras ---------- */
+.bestslip {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 14px; padding: 12px; border-radius: 12px; border: 1px dashed var(--line); background: var(--bg);
+}
+.bestslip strong { display: block; font-size: 14px; }
+.bestslip strong span { color: #3dff9a; }
+.bestslip small { color: var(--muted); font-size: 12px; }
+.bestslip .seg button { padding: 6px 11px; color: var(--text); }
+.bestslip .seg button:hover { background: var(--panel-3); }
+.prolink {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text);
+  text-decoration: none; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px;
+}
+.prolink:hover { background: var(--panel-2); }
+.prolink .probadge { padding: 1px 6px; font-size: 9px; letter-spacing: 1px; box-shadow: none; }
+
+.trackbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.saved.won { border-color: rgba(83, 215, 105, 0.45); }
+.saved.lost { opacity: 0.85; }
+.result { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--panel-3); color: var(--muted); white-space: nowrap; }
+.result.won { background: rgba(83, 215, 105, 0.15); color: var(--over); }
+.result.lost { background: rgba(255, 107, 107, 0.12); color: var(--under); }
+
+.profitchart { display: block; width: 100%; height: 120px; margin: 4px 0 12px; }
+.profitchart .zero { stroke: var(--line); stroke-dasharray: 4 4; }
+.profitchart path.pos { stroke: var(--over); stroke-width: 2.5; }
+.profitchart path.neg { stroke: var(--under); stroke-width: 2.5; }
+.profitchart .fillpos { fill: rgba(83, 215, 105, 0.12); }
+.profitchart .fillneg { fill: rgba(255, 107, 107, 0.1); }
+.insightgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.insightgrid > div { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.insightgrid small { width: 100%; color: var(--muted); }
+.insightgrid strong { font-size: 20px; }
+.statlist { display: grid; gap: 4px; margin-top: 12px; font-size: 14px; }
+.statlist small { color: var(--muted); margin-top: 6px; }
