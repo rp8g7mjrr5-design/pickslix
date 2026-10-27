@@ -56,10 +56,28 @@ small { display: block; color: var(--muted); font-size: 12px; }
 .brand .wordmark span { background: var(--brand); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .logo { flex: none; filter: drop-shadow(0 4px 14px rgba(20, 214, 200, 0.35)); transition: transform 0.2s; }
 .brand:hover .logo { transform: rotate(-6deg) scale(1.05); }
-.topbar nav { display: flex; gap: 4px; }
-.topbar nav a { color: var(--muted); padding: 6px 12px; border-radius: 8px; font-weight: 600; }
-.topbar nav a:hover { color: var(--text); }
-.topbar nav a.active { color: var(--text); background: var(--panel-2); }
+.mainnav {
+  display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: rgba(11, 15, 20, 0.7); border: 1px solid var(--line);
+}
+.mainnav a {
+  position: relative; display: inline-flex; align-items: center; gap: 7px; color: var(--muted);
+  padding: 7px 14px; border-radius: 9px; font-weight: 650; transition: color 0.15s, background 0.15s;
+}
+.mainnav a:hover { color: var(--text); background: var(--panel-2); }
+.mainnav a.active {
+  color: var(--text);
+  background: linear-gradient(var(--panel-3), var(--panel-3)) padding-box, var(--brand) border-box;
+  border: 1px solid transparent; padding: 6px 13px; box-shadow: 0 4px 18px rgba(20, 214, 200, 0.18);
+}
+.mainnav a.active svg { color: #3dff9a; }
+.navcount {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-grid; place-items: center;
+  font-size: 11px; font-weight: 800; background: var(--brand); color: var(--accent-ink); font-variant-numeric: tabular-nums;
+}
+@media (max-width: 420px) {
+  .mainnav a { padding: 7px 10px; gap: 5px; }
+  .mainnav a.active { padding: 6px 9px; }
+}
 main { padding: 20px; max-width: 1280px; margin: 0 auto; }
 .foot a { text-decoration: underline; text-underline-offset: 2px; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 28px 16px 96px; max-width: 640px; margin: 0 auto; }

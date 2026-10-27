@@ -50,6 +50,7 @@ export default function Board() {
   useEffect(() => {
     try {
       localStorage.setItem(SLIP_KEY, JSON.stringify(slip));
+      window.dispatchEvent(new Event("pickslix:change"));
     } catch {}
   }, [slip]);
 
