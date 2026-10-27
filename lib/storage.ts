@@ -87,22 +87,32 @@ export function persistSlips(slips: SavedSlip[]) {
  * Load slips from the database. The first sync on a device merges in local slips; after that the database
  * wins, so a slip deleted on one device doesn't come back from another.
  */
-export async function pullSlips(): Promise<{ enabled: boolean; slips: SavedSlip[] }> {
+export async function pullSlips(): Promise<{ enabled: boolean; slips: SavedSlip[]; account: boolean }> {
   const local = loadSlips();
   try {
     const res = await fetch(`/api/slips?code=${encodeURIComponent(syncCode())}`, { cache: "no-store" });
-    const body = (await res.json()) as { enabled?: boolean; slips?: SavedSlip[] };
-    if (!res.ok || !body.enabled) return { enabled: false, slips: local };
+    const body = (await res.json()) as { enabled?: boolean; account?: boolean; owner?: string; slips?: SavedSlip[] };
+    if (!res.ok || !body.enabled) return { enabled: false, slips: local, account: false };
     let slips = body.slips ?? [];
-    if (!read<boolean>(SYNCED, false)) {
+    // Who these slips belong to: a sync code, or a signed-in account. Local slips merge in once per owner.
+    const owner = body.account ? `account:${body.owner ?? ""}` : `code:${syncCode()}`;
+    if (read<string | boolean>(SYNCED, false) !== owner) {
       const ids = new Set(slips.map((s) => s.id));
       slips = [...local.filter((s) => !ids.has(s.id)), ...slips].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       await pushRemote(slips);
-      write(SYNCED, true);
+      write(SYNCED, owner);
     }
     saveSlips(slips);
-    return { enabled: true, slips };
+    return { enabled: true, slips, account: Boolean(body.account) };
   } catch {
-    return { enabled: false, slips: local };
+    return { enabled: false, slips: local, account: false };
+  }
+}
+
+/** After signing out: the account's slips stay with the account, not on this device. */
+export function forgetAccountSlips() {
+  if (String(read<string | boolean>(SYNCED, "")).startsWith("account:")) {
+    saveSlips([]);
+    write(SYNCED, false);
   }
 }

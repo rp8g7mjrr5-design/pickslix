@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { currentUserId, setAccountProKey } from "@/lib/accounts.ts";
 import { claimCheckout, stripeEnabled } from "@/lib/pro.ts";
 
 /** After Checkout: { sessionId } → { key, plan } */
@@ -8,6 +9,8 @@ export async function POST(req: Request) {
   try {
     const claimed = await claimCheckout(String(sessionId ?? ""));
     if (!claimed) return NextResponse.json({ error: "We couldn't find that payment yet. Refresh in a moment." }, { status: 404 });
+    const userId = await currentUserId();
+    if (userId) await setAccountProKey(userId, claimed.key);
     return NextResponse.json({ key: claimed.key, plan: claimed.pass.plan });
   } catch (e) {
     console.error(e);

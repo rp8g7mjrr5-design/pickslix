@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dbEnabled, kvGet } from "@/lib/db.ts";
 import { oddsEnabled } from "@/lib/odds.ts";
+import { accountsEnabled } from "@/lib/accounts.ts";
 import { lifetimeCodes, prices, stripeEnabled } from "@/lib/pro.ts";
 import { visionEnabled } from "@/lib/vision.ts";
 
@@ -19,6 +20,7 @@ export async function GET() {
     odds: oddsEnabled(),
     oddsRemaining: odds?.remaining ?? null,
     defenseUpdatedAt: nba?.updatedAt ?? null,
+    accounts: accountsEnabled(),
     stripe: stripeEnabled(),
     stripePrices: Boolean(prices().monthly || prices().yearly),
     lifetimeCodes: lifetimeCodes().length,

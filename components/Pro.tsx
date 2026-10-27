@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getProKey, setProKey, usePro } from "@/lib/proClient.ts";
+import { SignInPrompt, useAccount } from "@/components/Account";
 
 interface Config {
   required: boolean;
@@ -38,6 +39,9 @@ export default function Pro() {
   const [keyInput, setKeyInput] = useState("");
   const [key, setKey] = useState("");
   const [copied, setCopied] = useState(false);
+  const account = useAccount();
+  // With accounts on, Pro is bought and redeemed while signed in, so it's saved to the account.
+  const needSignIn = account.enabled && !account.signedIn;
 
   useEffect(() => {
     setKey(getProKey());
@@ -54,7 +58,7 @@ export default function Pro() {
         if (r.key) {
           setProKey(r.key);
           setKey(r.key);
-          setNote("You're Pro. Save your Pro key below to use it on other devices.");
+          setNote(account.signedIn ? "You're Pro. It's saved to your account." : "You're Pro. Save your Pro key below to use it on other devices.");
           router.replace("/pro");
         } else setNote(r.error ?? "Couldn't confirm the payment yet.");
       })
@@ -83,7 +87,7 @@ export default function Pro() {
       setProKey(r.key);
       setKey(r.key);
       setCode("");
-      setNote("Lifetime Pro unlocked. Save your Pro key below to use it on other devices.");
+      setNote(account.signedIn ? "Lifetime Pro unlocked and saved to your account." : "Lifetime Pro unlocked. Save your Pro key below to use it on other devices.");
     } else setNote(r.error ?? "That code didn't work.");
   };
 
@@ -95,16 +99,17 @@ export default function Pro() {
     const r = await post<{ pro: boolean }>("/api/pro/status", { key: k }).catch(() => ({ pro: false }));
     setBusy("");
     if (r.pro) {
+      if (account.signedIn) await post("/api/account/link", { key: k }).catch(() => {});
       setProKey(k);
       setKey(k);
       setKeyInput("");
-      setNote("Pro is on for this device.");
+      setNote(account.signedIn ? "Pro is saved to your account." : "Pro is on for this device.");
     } else setNote("That key isn't active. Check for typos, or renew your subscription.");
   };
 
   const billing = async () => {
     setBusy("portal");
-    const r = await post<{ url?: string }>("/api/pro/portal", { key }).catch(() => ({ error: "Try again." }) as { url?: string; error?: string });
+    const r = await post<{ url?: string }>("/api/pro/portal", { key: getProKey() || key }).catch(() => ({ error: "Try again." }) as { url?: string; error?: string });
     if (r.url) window.location.href = r.url;
     else {
       setNote(r.error ?? "Couldn't open billing.");
@@ -145,7 +150,14 @@ export default function Pro() {
         ))}
       </div>
 
-      {!isPro && config?.checkout && (
+      {!isPro && needSignIn && (config?.checkout || config?.codes) && account.loaded && (
+        <div className="signinprompt">
+          <small>Sign in first so Pro is saved to your account and works on all your devices.</small>
+          <SignInPrompt>Sign in to get Pro</SignInPrompt>
+        </div>
+      )}
+
+      {!isPro && !needSignIn && config?.checkout && (
         <div className="plans">
           {config.monthly && (
             <button className="plan" onClick={() => checkout("monthly")} disabled={!!busy}>
@@ -167,7 +179,23 @@ export default function Pro() {
         <p className="banner">Pro isn't set up on this site yet. Everything is free for now.</p>
       )}
 
-      {key && isPro && (
+      {isPro && account.signedIn && (
+        <section className="prokey">
+          <div>
+            <strong>Pro is saved to your account</strong>
+            <small>Sign in on your phone or any browser and Pro turns on there too.</small>
+          </div>
+          {status?.plan !== "lifetime" && (
+            <div className="prokeyactions">
+              <button className="ghost small" onClick={billing} disabled={!!busy}>
+                Manage billing
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {key && isPro && !account.signedIn && (
         <section className="prokey">
           <div>
             <strong>Your Pro key</strong>
@@ -203,7 +231,7 @@ export default function Pro() {
         </section>
       )}
 
-      {!isPro && (
+      {!isPro && !needSignIn && (
         <div className="proforms">
           {config?.codes && (
             <form onSubmit={redeem}>
@@ -217,7 +245,7 @@ export default function Pro() {
             </form>
           )}
           <form onSubmit={useKey}>
-            <label htmlFor="key">Already Pro on another device?</label>
+            <label htmlFor="key">{account.signedIn ? "Have a Pro key from before? Add it to your account" : "Already Pro on another device?"}</label>
             <div>
               <input id="key" placeholder="LEG-XXXX-XXXX-XXXX" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} autoCapitalize="characters" />
               <button type="submit" className="ghost" disabled={!!busy}>

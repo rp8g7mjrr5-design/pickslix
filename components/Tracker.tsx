@@ -5,6 +5,7 @@ import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
+import { SignInPrompt, useAccount } from "@/components/Account";
 
 const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
@@ -12,6 +13,8 @@ export default function Tracker() {
   const [slips, setSlips] = useState<SavedSlip[]>([]);
   const pro = usePro();
   const [synced, setSynced] = useState(false);
+  const [onAccount, setOnAccount] = useState(false);
+  const account = useAccount();
   const [grading, setGrading] = useState(false);
   const [gradedNote, setGradedNote] = useState("");
   const graded = useRef(false);
@@ -19,6 +22,7 @@ export default function Tracker() {
     setSlips(loadSlips());
     pullSlips().then((r) => {
       setSynced(r.enabled);
+      setOnAccount(r.account);
       setSlips(r.slips);
       if (!graded.current) {
         graded.current = true;
@@ -27,6 +31,12 @@ export default function Tracker() {
     });
   };
   useEffect(load, []);
+  // Signing in or out swaps whose slips these are.
+  useEffect(() => {
+    const reload = () => load();
+    window.addEventListener("pickslix:account", reload);
+    return () => window.removeEventListener("pickslix:account", reload);
+  }, []);
 
   /** Grade every open leg whose game should be over, from the box scores. */
   const autoGrade = async (current: SavedSlip[]) => {
@@ -129,7 +139,13 @@ export default function Tracker() {
         instead.
       </p>
       {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={!unlocked(pro)} />}
-      {synced && <SyncCode onChange={load} />}
+      {account.enabled && account.loaded && !account.signedIn && (
+        <div className="signinprompt">
+          <small>Sign in to keep your slips and results on every device.</small>
+          <SignInPrompt>Sign in</SignInPrompt>
+        </div>
+      )}
+      {synced && !onAccount && !account.enabled && <SyncCode onChange={load} />}
       {!slips.length && (
         <div className="emptycard">
           <p>No saved slips yet. Build one on the board and tap Save to tracker.</p>
