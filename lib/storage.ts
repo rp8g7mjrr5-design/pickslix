@@ -13,6 +13,7 @@ export interface SlipLeg {
   auto?: boolean;
   sport?: Sport;
   team?: string;
+  opponent?: string;
   gameTime?: string;
 }
 
