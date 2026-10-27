@@ -41,6 +41,9 @@ const STAT_PATTERNS: [RegExp, StatKey][] = [
   [/\b(points|pts)\b/i, "PTS"],
 ];
 
+/** Position tags after a name, plus common OCR misreads of them (SC for SG). */
+const POSITION = /^(PG|SG|SF|PF|C|G|F|G-F|F-G|F-C|C-F|QB|RB|WR|TE|K|FB|DST|SC|PC|FC)$/;
+
 const FILLER = /\b(vs|v|at|more|less|over|under|higher|lower|nba|nfl|pick|o|u|projection|line|final|today|tomorrow|mon|tue|wed|thu|fri|sat|sun)\b/gi;
 
 interface Partial {
@@ -77,10 +80,21 @@ function readLine(raw: string): Partial {
   text = text.replace(/[@↑↓▲▼]/g, " ").replace(FILLER, " ");
 
   const words: string[] = [];
+  let prevWasName = false;
   for (const w of text.split(/\s+/).filter(Boolean)) {
-    if (/^[A-Z]{2,5}$/.test(w) && isTeamToken(w)) out.teams.push(w);
-    else if (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.'’-]*$/.test(w)) words.push(w);
+    // "A. Bailey SF": a position right after a name, even when it spells a team (SF is also the 49ers).
+    const isPosition = prevWasName && POSITION.test(w);
+    prevWasName = false;
+    if (!isPosition && /^[A-Z]{2,5}$/.test(w) && isTeamToken(w)) out.teams.push(w);
+    else if (isPosition) continue;
+    else if (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.'’-]*$/.test(w)) {
+      words.push(w);
+      prevWasName = true;
+    }
   }
+  // Pick 6 writes "N. Jokic C": drop the position, and lowercase scraps OCR picks up around the name.
+  while (words.length && (POSITION.test(words[words.length - 1]) || /^[a-z]{1,3}$/.test(words[words.length - 1]))) words.pop();
+  while (words.length && /^[a-z]{1,3}$/.test(words[0])) words.shift();
   // A name is at least two words ("Jokic" alone is too easy to confuse with headers).
   if (words.length >= 2) out.player = words.join(" ");
   return out;

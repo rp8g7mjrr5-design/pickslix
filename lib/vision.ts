@@ -25,7 +25,7 @@ const Picks = z.object({
 const PROMPT = `This is a screenshot from the DraftKings Pick 6 app. List every player prop in it.
 
 For each one give:
-- player: full name as shown
+- player: the name as shown, without the position tag (Pick 6 may shorten it, e.g. "N. Jokic")
 - stat: one of ${statKeys.map((k) => `${k} (${STATS[k].label})`).join(", ")}
 - line: the number
 - side: MORE or LESS if the screenshot shows that this side was picked (a highlighted button, an arrow, "More"/"Less" text on a saved entry); NONE if both buttons are shown unpicked or you can't tell

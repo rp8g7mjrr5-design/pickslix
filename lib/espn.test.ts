@@ -95,3 +95,20 @@ test("names and team spellings normalize", () => {
   assert.equal(canonTeam("WAS", "NFL"), "WSH");
   assert.equal(canonTeam("DEN", "NFL"), "DEN");
 });
+
+test("short names match on initial and last name", () => {
+  const found = parseSearch(
+    {
+      items: [
+        { id: "1", type: "player", league: "nba", displayName: "Ace Bailey", teamRelationships: [{ core: { abbreviation: "UTAH" } }] },
+        { id: "2", type: "player", league: "nba", displayName: "Amari Bailey", teamRelationships: [{ core: { abbreviation: "BKN" } }] },
+        { id: "3", type: "player", league: "nba", displayName: "Marvin Bagley III", teamRelationships: [{ core: { abbreviation: "WSH" } }] },
+      ],
+    },
+    "NBA",
+  );
+  assert.equal(pickAthlete(found, "A. Bailey")?.id, "1");
+  assert.equal(pickAthlete(found, "A. Bailey", ["BKN"])?.id, "2");
+  assert.equal(pickAthlete(found, "M Bagley")?.id, "3");
+  assert.equal(pickAthlete(found, "B. Bailey"), undefined);
+});
