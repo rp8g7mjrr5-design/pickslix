@@ -1,0 +1,118 @@
+{
+ "filters": [
+  {
+   "name": "season",
+   "value": "2026"
+  }
+ ],
+ "names": [
+  "receptions",
+  "receivingTargets",
+  "receivingYards",
+  "yardsPerReception",
+  "receivingTouchdowns",
+  "longReception",
+  "rushingAttempts",
+  "rushingYards",
+  "yardsPerRushAttempt",
+  "longRushing",
+  "rushingTouchdowns",
+  "fumbles",
+  "fumblesLost",
+  "fumblesForced",
+  "kicksBlocked"
+ ],
+ "events": {
+  "401873011": {
+   "gameDate": "2026-10-25T13:30:00.000+00:00",
+   "opponent": {
+    "abbreviation": "NO"
+   }
+  },
+  "401873002": {
+   "gameDate": "2026-10-18T17:00:00.000+00:00",
+   "opponent": {
+    "abbreviation": "TB"
+   }
+  },
+  "401872985": {
+   "gameDate": "2026-10-11T17:00:00.000+00:00",
+   "opponent": {
+    "abbreviation": "IND"
+   }
+  }
+ },
+ "seasonTypes": [
+  {
+   "displayName": "2026 Regular Season",
+   "categories": [
+    {
+     "type": "event",
+     "displayName": "Regular Season Stats",
+     "events": [
+      {
+       "eventId": "401873011",
+       "stats": [
+        "2",
+        "6",
+        "56",
+        "28.0",
+        "0",
+        "51",
+        "0",
+        "0",
+        "0.0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "-",
+        "-"
+       ]
+      },
+      {
+       "eventId": "401873002",
+       "stats": [
+        "11",
+        "15",
+        "93",
+        "8.5",
+        "0",
+        "17",
+        "0",
+        "0",
+        "0.0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "-",
+        "-"
+       ]
+      },
+      {
+       "eventId": "401872985",
+       "stats": [
+        "3",
+        "4",
+        "12",
+        "4.0",
+        "0",
+        "9",
+        "1",
+        "11",
+        "11.0",
+        "11",
+        "0",
+        "1",
+        "0",
+        "0",
+        "0"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

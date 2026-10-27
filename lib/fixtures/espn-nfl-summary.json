@@ -1,0 +1,220 @@
+{
+ "boxscore": {
+  "teams": [
+   {
+    "team": {
+     "abbreviation": "SEA"
+    },
+    "statistics": [
+     {
+      "name": "firstDowns",
+      "displayValue": "24"
+     },
+     {
+      "name": "firstDownsPassing",
+      "displayValue": "14"
+     },
+     {
+      "name": "firstDownsRushing",
+      "displayValue": "9"
+     },
+     {
+      "name": "firstDownsPenalty",
+      "displayValue": "1"
+     },
+     {
+      "name": "thirdDownEff",
+      "displayValue": "7-17"
+     },
+     {
+      "name": "fourthDownEff",
+      "displayValue": "1-1"
+     },
+     {
+      "name": "totalOffensivePlays",
+      "displayValue": "82"
+     },
+     {
+      "name": "totalYards",
+      "displayValue": "353"
+     },
+     {
+      "name": "yardsPerPlay",
+      "displayValue": "4.3"
+     },
+     {
+      "name": "totalDrives",
+      "displayValue": "12"
+     },
+     {
+      "name": "netPassingYards",
+      "displayValue": "240"
+     },
+     {
+      "name": "completionAttempts",
+      "displayValue": "27/51"
+     },
+     {
+      "name": "yardsPerPass",
+      "displayValue": "4.3"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "2"
+     },
+     {
+      "name": "sacksYardsLost",
+      "displayValue": "5-38"
+     },
+     {
+      "name": "rushingYards",
+      "displayValue": "113"
+     },
+     {
+      "name": "rushingAttempts",
+      "displayValue": "26"
+     },
+     {
+      "name": "yardsPerRushAttempt",
+      "displayValue": "4.3"
+     },
+     {
+      "name": "redZoneAttempts",
+      "displayValue": "1-2"
+     },
+     {
+      "name": "totalPenaltiesYards",
+      "displayValue": "7-75"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "3"
+     },
+     {
+      "name": "fumblesLost",
+      "displayValue": "1"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "2"
+     },
+     {
+      "name": "defensiveTouchdowns",
+      "displayValue": "0"
+     },
+     {
+      "name": "possessionTime",
+      "displayValue": "35:38"
+     }
+    ]
+   },
+   {
+    "team": {
+     "abbreviation": "DEN"
+    },
+    "statistics": [
+     {
+      "name": "firstDowns",
+      "displayValue": "13"
+     },
+     {
+      "name": "firstDownsPassing",
+      "displayValue": "5"
+     },
+     {
+      "name": "firstDownsRushing",
+      "displayValue": "6"
+     },
+     {
+      "name": "firstDownsPenalty",
+      "displayValue": "2"
+     },
+     {
+      "name": "thirdDownEff",
+      "displayValue": "3-14"
+     },
+     {
+      "name": "fourthDownEff",
+      "displayValue": "1-1"
+     },
+     {
+      "name": "totalOffensivePlays",
+      "displayValue": "57"
+     },
+     {
+      "name": "totalYards",
+      "displayValue": "168"
+     },
+     {
+      "name": "yardsPerPlay",
+      "displayValue": "2.9"
+     },
+     {
+      "name": "totalDrives",
+      "displayValue": "13"
+     },
+     {
+      "name": "netPassingYards",
+      "displayValue": "94"
+     },
+     {
+      "name": "completionAttempts",
+      "displayValue": "17/27"
+     },
+     {
+      "name": "yardsPerPass",
+      "displayValue": "3.2"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "0"
+     },
+     {
+      "name": "sacksYardsLost",
+      "displayValue": "2-13"
+     },
+     {
+      "name": "rushingYards",
+      "displayValue": "74"
+     },
+     {
+      "name": "rushingAttempts",
+      "displayValue": "28"
+     },
+     {
+      "name": "yardsPerRushAttempt",
+      "displayValue": "2.6"
+     },
+     {
+      "name": "redZoneAttempts",
+      "displayValue": "2-2"
+     },
+     {
+      "name": "totalPenaltiesYards",
+      "displayValue": "8-42"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "0"
+     },
+     {
+      "name": "fumblesLost",
+      "displayValue": "0"
+     },
+     {
+      "name": "interceptions",
+      "displayValue": "0"
+     },
+     {
+      "name": "defensiveTouchdowns",
+      "displayValue": "0"
+     },
+     {
+      "name": "possessionTime",
+      "displayValue": "29:29"
+     }
+    ]
+   }
+  ]
+ }
+}

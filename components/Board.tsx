@@ -3,8 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { slipHitProbability } from "@/lib/model.ts";
 import { DEFAULT_MULTIPLIERS, pct } from "@/lib/format.ts";
-import { loadCustomProps, loadSlips, saveCustomProps, saveSlips, type SlipLeg } from "@/lib/storage.ts";
+import { loadCustomProps, persistSlips, pullSlips, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type Prop, type PropWithProjection, type Sport, type StatKey } from "@/lib/types.ts";
+
+const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+const gameTimeLabel = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 
 type SportFilter = "ALL" | Sport;
 
@@ -17,11 +22,13 @@ export default function Board() {
   const [minEdge, setMinEdge] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const [slip, setSlip] = useState<SlipLeg[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [panel, setPanel] = useState<"paste" | "add" | null>(null);
+  const [mineCount, setMineCount] = useState(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const custom = loadCustomProps();
+    setMineCount(custom.length);
     const [base, mine] = await Promise.all([
       fetch("/api/props").then((r) => r.json()),
       custom.length
@@ -33,6 +40,8 @@ export default function Board() {
     setRows([...byId.values()].sort((a, b) => b.projection.edge - a.projection.edge));
     setProvider(base.provider);
     setLoading(false);
+    // Live data starts with an empty board: open the paste box.
+    if (!base.board.length && !custom.length) setPanel("paste");
   }, []);
 
   useEffect(() => {
@@ -82,19 +91,34 @@ export default function Board() {
               <option value={0.15}>15%+</option>
             </select>
           </label>
-          <button className="ghost" onClick={() => setShowAdd((v) => !v)}>
-            {showAdd ? "Close" : "+ Add line"}
+          <button className="ghost" onClick={() => setPanel((v) => (v === "paste" ? null : "paste"))}>
+            {panel === "paste" ? "Close" : "Paste lines"}
           </button>
+          <button className="ghost" onClick={() => setPanel((v) => (v === "add" ? null : "add"))}>
+            {panel === "add" ? "Close" : "+ Add line"}
+          </button>
+          {mineCount > 0 && (
+            <button
+              className="ghost"
+              onClick={() => {
+                if (!confirm(`Remove your ${mineCount} pasted/added lines?`)) return;
+                saveCustomProps([]);
+                refresh();
+              }}
+            >
+              Clear my lines
+            </button>
+          )}
         </div>
 
         {provider === "sample" && (
           <p className="banner">
-            Showing sample lines and generated stats so you can try the app. Real stats switch on once an API key is
-            added.
+            Showing sample lines and generated stats (DATA_SOURCE=sample). Remove that setting to use live ESPN stats.
           </p>
         )}
 
-        {showAdd && <AddLine onAdded={refresh} />}
+        {panel === "paste" && <PasteLines onAdded={refresh} />}
+        {panel === "add" && <AddLine onAdded={refresh} />}
 
         {loading ? (
           <p className="muted">Crunching numbers…</p>
@@ -119,7 +143,9 @@ export default function Board() {
                       <strong>{r.player}</strong>
                       <small className="mobile-only">{STATS[r.stat].label}</small>
                       <small>
-                        {r.sport} · {r.team} vs {r.opponent}
+                        {r.sport} · {r.team}
+                        {r.opponent ? ` vs ${r.opponent}` : ""}
+                        {r.gameTime ? ` · ${gameTimeLabel(r.gameTime)}` : ""}
                       </small>
                     </span>
                     <span>{STATS[r.stat].label}</span>
@@ -155,7 +181,11 @@ export default function Board() {
                 </div>
               );
             })}
-            {!visible.length && <p className="muted">No props match these filters.</p>}
+            {!visible.length && (
+              <p className="muted">
+                {rows.length ? "No props match these filters." : "No lines yet. Paste today's Pick 6 lines above to score them."}
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -205,12 +235,11 @@ function Slip({ legs, onRemove, onClear }: { legs: SlipLeg[]; onRemove: (id: str
     setSaved(false);
   }, [legs.length]);
 
-  const save = () => {
-    saveSlips([
-      { id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs },
-      ...loadSlips(),
-    ]);
+  const save = async () => {
     setSaved(true);
+    // Pull first so a slip saved on another device isn't overwritten.
+    const { slips } = await pullSlips();
+    persistSlips([{ id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs }, ...slips]);
   };
 
   return (
@@ -301,7 +330,7 @@ function AddLine({ onAdded }: { onAdded: () => void }) {
     const line = Number(form.line);
     if (!form.player || !Number.isFinite(line)) return;
     const prop: Prop = {
-      id: `custom-${form.player}-${form.stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      id: propId(form.player, form.stat),
       sport: form.sport,
       player: form.player.trim(),
       team: form.team.trim().toUpperCase(),
@@ -332,6 +361,64 @@ function AddLine({ onAdded }: { onAdded: () => void }) {
       </select>
       <input placeholder="Line" inputMode="decimal" value={form.line} onChange={(e) => set("line", e.target.value)} size={5} />
       <button type="submit">Add</button>
+    </form>
+  );
+}
+
+const PASTE_EXAMPLE = `Nikola Jokic DEN vs GS Points 27.5
+Shai Gilgeous-Alexander Pts + Reb + Ast 41.5
+Josh Allen Pass Yds 245.5`;
+
+function PasteLines({ onAdded }: { onAdded: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setBusy(true);
+    setNote("");
+    try {
+      const res = await fetch("/api/lines", { method: "POST", body: JSON.stringify({ text }) });
+      const body = (await res.json()) as { props: Prop[]; skipped: string[]; unresolved: string[] };
+      const ids = new Set(body.props.map((p) => p.id));
+      saveCustomProps([...body.props, ...loadCustomProps().filter((p) => !ids.has(p.id))]);
+      const problems = [
+        body.unresolved.length ? `Couldn't find: ${body.unresolved.join(", ")}.` : "",
+        body.skipped.length ? `Couldn't read: ${body.skipped.slice(0, 3).join("; ")}${body.skipped.length > 3 ? "…" : ""}.` : "",
+      ].filter(Boolean);
+      setNote(`Added ${body.props.length} line${body.props.length === 1 ? "" : "s"}. ${problems.join(" ")}`);
+      if (body.props.length) {
+        setText("");
+        onAdded();
+      }
+    } catch {
+      setNote("Something went wrong reading those lines. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="paste" onSubmit={submit}>
+      <label htmlFor="paste-lines">
+        Paste lines from Pick 6, one per line or as copied from the app: player, stat, and the number. Teams are
+        optional.
+      </label>
+      <textarea
+        id="paste-lines"
+        rows={6}
+        placeholder={PASTE_EXAMPLE}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="pasteactions">
+        <button type="submit" disabled={busy || !text.trim()}>
+          {busy ? "Looking up players…" : "Score these lines"}
+        </button>
+        {note && <span className="muted">{note}</span>}
+      </div>
     </form>
   );
 }

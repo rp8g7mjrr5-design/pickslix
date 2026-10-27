@@ -2,18 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { pct } from "@/lib/format.ts";
-import { loadSlips, saveSlips, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
+import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 
 const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
 export default function Tracker() {
   const [slips, setSlips] = useState<SavedSlip[]>([]);
-  useEffect(() => setSlips(loadSlips()), []);
+  const [synced, setSynced] = useState(false);
+  const load = () => {
+    setSlips(loadSlips());
+    pullSlips().then((r) => {
+      setSynced(r.enabled);
+      setSlips(r.slips);
+    });
+  };
+  useEffect(load, []);
 
   const update = (next: SavedSlip[]) => {
     setSlips(next);
-    saveSlips(next);
+    persistSlips(next);
   };
 
   const mark = (slipId: string, propId: string, result: SlipLeg["result"]) =>
@@ -52,6 +60,7 @@ export default function Tracker() {
         Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout
         instead.
       </p>
+      {synced && <SyncCode onChange={load} />}
       {!slips.length && <p className="muted">No saved slips yet. Build one on the board and tap Save to tracker.</p>}
       {slips.map((s) => (
         <div key={s.id} className="saved">
@@ -93,5 +102,43 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: str
       <small>{label}</small>
       <strong className={tone}>{value}</strong>
     </div>
+  );
+}
+
+function SyncCode({ onChange }: { onChange: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const code = syncCode();
+  if (!editing) {
+    return (
+      <div className="sync">
+        <small>Slips sync to any device using this code:</small>
+        <code>{code}</code>
+        <button className="ghost" onClick={() => navigator.clipboard?.writeText(code)}>
+          Copy
+        </button>
+        <button className="ghost" onClick={() => setEditing(true)}>
+          Use another code
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="sync"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!/^[a-z0-9-]{12,64}$/i.test(value.trim())) return;
+        setSyncCode(value);
+        setEditing(false);
+        onChange();
+      }}
+    >
+      <input placeholder="Paste the code from your other device" value={value} onChange={(e) => setValue(e.target.value)} />
+      <button type="submit">Switch</button>
+      <button type="button" className="ghost" onClick={() => setEditing(false)}>
+        Cancel
+      </button>
+    </form>
   );
 }
