@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { ClerkProvider } from "@clerk/nextjs";
+import { AccountButton, AccountProvider } from "@/components/Account";
 import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
 import "./globals.css";
@@ -18,10 +20,27 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Clerk's sign-in screens, in LegUp's colors.
+const clerkLook = {
+  variables: {
+    colorPrimary: "#3dff9a",
+    colorPrimaryForeground: "#062b0d",
+    colorBackground: "#141a22",
+    colorForeground: "#e8eef5",
+    colorMutedForeground: "#8b97a6",
+    colorInput: "#1c242f",
+    colorInputForeground: "#e8eef5",
+    colorNeutral: "#e8eef5",
+    colorBorder: "#273140",
+    borderRadius: "10px",
+  },
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
+  const page = (
     <html lang="en">
       <body>
+        <AccountProvider>
         <header className="topbar">
           <Link href="/" className="brand" aria-label="LegUp home">
             <Logo />
@@ -29,7 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Leg<span>Up</span>
             </span>
           </Link>
-          <Nav />
+          <div className="topright">
+            <Nav />
+            <AccountButton />
+          </div>
         </header>
         <main>{children}</main>
         <footer className="foot">
@@ -44,7 +66,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
         </footer>
+        </AccountProvider>
       </body>
     </html>
   );
+  // Accounts are optional: without Clerk's key the site runs signed out.
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) return page;
+  return <ClerkProvider appearance={clerkLook}>{page}</ClerkProvider>;
 }

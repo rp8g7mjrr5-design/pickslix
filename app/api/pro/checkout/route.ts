@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountsEnabled, currentUserId } from "@/lib/accounts.ts";
 import { prices, stripe, stripeEnabled } from "@/lib/pro.ts";
 
 /** Start a Stripe Checkout for a Pro subscription. Body: { plan: "monthly" | "yearly" } → { url } */
@@ -7,6 +8,9 @@ export async function POST(req: Request) {
   const { plan } = (await req.json().catch(() => ({}))) as { plan?: string };
   const price = plan === "yearly" ? prices().yearly : prices().monthly;
   if (!price) return NextResponse.json({ error: "That plan isn't available." }, { status: 400 });
+  // With accounts on, Pro is bought by an account so it can't be lost with a browser.
+  const userId = await currentUserId();
+  if (accountsEnabled() && !userId) return NextResponse.json({ error: "Sign in first so Pro is saved to your account." }, { status: 401 });
   const origin = new URL(req.url).origin;
   try {
     const session = await stripe("/checkout/sessions", {
@@ -17,6 +21,7 @@ export async function POST(req: Request) {
         allow_promotion_codes: "true",
         success_url: `${origin}/pro?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/pro`,
+        ...(userId ? { client_reference_id: userId } : {}),
       },
     });
     return NextResponse.json({ url: session.url });

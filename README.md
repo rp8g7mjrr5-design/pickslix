@@ -96,6 +96,17 @@ hit, miss or push (a player who doesn't play counts as a push). Tap a result to 
 model report card buckets graded picks by the model's chance so you can see whether 60% picks
 really hit about 60% of the time. `/setup` shows which optional keys the deployment has.
 
+## Accounts (`lib/accounts.ts`, `components/Account.tsx`)
+
+Sign-in is handled by [Clerk](https://clerk.com): Google, Apple or an email code, no passwords to store.
+An account keeps the user's Pro key and saved slips (`account:{userId}`, `slips:user:{userId}`), so both
+follow them to any device. With accounts on, buying Pro or redeeming a lifetime code needs sign-in, and a
+Pro key bought earlier on a device is linked to the account the first time that device signs in.
+
+Turn it on by adding Clerk from the Vercel Marketplace (it sets `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and
+`CLERK_SECRET_KEY`), then pick sign-in methods in Clerk's dashboard. Without those keys the site runs
+signed out with Pro keys and sync codes, exactly as before.
+
 ## Pro (`lib/pro.ts`)
 
 Pro unlocks auto-filled lines and the report card. There are no accounts: paying (Stripe Checkout)

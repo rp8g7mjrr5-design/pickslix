@@ -10,6 +10,7 @@ interface Status {
   oddsRemaining: number | null;
   defenseUpdatedAt: string | null;
   dataSource: string;
+  accounts: boolean;
   stripe: boolean;
   stripePrices: boolean;
   lifetimeCodes: number;
@@ -58,6 +59,14 @@ export default function Setup() {
           title: "Sharper screenshot reading",
           on: "Screenshots are read by Claude, which handles busy Pick 6 screens well.",
           off: "Add ANTHROPIC_API_KEY for much better screenshot reading. Without it, screenshots are read on your phone, which misses more.",
+        },
+        {
+          ok: s.accounts && s.database,
+          title: "Accounts",
+          on: "People sign in with Google, Apple or an email code. Pro and saved slips follow them to every device.",
+          off: !s.accounts
+            ? "Optional. Add Clerk from the Vercel Marketplace (Integrations) to turn on sign-in. Until then people use Pro keys and sync codes."
+            : "Accounts need the database to save Pro and slips. Add the Upstash Redis integration.",
         },
         {
           ok: s.stripe && s.stripePrices && s.database,

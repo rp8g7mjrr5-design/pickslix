@@ -508,3 +508,17 @@ button.plan.best {
   .mainnav a:not(.active) .navlabel { display: none; }
   .topbar { padding-left: 14px; padding-right: 14px; }
 }
+
+/* ---------- Accounts ---------- */
+.topright { display: flex; align-items: center; gap: 10px; }
+button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+.signinprompt {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 12px 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.signinprompt button { white-space: nowrap; }
+@media (max-width: 400px) { .topright { gap: 6px; } button.signin { padding: 6px 9px; } }
+/* With a sign-in button or avatar beside the tabs, narrow phones show tab icons only. */
+@media (max-width: 400px) {
+  .topright:has(> :not(.mainnav)) .mainnav .navlabel { display: none; }
+}
