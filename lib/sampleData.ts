@@ -28,8 +28,8 @@ const PROFILES: Profile[] = [
   nba("Julius Randle", "MIN", 33, 19, 7, 4.8, 1.6),
   nba("Luka Doncic", "LAL", 36, 30, 8.2, 8, 3.5),
   nba("LeBron James", "LAL", 34, 23, 7.5, 8.5, 2),
-  nba("Victor Wembanyama", "SAS", 33, 25, 11, 3.7, 3.2),
-  nba("De'Aaron Fox", "SAS", 34, 22, 4.3, 6.2, 1.9),
+  nba("Victor Wembanyama", "SA", 33, 25, 11, 3.7, 3.2),
+  nba("De'Aaron Fox", "SA", 34, 22, 4.3, 6.2, 1.9),
   nfl("Patrick Mahomes", "KC", 100, { passYds: 255, passTd: 1.9, passAtt: 36, rushYds: 22 }),
   nfl("Travis Kelce", "KC", 80, { rec: 5.6, recYds: 58 }),
   nfl("Josh Allen", "BUF", 100, { passYds: 245, passTd: 1.8, passAtt: 32, rushYds: 38 }),
@@ -45,7 +45,7 @@ const PROFILES: Profile[] = [
 const MATCHUPS: [string, string][] = [
   ["OKC", "DEN"],
   ["BOS", "MIN"],
-  ["LAL", "SAS"],
+  ["LAL", "SA"],
   ["KC", "BUF"],
   ["PHI", "DET"],
 ];
@@ -56,7 +56,7 @@ export const SAMPLE_DEFENSE: DefenseFactors = {
   BOS: { PTS: 0.96, REB: 1.03, AST: 0.97, "3PM": 0.92, PRA: 0.97 },
   MIN: { PTS: 0.95, REB: 0.97, AST: 1.0, "3PM": 1.02, PRA: 0.96 },
   LAL: { PTS: 1.06, REB: 1.07, AST: 1.03, "3PM": 1.04, PRA: 1.06 },
-  SAS: { PTS: 1.02, REB: 0.94, AST: 1.04, "3PM": 1.05, PRA: 1.01 },
+  SA: { PTS: 1.02, REB: 0.94, AST: 1.04, "3PM": 1.05, PRA: 1.01 },
   KC: { PASS_YDS: 0.94, PASS_TD: 0.9, RUSH_YDS: 1.04, REC: 0.97, REC_YDS: 0.95, RUSH_REC_YDS: 1.0 },
   BUF: { PASS_YDS: 0.97, PASS_TD: 0.95, RUSH_YDS: 1.08, REC: 1.0, REC_YDS: 0.98, RUSH_REC_YDS: 1.05 },
   PHI: { PASS_YDS: 0.9, PASS_TD: 0.88, RUSH_YDS: 0.95, REC: 0.94, REC_YDS: 0.91, RUSH_REC_YDS: 0.93 },

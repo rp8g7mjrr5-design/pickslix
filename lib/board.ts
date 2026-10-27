@@ -5,13 +5,14 @@ import type { GameLog, Prop, PropWithProjection } from "./types.ts";
 export async function buildBoard(props: Prop[], provider: StatsProvider): Promise<PropWithProjection[]> {
   const [defense, news] = await Promise.all([provider.defense(), provider.news()]);
   const logCache = new Map<string, Promise<GameLog[]>>();
-  const logsFor = (player: string, sport: Prop["sport"]) => {
-    if (!logCache.has(player)) logCache.set(player, provider.gameLogs(player, sport).catch(() => []));
-    return logCache.get(player)!;
+  const logsFor = (prop: Prop) => {
+    const key = `${prop.sport}:${prop.player}`;
+    if (!logCache.has(key)) logCache.set(key, provider.gameLogs(prop.player, prop.sport, prop.team).catch(() => []));
+    return logCache.get(key)!;
   };
   const rows = await Promise.all(
     props.map(async (prop) => {
-      const logs = await logsFor(prop.player, prop.sport);
+      const logs = await logsFor(prop);
       const relevantNews = news.filter((n) => n.team === prop.team || n.team === prop.opponent);
       return {
         ...prop,

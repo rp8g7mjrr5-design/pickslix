@@ -1,3 +1,4 @@
+import { sameName } from "./names.ts";
 import { STATS } from "./types.ts";
 import type {
   DefenseFactors,
@@ -147,7 +148,7 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
   let questionable = false;
   let out = false;
   for (const n of news) {
-    if (n.player === prop.player) {
+    if (sameName(n.player, prop.player)) {
       if (n.kind === "player_out") out = true;
       if (n.kind === "player_questionable") questionable = true;
       if (n.kind === "minutes_limit" && n.minutes && avgPlaying > 0) {
@@ -157,13 +158,13 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
         reasons.push(`Minutes limit (~${n.minutes} vs ${avgPlaying.toFixed(0)} avg): ${n.headline}`);
       }
     }
-    if (n.kind === "teammate_out" && n.team === prop.team && n.affects?.includes(prop.player)) {
+    if (n.kind === "teammate_out" && n.team === prop.team && n.affects?.some((a) => sameName(a, prop.player))) {
       const boost = n.usageBoost ?? 0.05;
       mean *= 1 + boost;
       variance *= (1 + boost) ** 2;
       reasons.push(`${n.player} out, usage bump ${pct(boost)}: ${n.headline}`);
     }
-    if (n.kind === "opponent_out" && n.team === prop.opponent && n.affects?.includes(prop.player)) {
+    if (n.kind === "opponent_out" && n.team === prop.opponent && n.affects?.some((a) => sameName(a, prop.player))) {
       const boost = n.usageBoost ?? 0.03;
       mean *= 1 + boost;
       reasons.push(`${n.player} (${n.team}) out, weaker defense ${pct(boost)}: ${n.headline}`);

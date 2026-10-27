@@ -1,11 +1,43 @@
-import type { DefenseFactors, GameLog, NewsItem, Sport } from "./types.ts";
-import { SAMPLE_DEFENSE, SAMPLE_NEWS, sampleLogs } from "./sampleData.ts";
+import type { DefenseFactors, GameLog, NewsItem, Prop, Sport, StatKey } from "./types.ts";
+import { SAMPLE_DEFENSE, SAMPLE_NEWS, sampleLogs, teamForPlayer } from "./sampleData.ts";
+import { fetchGameLogs, fetchInjuries, findAthlete, findNextGame, type EspnSport } from "./espn.ts";
+import { canonTeam } from "./names.ts";
+import { loadDefense } from "./refresh.ts";
+
+/** A line as pasted: player, stat and number are known; team and opponent may not be. */
+export interface LineInput {
+  sport: Sport;
+  player: string;
+  stat: StatKey;
+  line: number;
+  /** Team abbreviations seen next to the line, if any. */
+  teams?: string[];
+}
 
 export interface StatsProvider {
   name: string;
-  gameLogs(player: string, sport: Sport): Promise<GameLog[]>;
+  gameLogs(player: string, sport: Sport, team?: string): Promise<GameLog[]>;
   defense(): Promise<DefenseFactors>;
   news(): Promise<NewsItem[]>;
+  /** Fill in team, opponent and game time for a pasted line. Null when the player can't be found. */
+  resolve(input: LineInput): Promise<Prop | null>;
+}
+
+export const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/** Uses whatever team abbreviations came with the paste; the first is taken as the player's team. */
+async function resolveFromPaste(input: LineInput, team?: string): Promise<Prop> {
+  const teams = (input.teams ?? []).map((t) => canonTeam(t, input.sport));
+  const own = team ?? teams[0] ?? "";
+  return {
+    id: propId(input.player, input.stat),
+    sport: input.sport,
+    player: input.player,
+    team: own,
+    opponent: teams.find((t) => t !== own) ?? "",
+    stat: input.stat,
+    line: input.line,
+  };
 }
 
 export const sampleProvider: StatsProvider = {
@@ -13,6 +45,7 @@ export const sampleProvider: StatsProvider = {
   gameLogs: async (player) => sampleLogs(player),
   defense: async () => SAMPLE_DEFENSE,
   news: async () => SAMPLE_NEWS,
+  resolve: async (input) => resolveFromPaste(input, teamForPlayer(input.player)),
 };
 
 /**
@@ -50,11 +83,54 @@ export function balldontlieProvider(apiKey: string, season: number): StatsProvid
     },
     defense: sampleProvider.defense,
     news: sampleProvider.news,
+    resolve: sampleProvider.resolve,
   };
 }
 
+const isEspn = (s: Sport): s is EspnSport => s === "NBA" || s === "NFL";
+
+/**
+ * ESPN's public feeds: real NBA and NFL game logs, team defense built from box scores, and the injury report.
+ * No key needed.
+ */
+export const espnProvider: StatsProvider = {
+  name: "espn",
+  async gameLogs(player, sport, team) {
+    if (!isEspn(sport)) return [];
+    const athlete = await findAthlete(player, sport, team ? [team] : []);
+    return athlete ? fetchGameLogs(athlete.id, sport) : [];
+  },
+  async defense() {
+    const [nba, nfl] = await Promise.all([loadDefense("NBA"), loadDefense("NFL")]);
+    // NBA and NFL share some abbreviations (DEN, MIA, ...), so keep each sport's stat keys on the same team entry.
+    const out: DefenseFactors = { ...nba };
+    for (const [team, f] of Object.entries(nfl)) out[team] = { ...out[team], ...f };
+    return out;
+  },
+  async news() {
+    const lists = await Promise.allSettled([fetchInjuries("NBA"), fetchInjuries("NFL")]);
+    return lists.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  },
+  async resolve(input) {
+    if (!isEspn(input.sport)) return resolveFromPaste(input);
+    const hints = (input.teams ?? []).map((t) => canonTeam(t, input.sport));
+    const athlete = await findAthlete(input.player, input.sport, hints).catch(() => undefined);
+    if (!athlete) return null;
+    const prop = await resolveFromPaste({ ...input, player: athlete.name }, athlete.team);
+    const game = athlete.team ? await findNextGame(input.sport, athlete.team).catch(() => null) : null;
+    if (game) {
+      prop.gameTime = game.gameTime;
+      prop.opponent ||= game.opponent;
+    }
+    return prop;
+  },
+};
+
+/** DATA_SOURCE picks the feed: "espn" (default), "sample", or "balldontlie" (needs BALLDONTLIE_API_KEY). */
 export function getProvider(): StatsProvider {
+  const source = (process.env.DATA_SOURCE ?? "espn").toLowerCase();
   const key = process.env.BALLDONTLIE_API_KEY;
-  if (key) return balldontlieProvider(key, Number(process.env.NBA_SEASON ?? 2026));
-  return sampleProvider;
+  if (source === "sample") return sampleProvider;
+  if (source === "balldontlie" && key) return balldontlieProvider(key, Number(process.env.NBA_SEASON ?? 2027));
+  return espnProvider;
 }

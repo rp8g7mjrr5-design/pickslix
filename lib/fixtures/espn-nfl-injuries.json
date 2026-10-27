@@ -1,0 +1,169 @@
+{
+ "injuries": [
+  {
+   "displayName": "Arizona Cardinals",
+   "injuries": [
+    {
+     "id": "644525",
+     "status": "Out",
+     "date": "2026-10-26T22:29Z",
+     "shortComment": "Head coach Mike LaFleur stated he's \"not too sure\" if Reiman (ankle) will play this season, Dani Sureck of the Cardinals' official site reports.",
+     "details": {
+      "type": "Ankle"
+     },
+     "athlete": {
+      "displayName": "Tip Reiman",
+      "team": {
+       "abbreviation": "ARI"
+      }
+     }
+    },
+    {
+     "id": "644518",
+     "status": "Injured Reserve",
+     "date": "2026-10-26T22:03Z",
+     "shortComment": "When asked Monday if Conner (foot) will play this season, coach Mike LaFleur said \"potentially,\" Dani Sureck of the Cardinals' official site reports.",
+     "details": {
+      "type": "Foot"
+     },
+     "athlete": {
+      "displayName": "James Conner",
+      "team": {
+       "abbreviation": "ARI"
+      }
+     }
+    },
+    {
+     "id": "-2059164",
+     "status": "Active",
+     "date": "2026-10-26T17:23Z",
+     "shortComment": "",
+     "details": {
+      "type": null
+     },
+     "athlete": {
+      "displayName": "Albert Reese IV",
+      "team": {
+       "abbreviation": "ARI"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "displayName": "Atlanta Falcons",
+   "injuries": [
+    {
+     "id": "644567",
+     "status": "Active",
+     "date": "2026-10-27T00:02Z",
+     "shortComment": "Hooper caught both of his targets for 21 yards in the Falcons' 29-20 win over the 49ers on Sunday.",
+     "details": {
+      "type": null
+     },
+     "athlete": {
+      "displayName": "Austin Hooper",
+      "team": {
+       "abbreviation": "ATL"
+      }
+     }
+    },
+    {
+     "id": "-2059192",
+     "status": "Out",
+     "date": "2026-10-26T17:25Z",
+     "shortComment": "out",
+     "details": {
+      "type": "Shoulder"
+     },
+     "athlete": {
+      "displayName": "Olamide Zaccheaus",
+      "team": {
+       "abbreviation": "ATL"
+      }
+     }
+    },
+    {
+     "id": "644167",
+     "status": "Injured Reserve",
+     "date": "2026-10-24T23:44Z",
+     "shortComment": "The Falcons placed Jerrell (biceps) on injured reserve Saturday, Tori McElhaney of the team's official site reports.",
+     "details": {
+      "type": "Biceps"
+     },
+     "athlete": {
+      "displayName": "Michael Jerrell",
+      "team": {
+       "abbreviation": "ATL"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "displayName": "Baltimore Ravens",
+   "injuries": [
+    {
+     "id": "644493",
+     "status": "Out",
+     "date": "2026-10-26T19:13Z",
+     "shortComment": "Ravens head coach Jesse Minter said that Jackson (ankle) is \"in a decent spot\" to play Sunday against the Bills, Jeff Zrebiec of The Athletic reports.",
+     "details": {
+      "type": "Ankle"
+     },
+     "athlete": {
+      "displayName": "Lamar Jackson",
+      "team": {
+       "abbreviation": "BAL"
+      }
+     }
+    },
+    {
+     "id": "-2059195",
+     "status": "Active",
+     "date": "2026-10-26T17:29Z",
+     "shortComment": "",
+     "details": {
+      "type": null
+     },
+     "athlete": {
+      "displayName": "Andrew Vorhees",
+      "team": {
+       "abbreviation": "BAL"
+      }
+     }
+    },
+    {
+     "id": "644276",
+     "status": "Questionable",
+     "date": "2026-10-25T18:45Z",
+     "shortComment": "Ioane (knee) has been ruled out for the remainder of Sunday's game against the Bengals.",
+     "details": {
+      "type": "Knee"
+     },
+     "athlete": {
+      "displayName": "Olaivavega Ioane",
+      "team": {
+       "abbreviation": "BAL"
+      }
+     }
+    },
+    {
+     "id": "644149",
+     "status": "Injured Reserve",
+     "date": "2026-10-24T20:50Z",
+     "shortComment": "The Ravens placed Robinson (pectoral) on injured reserve Saturday.",
+     "details": {
+      "type": "Pectoral"
+     },
+     "athlete": {
+      "displayName": "Tavius Robinson",
+      "team": {
+       "abbreviation": "BAL"
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

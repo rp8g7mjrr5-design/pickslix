@@ -1,0 +1,202 @@
+{
+ "events": [
+  {
+   "id": "401909861",
+   "date": "2026-10-25T21:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "state": "post"
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "abbreviation": "UTAH"
+       },
+       "statistics": [
+        {
+         "name": "rebounds",
+         "displayValue": "52"
+        },
+        {
+         "name": "assists",
+         "displayValue": "29"
+        },
+        {
+         "name": "points",
+         "displayValue": "123"
+        },
+        {
+         "name": "threePointFieldGoalsMade",
+         "displayValue": "10"
+        }
+       ]
+      },
+      {
+       "team": {
+        "abbreviation": "LAL"
+       },
+       "statistics": [
+        {
+         "name": "rebounds",
+         "displayValue": "31"
+        },
+        {
+         "name": "assists",
+         "displayValue": "19"
+        },
+        {
+         "name": "points",
+         "displayValue": "132"
+        },
+        {
+         "name": "threePointFieldGoalsMade",
+         "displayValue": "20"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909862",
+   "date": "2026-10-25T22:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "state": "post"
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "abbreviation": "BKN"
+       },
+       "statistics": [
+        {
+         "name": "rebounds",
+         "displayValue": "40"
+        },
+        {
+         "name": "assists",
+         "displayValue": "25"
+        },
+        {
+         "name": "points",
+         "displayValue": "109"
+        },
+        {
+         "name": "threePointFieldGoalsMade",
+         "displayValue": "13"
+        }
+       ]
+      },
+      {
+       "team": {
+        "abbreviation": "IND"
+       },
+       "statistics": [
+        {
+         "name": "rebounds",
+         "displayValue": "40"
+        },
+        {
+         "name": "assists",
+         "displayValue": "34"
+        },
+        {
+         "name": "points",
+         "displayValue": "136"
+        },
+        {
+         "name": "threePointFieldGoalsMade",
+         "displayValue": "21"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "401909863",
+   "date": "2026-10-25T23:00Z",
+   "season": {
+    "year": 2027,
+    "type": 2,
+    "slug": "regular-season"
+   },
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "state": "post"
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "abbreviation": "NY"
+       },
+       "statistics": [
+        {
+         "name": "rebounds",
+         "displayValue": "45"
+        },
+        {
+         "name": "assists",
+         "displayValue": "26"
+        },
+        {
+         "name": "points",
+         "displayValue": "102"
+        },
+        {
+         "name": "threePointFieldGoalsMade",
+         "displayValue": "9"
+        }
+       ]
+      },
+      {
+       "team": {
+        "abbreviation": "ORL"
+       },
+       "statistics": [
+        {
+         "name": "rebounds",
+         "displayValue": "49"
+        },
+        {
+         "name": "assists",
+         "displayValue": "29"
+        },
+        {
+         "name": "points",
+         "displayValue": "111"
+        },
+        {
+         "name": "threePointFieldGoalsMade",
+         "displayValue": "18"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
