@@ -114,6 +114,12 @@ signed out with Pro keys and sync codes, exactly as before.
 hit rate once someone has 10 counted picks. Only picks graded from box scores and saved before their game
 started count, so hand-marked wins don't. The board is rebuilt at most every 10 minutes.
 
+**Crews** (`/crews`, `lib/crews.ts`): private groups joined with an invite link (`/join/{code}`). Members see a
+crew leaderboard (same counting rules as the global one) and each other's slips from the last 7 days, without
+entry amounts, and can tail a slip: its picks whose games haven't started are copied into their own slip
+(`lib/tail.ts`). Crews need accounts and a username; up to 50 members a crew and 10 crews a person. The owner can
+remove members or reset the invite link; when the owner leaves, the longest-standing member takes over.
+
 **Admin** (`/admin`, `lib/admin.ts`): accounts whose verified email is in `ADMIN_EMAILS` get an Admin tab.
 It shows every lifetime code and whether it's been used, makes new codes (stored in the database, so they
 work without a redeploy), revokes a used code's Pro, and shows Pro member counts and Odds API credits left.

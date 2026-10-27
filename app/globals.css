@@ -605,3 +605,43 @@ button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
 .coderow small { flex: 1; color: var(--muted); }
 .coderow > div { display: flex; gap: 6px; }
 .coderow.used code { color: var(--muted); text-decoration: line-through; }
+
+/* ---------- Crews ---------- */
+.crews { max-width: 820px; margin: 0 auto; }
+.crewlist { display: grid; gap: 8px; margin-top: 14px; }
+.crewcard {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 64px; color: var(--text); text-decoration: none;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.crewcard:hover { background: var(--panel-2); }
+.crewcard > span:nth-child(2) { flex: 1; display: grid; }
+.crewcard small { color: var(--muted); }
+.crewcard > span:last-child { color: var(--muted); font-size: 20px; }
+.crewavatar {
+  width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; font-size: 18px;
+  background: var(--brand); color: var(--accent-ink); flex: none;
+}
+.globalboard { margin-top: 18px; }
+.globalboard .crewavatar { background: var(--panel-3); }
+.crewforms { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-top: 16px; }
+.crewforms form { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; }
+.crewforms label { font-weight: 700; font-size: 14px; }
+.crewforms form > div { display: flex; gap: 8px; }
+.crewforms input { flex: 1; min-width: 0; }
+.crewstep { margin-top: 14px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); display: grid; gap: 2px; }
+.crewstep small { color: var(--muted); }
+.invite {
+  display: grid; gap: 10px; margin-top: 14px; padding: 14px 16px; border-radius: var(--radius);
+  border: 1px solid rgba(61, 255, 154, 0.35); background: linear-gradient(135deg, rgba(61, 255, 154, 0.08), rgba(106, 92, 255, 0.08));
+}
+.invite small { display: block; color: var(--muted); }
+.invite code { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; word-break: break-all; }
+.inviteactions { display: flex; gap: 8px; align-items: center; }
+.leader .x { margin-left: 4px; }
+.feedhead { font-size: 16px; margin: 22px 0 0; }
+.crewslip .savedhead button { margin-left: auto; }
+.crewslip .result { text-transform: capitalize; }
+.crewfoot { margin-top: 22px; display: flex; justify-content: center; }
+.joincrew { text-align: center; max-width: 520px; padding-top: 24px; display: grid; gap: 12px; justify-items: center; }
+.joincrew .crewstep { text-align: left; width: 100%; }
+@media (max-width: 640px) { .crewforms { grid-template-columns: 1fr; } }

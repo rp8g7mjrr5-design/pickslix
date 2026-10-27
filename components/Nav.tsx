@@ -25,6 +25,13 @@ const icons = {
       <path d="M17 6h3v1a3 3 0 0 1-3 3M7 6H4v1a3 3 0 0 0 3 3" />
     </svg>
   ),
+  crews: (
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <path d="M16 5.2a3 3 0 0 1 0 5.6M18 13.8c1.8.7 3 2.6 3 5.2" />
+    </svg>
+  ),
   admin: (
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z" />
@@ -73,7 +80,7 @@ export default function Nav() {
   const showPro = Boolean(pro?.required);
   const account = useAccount();
   const extra = [
-    ...(account.enabled ? [{ href: "/leaderboard", label: "Leaders", icon: icons.leaders }] : []),
+    ...(account.enabled ? [{ href: "/crews", label: "Crews", icon: icons.crews }] : []),
     ...(account.admin ? [{ href: "/admin", label: "Admin", icon: icons.admin }] : []),
   ];
   return (
@@ -94,7 +101,7 @@ export default function Nav() {
         );
       })}
       {extra.map((l) => (
-        <Link key={l.href} href={l.href} className={path === l.href ? "active" : ""} aria-current={path === l.href ? "page" : undefined}>
+        <Link key={l.href} href={l.href} className={path.startsWith(l.href) ? "active" : ""} aria-current={path.startsWith(l.href) ? "page" : undefined}>
           {l.icon}
           <span className="navlabel">{l.label}</span>
         </Link>

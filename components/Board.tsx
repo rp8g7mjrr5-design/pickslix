@@ -46,6 +46,12 @@ export default function Board() {
   useEffect(() => {
     try {
       setSlip(JSON.parse(localStorage.getItem(SLIP_KEY) ?? "[]"));
+      // Just tailed a crewmate's slip.
+      const tailed = sessionStorage.getItem("pickslix.tailed");
+      if (tailed) {
+        sessionStorage.removeItem("pickslix.tailed");
+        flash(tailed);
+      }
     } catch {}
   }, []);
   useEffect(() => {

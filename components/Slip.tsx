@@ -55,7 +55,7 @@ export default function Slip({
     // Keep what the tracker needs to find each game later and grade it.
     const withGame = legs.map((l) => {
       const r = rows.find((x) => x.id === l.propId);
-      return r ? { ...l, sport: r.sport, team: r.team || undefined, gameTime: r.gameTime } : l;
+      return r ? { ...l, sport: r.sport, team: r.team || undefined, opponent: r.opponent || undefined, gameTime: r.gameTime } : l;
     });
     persistSlips([
       { id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs: withGame },
