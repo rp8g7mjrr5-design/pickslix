@@ -9,6 +9,7 @@ import {
   parseInjuries,
   parseScoreboard,
   parseSearch,
+  parseTeamPlayers,
   pickAthlete,
 } from "./espn.ts";
 import { canonTeam, normName } from "./names.ts";
@@ -111,4 +112,29 @@ test("short names match on initial and last name", () => {
   assert.equal(pickAthlete(found, "A. Bailey", ["BKN"])?.id, "2");
   assert.equal(pickAthlete(found, "M Bagley")?.id, "3");
   assert.equal(pickAthlete(found, "B. Bailey"), undefined);
+});
+
+test("NBA team players come with per-game averages, most minutes first", () => {
+  const players = parseTeamPlayers(fixture("espn-nba-team-stats"), "NBA");
+  assert.equal(players.length, 3);
+  assert.equal(players[0].name, "Jayson Tatum");
+  const george = players.find((p) => p.name === "Paul George")!;
+  assert.equal(george.avg.PTS, 26.5);
+  assert.equal(george.avg.PRA, 35);
+  assert.equal(george.games, 2);
+  assert.match(george.headshot ?? "", /4251\.png$/);
+});
+
+test("NFL team players merge passing, rushing and receiving; defense is left out", () => {
+  const players = parseTeamPlayers(fixture("espn-nfl-team-stats"), "NFL");
+  const order = players.map((p) => ["QB", "RB", "WR", "TE"].indexOf(p.pos));
+  assert.equal(players[0].pos, "QB");
+  assert.deepEqual(order, [...order].sort((a, b) => a - b));
+  const mahomes = players.find((p) => p.name === "Patrick Mahomes")!;
+  assert.equal(mahomes.avg.PASS_YDS, 245.7);
+  assert.ok(mahomes.avg.RUSH_YDS! > 0);
+  const kelce = players.find((p) => p.name === "Travis Kelce")!;
+  assert.equal(kelce.avg.REC, 4);
+  assert.equal(kelce.avg.PASS_YDS, undefined);
+  assert.ok(!players.some((p) => p.name === "Nick Bolton"));
 });

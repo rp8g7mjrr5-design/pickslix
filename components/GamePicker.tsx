@@ -1,0 +1,539 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { project, statValue } from "@/lib/model.ts";
+import { pct } from "@/lib/format.ts";
+import type { SlipLeg } from "@/lib/storage.ts";
+import { STATS, type DefenseFactors, type GameLog, type NewsItem, type Prop, type StatKey } from "@/lib/types.ts";
+
+type GameSport = "NBA" | "NFL";
+
+interface Team {
+  abbr: string;
+  id?: string;
+  name?: string;
+  logo?: string;
+  color?: string;
+  record?: string;
+  home?: boolean;
+}
+
+interface Game {
+  id: string;
+  date: string;
+  state: "pre" | "in" | "post";
+  teams: Team[];
+}
+
+interface Player {
+  id: string;
+  name: string;
+  pos: string;
+  headshot?: string;
+  games: number;
+  avg: Partial<Record<StatKey, number>>;
+  injury?: "out" | "questionable";
+}
+
+interface PlayerData {
+  logs: GameLog[];
+  defense: DefenseFactors;
+  news: NewsItem[];
+}
+
+const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+/** Stats offered for a player with no season averages yet. */
+function statsFor(sport: GameSport, pos: string): StatKey[] {
+  if (sport === "NBA") return ["PTS", "REB", "AST", "3PM", "PRA", "PR", "PA", "RA"];
+  if (pos === "QB") return ["PASS_YDS", "PASS_TD", "PASS_ATT", "RUSH_YDS"];
+  if (pos === "RB") return ["RUSH_YDS", "RUSH_REC_YDS", "REC", "REC_YDS"];
+  return ["REC_YDS", "REC", "RUSH_REC_YDS"];
+}
+
+/** Pick 6 lines end in .5; start from the player's average. */
+const suggestLine = (avg: number) => Math.max(0.5, Math.floor(avg) + 0.5);
+
+const SHORT: Partial<Record<StatKey, string>> = {
+  PTS: "PTS", REB: "REB", AST: "AST", "3PM": "3PM", PRA: "PRA", PR: "P+R", PA: "P+A", RA: "R+A",
+  PASS_YDS: "Pass yds", PASS_TD: "Pass TD", PASS_ATT: "Pass att", RUSH_YDS: "Rush yds", REC: "Rec",
+  REC_YDS: "Rec yds", RUSH_REC_YDS: "Rush+Rec",
+};
+
+const timeLabel = (g: Game) => {
+  if (g.state === "in") return "Live";
+  const d = new Date(g.date);
+  const today = new Date().toDateString() === d.toDateString();
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return today ? `Today ${time}` : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
+};
+
+/** Away team first, like a scoreboard. */
+const ordered = (g: Game) => [...g.teams].sort((a, b) => Number(a.home ?? false) - Number(b.home ?? false));
+
+export default function GamePicker({
+  slip,
+  onPick,
+  onViewSlip,
+}: {
+  slip: SlipLeg[];
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+  onViewSlip: () => void;
+}) {
+  const [games, setGames] = useState<Record<GameSport, Game[]> | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [sport, setSport] = useState<GameSport>("NBA");
+  const [open, setOpen] = useState<Game | null>(null);
+
+  useEffect(() => {
+    fetch("/api/games")
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((g: Record<GameSport, Game[]>) => {
+        setGames(g);
+        if (!g.NBA.length && g.NFL.length) setSport("NFL");
+      })
+      .catch(() => setFailed(true));
+  }, []);
+
+  const list = games?.[sport] ?? [];
+
+  return (
+    <section className="games" aria-label="Upcoming games">
+      <div className="gameshead">
+        <div>
+          <h2>Pick from upcoming games</h2>
+          <small>Tap a game, choose players, set the Pick 6 line.</small>
+        </div>
+        <div className="seg" role="tablist">
+          {(["NBA", "NFL"] as GameSport[]).map((s) => (
+            <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "on" : ""} onClick={() => setSport(s)}>
+              {s}
+              {games && <span className="segcount">{games[s].length}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="gamestrip">
+        {!games && !failed &&
+          Array.from({ length: 4 }, (_, i) => <div key={i} className="gamecard skeletoncard" aria-hidden />)}
+        {failed && <p className="muted gamesempty">Couldn't load games right now.</p>}
+        {games && !list.length && <p className="muted gamesempty">No {sport} games in the next few days.</p>}
+        {list.map((g) => {
+          const [away, home] = ordered(g);
+          return (
+            <button key={g.id} className="gamecard" onClick={() => setOpen(g)} style={teamGlow(away, home)}>
+              <span className={`gametime ${g.state === "in" ? "live" : ""}`}>{timeLabel(g)}</span>
+              <TeamLine team={away} />
+              <TeamLine team={home} />
+            </button>
+          );
+        })}
+      </div>
+      {open && (
+        <GameSheet
+          game={open}
+          sport={sport}
+          slip={slip}
+          onPick={onPick}
+          onClose={() => setOpen(null)}
+          onViewSlip={() => {
+            setOpen(null);
+            onViewSlip();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function teamGlow(a?: Team, b?: Team): React.CSSProperties {
+  return {
+    "--ca": a?.color ?? "#2a3442",
+    "--cb": b?.color ?? "#2a3442",
+  } as React.CSSProperties;
+}
+
+function TeamLine({ team }: { team?: Team }) {
+  if (!team) return null;
+  return (
+    <span className="teamline">
+      <Logo team={team} size={26} />
+      <strong>{team.abbr}</strong>
+      <small>{team.record}</small>
+    </span>
+  );
+}
+
+function Logo({ team, size }: { team: Team; size: number }) {
+  return team.logo ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={team.logo} alt="" width={size} height={size} className="teamlogo" loading="lazy" />
+  ) : (
+    <span className="teamlogo fallback" style={{ width: size, height: size }}>
+      {team.abbr.slice(0, 1)}
+    </span>
+  );
+}
+
+function GameSheet({
+  game,
+  sport,
+  slip,
+  onPick,
+  onClose,
+  onViewSlip,
+}: {
+  game: Game;
+  sport: GameSport;
+  slip: SlipLeg[];
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+  onClose: () => void;
+  onViewSlip: () => void;
+}) {
+  const [away, home] = ordered(game);
+  const [teamIdx, setTeamIdx] = useState(0);
+  const [players, setPlayers] = useState<Record<string, Player[] | "error">>({});
+  const [openPlayer, setOpenPlayer] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const team = [away, home][teamIdx];
+  const opp = [away, home][1 - teamIdx];
+
+  // Load both teams up front so switching is instant.
+  useEffect(() => {
+    for (const t of [away, home]) {
+      if (!t?.id) continue;
+      fetch(`/api/games/players?sport=${sport}&team=${t.id}&abbr=${encodeURIComponent(t.abbr)}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((b: { players: Player[] }) => setPlayers((p) => ({ ...p, [t.abbr]: b.players })))
+        .catch(() => setPlayers((p) => ({ ...p, [t.abbr]: "error" })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.id, sport]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const roster = players[team.abbr];
+  const shown = Array.isArray(roster)
+    ? roster.filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()))
+    : [];
+  const inGame = slip.filter((l) => [away.abbr, home.abbr].includes(slipTeam(l))).length;
+
+  return (
+    <div className="sheetwrap" role="dialog" aria-modal="true" aria-label={`${away.abbr} at ${home.abbr}`} onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} style={teamGlow(away, home)}>
+        <div className="sheethead">
+          <div className="matchup">
+            <Logo team={away} size={40} />
+            <div>
+              <strong>
+                {away.name || away.abbr} <span className="muted">at</span> {home.name || home.abbr}
+              </strong>
+              <small>
+                {sport} · {timeLabel(game)}
+              </small>
+            </div>
+            <Logo team={home} size={40} />
+          </div>
+          <button className="x" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+
+        <div className="sheettools">
+          <div className="seg teamseg" role="tablist">
+            {[away, home].map((t, i) => (
+              <button
+                key={t.abbr}
+                role="tab"
+                aria-selected={teamIdx === i}
+                className={teamIdx === i ? "on" : ""}
+                onClick={() => {
+                  setTeamIdx(i);
+                  setOpenPlayer(null);
+                }}
+              >
+                <Logo team={t} size={18} /> {t.abbr}
+              </button>
+            ))}
+          </div>
+          <input type="search" placeholder="Find a player" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Find a player" />
+        </div>
+
+        <div className="playerlist">
+          {roster === undefined &&
+            Array.from({ length: 6 }, (_, i) => <div key={i} className="playerrow skeletoncard" aria-hidden />)}
+          {roster === "error" && <p className="muted empty">Couldn't load {team.abbr} players.</p>}
+          {Array.isArray(roster) && !shown.length && <p className="muted empty">No players found.</p>}
+          {shown.map((p) => (
+            <PlayerRow
+              key={p.id}
+              player={p}
+              sport={sport}
+              team={team}
+              opp={opp}
+              gameTime={game.date}
+              open={openPlayer === p.id}
+              onToggle={() => setOpenPlayer(openPlayer === p.id ? null : p.id)}
+              slip={slip}
+              onPick={onPick}
+            />
+          ))}
+        </div>
+
+        <div className="sheetfoot">
+          <span className="muted">
+            {slip.length ? `${slip.length} pick${slip.length === 1 ? "" : "s"} in your slip` : "Tap More or Less to add a pick"}
+            {inGame ? ` · ${inGame} from this game` : ""}
+          </span>
+          <button onClick={slip.length ? onViewSlip : onClose}>{slip.length ? "View slip" : "Done"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Legs carry no team, so look it up from the custom props we saved (best effort). */
+function slipTeam(l: SlipLeg): string {
+  try {
+    const props = JSON.parse(localStorage.getItem("pickslix.customProps") ?? "[]") as Prop[];
+    return props.find((p) => p.id === l.propId)?.team ?? "";
+  } catch {
+    return "";
+  }
+}
+
+const dataCache = new Map<string, Promise<PlayerData>>();
+
+function loadPlayer(sport: GameSport, id: string, team: string, opp: string): Promise<PlayerData> {
+  const key = `${sport}:${id}:${opp}`;
+  if (!dataCache.has(key)) {
+    const p = fetch(`/api/player?sport=${sport}&id=${id}&team=${encodeURIComponent(team)}&opp=${encodeURIComponent(opp)}`).then(
+      (r) => (r.ok ? r.json() : Promise.reject(r.status)),
+    );
+    p.catch(() => dataCache.delete(key));
+    dataCache.set(key, p);
+  }
+  return dataCache.get(key)!;
+}
+
+function PlayerRow({
+  player,
+  sport,
+  team,
+  opp,
+  gameTime,
+  open,
+  onToggle,
+  slip,
+  onPick,
+}: {
+  player: Player;
+  sport: GameSport;
+  team: Team;
+  opp: Team;
+  gameTime: string;
+  open: boolean;
+  onToggle: () => void;
+  slip: SlipLeg[];
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+}) {
+  const stats = useMemo(() => {
+    const withAvg = (Object.keys(STATS) as StatKey[]).filter((k) => player.avg[k] !== undefined);
+    return withAvg.length ? withAvg : statsFor(sport, player.pos);
+  }, [player, sport]);
+  const picked = slip.filter((l) => stats.some((s) => l.propId === propId(player.name, s)));
+  const headline = stats
+    .slice(0, 3)
+    .filter((s) => player.avg[s] !== undefined)
+    .map((s) => `${player.avg[s]} ${SHORT[s]}`)
+    .join(" · ");
+
+  return (
+    <div className={`playerwrap ${open ? "open" : ""} ${player.injury === "out" ? "isout" : ""}`}>
+      <button className="playerrow" onClick={onToggle} aria-expanded={open}>
+        {player.headshot ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={player.headshot} alt="" className="headshot" loading="lazy" />
+        ) : (
+          <span className="headshot fallback">{player.name.slice(0, 1)}</span>
+        )}
+        <span className="pinfo">
+          <strong>
+            {player.name}
+            {player.injury === "out" && <b className="tag out">OUT</b>}
+            {player.injury === "questionable" && <b className="tag q">Q</b>}
+          </strong>
+          <small>
+            {player.pos}
+            {headline ? ` · ${headline}` : ""}
+          </small>
+        </span>
+        {picked.length > 0 && <span className="pickedbadge">{picked.length}</span>}
+        <span className="chev" aria-hidden>
+          ›
+        </span>
+      </button>
+      {open && <PickCard player={player} sport={sport} team={team} opp={opp} gameTime={gameTime} stats={stats} slip={slip} onPick={onPick} />}
+    </div>
+  );
+}
+
+function PickCard({
+  player,
+  sport,
+  team,
+  opp,
+  gameTime,
+  stats,
+  slip,
+  onPick,
+}: {
+  player: Player;
+  sport: GameSport;
+  team: Team;
+  opp: Team;
+  gameTime: string;
+  stats: StatKey[];
+  slip: SlipLeg[];
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+}) {
+  const [stat, setStat] = useState<StatKey>(stats[0]);
+  const [data, setData] = useState<PlayerData | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [lines, setLines] = useState<Partial<Record<StatKey, number>>>({});
+
+  useEffect(() => {
+    loadPlayer(sport, player.id, team.abbr, opp.abbr)
+      .then(setData)
+      .catch(() => setFailed(true));
+  }, [sport, player.id, team.abbr, opp.abbr]);
+
+  const id = propId(player.name, stat);
+  const leg = slip.find((l) => l.propId === id);
+  const recent = useMemo(
+    () => (data?.logs ?? []).filter((g) => g.playing > 0).slice(0, 10).map((g) => statValue(g, stat)),
+    [data, stat],
+  );
+  const fallbackAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : undefined;
+  const avg = player.avg[stat] ?? fallbackAvg;
+  const line = leg && !(stat in lines) ? leg.line : (lines[stat] ?? (avg !== undefined ? suggestLine(avg) : undefined));
+
+  const prop: Prop | null =
+    line === undefined
+      ? null
+      : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news }) : null;
+  const hits = line === undefined ? 0 : recent.filter((v) => v > line).length;
+
+  const setLine = (v: number) => setLines((l) => ({ ...l, [stat]: Math.max(0.5, Math.round(v * 2) / 2) }));
+  const step = sport === "NFL" && (stat.includes("YDS") || stat === "PASS_ATT") ? 5 : 1;
+
+  return (
+    <div className="pickcard">
+      <div className="statchips" role="tablist">
+        {stats.map((s) => {
+          const on = slip.some((l) => l.propId === propId(player.name, s));
+          return (
+            <button key={s} role="tab" aria-selected={stat === s} className={`chip ${stat === s ? "on" : ""} ${on ? "inslip" : ""}`} onClick={() => setStat(s)}>
+              {SHORT[s] ?? STATS[s].label}
+              {player.avg[s] !== undefined && <span>{player.avg[s]}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="linerow">
+        <div className="stepper">
+          <button className="ghost" onClick={() => line !== undefined && setLine(line - step)} aria-label="Lower line">
+            −
+          </button>
+          <label>
+            <small>{STATS[stat].label} line</small>
+            <input
+              type="number"
+              inputMode="decimal"
+              step={0.5}
+              min={0.5}
+              value={line ?? ""}
+              placeholder="—"
+              onChange={(e) => e.target.value && setLines((l) => ({ ...l, [stat]: Number(e.target.value) }))}
+              onBlur={() => line !== undefined && setLine(line)}
+            />
+          </label>
+          <button className="ghost" onClick={() => setLine((line ?? 0) + step)} aria-label="Raise line">
+            +
+          </button>
+        </div>
+        <div className="linefacts">
+          {failed ? (
+            <span className="muted">Stats unavailable</span>
+          ) : !data ? (
+            <span className="muted">Loading games…</span>
+          ) : (
+            <>
+              <span>
+                Proj <strong className="num">{proj ? proj.mean.toFixed(1) : "—"}</strong>
+              </span>
+              <span className="muted">
+                {recent.length ? `Over in ${hits} of last ${recent.length}` : "No recent games"}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {recent.length > 0 && line !== undefined && <MiniSpark values={recent} line={line} />}
+      <small className="hint">Match the line to what Pick 6 shows. We started it at the season average.</small>
+
+      <div className="bigsides">
+        {(["OVER", "UNDER"] as const).map((side) => {
+          const prob = proj ? (side === "OVER" ? proj.pOver : proj.pUnder) : 0.5;
+          const best = proj && proj.pick === side && proj.edge >= 0.03;
+          return (
+            <button
+              key={side}
+              className={`bigside ${side.toLowerCase()} ${leg?.side === side ? "selected" : ""} ${best ? "best" : ""}`}
+              disabled={!prop}
+              aria-pressed={leg?.side === side}
+              onClick={() => prop && onPick(prop, side, prob)}
+            >
+              <span>{side === "OVER" ? "More" : "Less"}</span>
+              <strong>{proj ? pct(prob) : "—"}</strong>
+            </button>
+          );
+        })}
+      </div>
+      {proj && proj.reasons.length > 0 && (
+        <ul className="reasons">
+          {proj.reasons.slice(0, 3).map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function MiniSpark({ values, line }: { values: number[]; line: number }) {
+  const max = Math.max(line * 1.6, ...values, 1);
+  const ordered = [...values].reverse();
+  return (
+    <div className="minispark" title={`Last ${ordered.length}: ${ordered.join(", ")}`}>
+      {ordered.map((v, i) => (
+        <i key={i} className={v > line ? "over" : "under"} style={{ height: `${Math.max(6, (v / max) * 100)}%` }}>
+          <em>{v}</em>
+        </i>
+      ))}
+      <b style={{ bottom: `${(line / max) * 100}%` }} />
+    </div>
+  );
+}

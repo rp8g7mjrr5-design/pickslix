@@ -10,7 +10,7 @@ const SITE = "https://site.api.espn.com/apis/site/v2/sports";
 const WEB = "https://site.web.api.espn.com/apis/common/v3";
 
 /** Seconds to cache each kind of response in Next's data cache. */
-export const TTL = { search: 7 * 86400, gamelog: 3600, injuries: 900, scoreboard: 600, finished: 7 * 86400 };
+export const TTL = { search: 7 * 86400, gamelog: 3600, injuries: 900, scoreboard: 600, finished: 7 * 86400, players: 6 * 3600 };
 
 export async function espnJson(url: string, revalidate: number): Promise<any> {
   const res = await fetch(url, { headers: { accept: "application/json" }, next: { revalidate } } as RequestInit);
@@ -184,7 +184,18 @@ export interface EspnGame {
   date: string;
   state: "pre" | "in" | "post";
   seasonType: number;
-  teams: { abbr: string; stats: Record<string, number> }[];
+  teams: EspnTeam[];
+}
+
+export interface EspnTeam {
+  abbr: string;
+  stats: Record<string, number>;
+  id?: string;
+  name?: string;
+  logo?: string;
+  color?: string;
+  record?: string;
+  home?: boolean;
 }
 
 export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
@@ -198,6 +209,12 @@ export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
       teams: (comp?.competitors ?? []).map((c: any) => ({
         abbr: canonTeam(c?.team?.abbreviation ?? "", sport),
         stats: Object.fromEntries((c?.statistics ?? []).map((s: any) => [s?.name, num(s?.displayValue)])),
+        id: String(c?.team?.id ?? ""),
+        name: String(c?.team?.shortDisplayName ?? c?.team?.displayName ?? ""),
+        logo: c?.team?.logo || undefined,
+        color: c?.team?.color ? `#${c.team.color}` : undefined,
+        record: c?.records?.find((r: any) => r?.type === "total")?.summary,
+        home: c?.homeAway === "home",
       })),
     };
   });
@@ -224,6 +241,125 @@ export async function findNextGame(sport: EspnSport, team: string): Promise<{ op
     if (g && opp) return { opponent: opp.abbr, gameTime: g.date };
   }
   return null;
+}
+
+/** Games that haven't finished yet: the next three days for NBA; what's left of this week plus next week for NFL. */
+export async function fetchUpcomingGames(sport: EspnSport): Promise<EspnGame[]> {
+  // Games not yet started come first; ones already under way go to the end.
+  const live = (gs: EspnGame[]) =>
+    gs
+      .filter((g) => g.state !== "post" && g.teams.length === 2)
+      .sort((a, b) => Number(a.state === "in") - Number(b.state === "in") || a.date.localeCompare(b.date));
+  if (sport === "NFL") {
+    const now = await fetchScoreboard(sport);
+    if (!now.week) return live(now.games);
+    const next = await fetchScoreboard(sport, `seasontype=2&week=${now.week + 1}`).catch(() => ({ games: [] as EspnGame[] }));
+    return live([...now.games, ...next.games]);
+  }
+  const days = await Promise.all(
+    [0, 1, 2].map((d) =>
+      fetchScoreboard(sport, `dates=${espnDate(new Date(Date.now() + d * 86400_000))}`).catch(() => ({ games: [] as EspnGame[] })),
+    ),
+  );
+  return live(days.flatMap((d) => d.games));
+}
+
+// ---------- Team players ----------
+
+export interface TeamPlayer {
+  id: string;
+  name: string;
+  pos: string;
+  headshot?: string;
+  games: number;
+  /** Season per-game averages for the stats this player gets lines on. */
+  avg: Partial<Record<StatKey, number>>;
+}
+
+const NFL_POS = ["QB", "RB", "WR", "TE"];
+
+const flatStats = (leader: any): Record<string, number> =>
+  Object.fromEntries((leader?.statistics ?? []).flatMap((g: any) => (g?.stats ?? []).map((x: any) => [x?.name, num(x?.value)])));
+
+const athleteOf = (a: any, pos: string): Omit<TeamPlayer, "games" | "avg"> => ({
+  id: String(a?.id ?? ""),
+  name: String(a?.displayName ?? a?.fullName ?? ""),
+  pos,
+  headshot: typeof a?.headshot === "string" ? a.headshot : a?.headshot?.href,
+});
+
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Players with stats this season, from ESPN's team athlete statistics, most-used first. */
+export function parseTeamPlayers(json: any, sport: EspnSport): TeamPlayer[] {
+  const results: any[] = json?.results ?? [];
+  if (sport === "NBA") {
+    const leaders = results.find((r) => r?.name === "game")?.leaders ?? results[0]?.leaders ?? [];
+    return leaders
+      .map((l: any) => {
+        const st = flatStats(l);
+        const [pts, reb, ast] = [st.avgPoints ?? 0, st.avgRebounds ?? 0, st.avgAssists ?? 0];
+        return {
+          ...athleteOf(l?.athlete, l?.athlete?.position?.abbreviation ?? ""),
+          games: st.gamesPlayed ?? 0,
+          minutes: st.avgMinutes ?? 0,
+          avg: {
+            PTS: r1(pts), REB: r1(reb), AST: r1(ast), "3PM": r1(st.avgThreePointFieldGoalsMade ?? 0),
+            PRA: r1(pts + reb + ast), PR: r1(pts + reb), PA: r1(pts + ast), RA: r1(reb + ast),
+          },
+        };
+      })
+      .filter((p: any) => p.id && p.games > 0)
+      .sort((a: any, b: any) => b.minutes - a.minutes)
+      .map(({ minutes, ...p }: any) => p as TeamPlayer);
+  }
+  const byId = new Map<string, TeamPlayer & { yards: number }>();
+  for (const cat of results) {
+    if (!["passing", "rushing", "receiving"].includes(cat?.name)) continue;
+    for (const l of cat?.leaders ?? []) {
+      const pos = l?.athlete?.position?.abbreviation ?? "";
+      if (!NFL_POS.includes(pos)) continue;
+      const base = athleteOf(l?.athlete, pos);
+      const st = flatStats(l);
+      const p = byId.get(base.id) ?? { ...base, games: 0, avg: {}, yards: 0 };
+      p.games = Math.max(p.games, st.gamesPlayed ?? 0);
+      const per = (v = 0) => r1(v / Math.max(1, st.gamesPlayed ?? 1));
+      if (cat.name === "passing") {
+        Object.assign(p.avg, { PASS_YDS: per(st.passingYards), PASS_TD: per(st.passingTouchdowns), PASS_ATT: per(st.passingAttempts) });
+        p.yards += per(st.passingYards);
+      } else if (cat.name === "rushing") {
+        p.avg.RUSH_YDS = per(st.rushingYards);
+        p.yards += per(st.rushingYards);
+      } else {
+        Object.assign(p.avg, { REC: per(st.receptions), REC_YDS: per(st.receivingYards) });
+        p.yards += per(st.receivingYards);
+      }
+      if (p.avg.RUSH_YDS !== undefined || p.avg.REC_YDS !== undefined) {
+        p.avg.RUSH_REC_YDS = r1((p.avg.RUSH_YDS ?? 0) + (p.avg.REC_YDS ?? 0));
+      }
+      byId.set(base.id, p);
+    }
+  }
+  return [...byId.values()]
+    .filter((p) => p.id && p.games > 0)
+    .sort((a, b) => NFL_POS.indexOf(a.pos) - NFL_POS.indexOf(b.pos) || b.yards - a.yards)
+    .map(({ yards, ...p }) => p);
+}
+
+/** Fallback before anyone has stats (season openers): the roster, with no averages. */
+export function parseRoster(json: any, sport: EspnSport): TeamPlayer[] {
+  const groups: any[] = json?.athletes ?? [];
+  const athletes = sport === "NBA" ? groups : groups.filter((g) => g?.position === "offense").flatMap((g) => g?.items ?? []);
+  return athletes
+    .filter((a) => a?.id && (sport === "NBA" || NFL_POS.includes(a?.position?.abbreviation)))
+    .map((a) => ({ ...athleteOf(a, a?.position?.abbreviation ?? ""), games: 0, avg: {} }));
+}
+
+export async function fetchTeamPlayers(sport: EspnSport, teamId: string): Promise<TeamPlayer[]> {
+  const base = `${SITE}/${PATHS[sport]}/teams/${encodeURIComponent(teamId)}`;
+  const withStats = parseTeamPlayers(await espnJson(`${base}/athletes/statistics`, TTL.players).catch(() => null), sport);
+  if (withStats.length) return withStats;
+  return parseRoster(await espnJson(`${base}/roster`, TTL.players).catch(() => null), sport);
 }
 
 // ---------- Team defense ----------
