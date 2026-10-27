@@ -9,6 +9,8 @@ export interface Account {
   linkedAt?: string;
   /** Public name on the leaderboard. Having one is what puts you on it. */
   username?: string;
+  /** Banned by an admin: signed out by Clerk and hidden from the leaderboard and crews. */
+  banned?: boolean;
 }
 
 /** The signed-in user's id, or null when signed out or accounts are off. */
@@ -29,6 +31,10 @@ export const getAccount = async (userId: string) => (await kvGet<Account>(accoun
 export async function setAccountProKey(userId: string, proKey: string) {
   const account = await getAccount(userId);
   await kvSet(accountKey(userId), { ...account, proKey, linkedAt: new Date().toISOString() } satisfies Account);
+}
+
+export async function updateAccount(userId: string, change: Partial<Account>) {
+  await kvSet(accountKey(userId), { ...(await getAccount(userId)), ...change } satisfies Account);
 }
 
 const USERNAME = /^[A-Za-z0-9_]{3,20}$/;

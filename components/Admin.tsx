@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SignInPrompt, useAccount } from "@/components/Account";
+import AdminAccounts from "@/components/AdminAccounts";
 
 interface Code {
   code: string;
@@ -40,6 +41,7 @@ export default function Admin() {
   const [fresh, setFresh] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
+  const [tab, setTab] = useState<"accounts" | "codes">("accounts");
 
   const load = () =>
     fetch("/api/admin", { cache: "no-store" }).then(async (r) => {
@@ -107,7 +109,7 @@ export default function Admin() {
           <h1>
             Admin <span className="probadge">OWNER</span>
           </h1>
-          <p className="muted">Lifetime codes, Pro members and the odds feed.</p>
+          <p className="muted">Accounts, Pro members, lifetime codes and the odds feed.</p>
         </div>
       </div>
 
@@ -138,6 +140,20 @@ export default function Admin() {
         </div>
       </div>
 
+      <div className="seg admintabs" role="tablist" aria-label="Admin sections">
+        <button role="tab" aria-selected={tab === "accounts"} className={tab === "accounts" ? "on" : ""} onClick={() => setTab("accounts")}>
+          Accounts
+        </button>
+        <button role="tab" aria-selected={tab === "codes"} className={tab === "codes" ? "on" : ""} onClick={() => setTab("codes")}>
+          Lifetime codes
+        </button>
+      </div>
+
+      {tab === "accounts" && account.enabled && <AdminAccounts />}
+      {tab === "accounts" && !account.enabled && <p className="muted">Accounts are off. Add Clerk's keys in Vercel to see them here.</p>}
+
+      {tab === "codes" && (
+      <>
       <form className="admincreate" onSubmit={create}>
         <strong>Make lifetime codes</strong>
         <div>
@@ -205,6 +221,8 @@ export default function Admin() {
         ))}
       </div>
       <p className="fine">Codes from Vercel come from LIFETIME_CODES and can only be removed there. Codes made here work right away.</p>
+      </>
+      )}
     </div>
   );
 }

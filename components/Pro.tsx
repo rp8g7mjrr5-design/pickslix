@@ -13,7 +13,30 @@ interface Config {
   codes: boolean;
   monthlyLabel: string | null;
   yearlyLabel: string | null;
+  amounts?: { monthly: Price | null; yearly: Price | null };
 }
+interface Price {
+  amount: number;
+  currency: string;
+}
+
+const money = (p: Price, perMonth = false) =>
+  new Intl.NumberFormat(undefined, { style: "currency", currency: p.currency.toUpperCase(), minimumFractionDigits: p.amount % 100 ? 2 : 0 }).format(
+    (perMonth ? p.amount / 12 : p.amount) / 100,
+  );
+
+// What each plan gets, top to bottom. true = included, false = not, a string = included with a note.
+const TIERS: { name: string; free: boolean | string; monthly: boolean | string; yearly: boolean | string }[] = [
+  { name: "Model odds on every prop", free: true, monthly: true, yearly: true },
+  { name: "Game picker and screenshot import", free: true, monthly: true, yearly: true },
+  { name: "Tracker with auto-grading", free: true, monthly: true, yearly: true },
+  { name: "Crews and the leaderboard", free: true, monthly: true, yearly: true },
+  { name: "Pick 6 lines filled in", free: false, monthly: true, yearly: true },
+  { name: "Build my best slip", free: false, monthly: true, yearly: true },
+  { name: "Insights and model report card", free: false, monthly: true, yearly: true },
+  { name: "Export to CSV", free: false, monthly: true, yearly: true },
+  { name: "Badge next to your name", free: false, monthly: "Green PRO", yearly: "Gold PRO" },
+];
 
 const TIP_URL = process.env.NEXT_PUBLIC_TIP_URL;
 
@@ -141,17 +164,13 @@ export default function Pro() {
       )}
       {busy === "claim" && <p className="muted">Confirming your payment…</p>}
 
-      <div className="perks">
-        {PERKS.map(([t, d]) => (
-          <div key={t} className="perk">
-            <span aria-hidden>✦</span>
-            <div>
-              <strong>{t}</strong>
-              <small>{d}</small>
-            </div>
-          </div>
-        ))}
-      </div>
+      <Tiers
+        config={config}
+        current={isPro ? (status?.plan ?? "monthly") : "free"}
+        canBuy={!isPro && !needSignIn && Boolean(config?.checkout)}
+        busy={busy}
+        onBuy={checkout}
+      />
 
       {!isPro && needSignIn && (config?.checkout || config?.codes) && account.loaded && (
         <div className="signinprompt">
@@ -160,24 +179,6 @@ export default function Pro() {
         </div>
       )}
 
-      {!isPro && !needSignIn && config?.checkout && (
-        <div className="plans">
-          {config.monthly && (
-            <button className="plan" onClick={() => checkout("monthly")} disabled={!!busy}>
-              <span>Monthly</span>
-              <strong>{config.monthlyLabel ?? "Subscribe"}</strong>
-              <small>{busy === "monthly" ? "Opening checkout…" : "Cancel anytime"}</small>
-            </button>
-          )}
-          {config.yearly && (
-            <button className="plan best" onClick={() => checkout("yearly")} disabled={!!busy}>
-              <span>Yearly</span>
-              <strong>{config.yearlyLabel ?? "Subscribe"}</strong>
-              <small>{busy === "yearly" ? "Opening checkout…" : "Best value"}</small>
-            </button>
-          )}
-        </div>
-      )}
       {!isPro && config && !config.checkout && !config.codes && (
         <p className="banner">Pro isn't set up on this site yet. Everything is free for now.</p>
       )}
@@ -259,6 +260,19 @@ export default function Pro() {
         </div>
       )}
 
+      <h2 className="perkstitle">What Pro unlocks</h2>
+      <div className="perks">
+        {PERKS.map(([t, d]) => (
+          <div key={t} className="perk">
+            <span aria-hidden>✦</span>
+            <div>
+              <strong>{t}</strong>
+              <small>{d}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {TIP_URL && (
         <a className="tipjar" href={TIP_URL} target="_blank" rel="noopener noreferrer">
           <span aria-hidden>☕</span>
@@ -269,5 +283,78 @@ export default function Pro() {
         </a>
       )}
     </div>
+  );
+}
+
+const mark = (v: boolean) => (v ? <span className="tick" aria-label="Included">✓</span> : <span className="dash" aria-label="Not included">–</span>);
+
+/** Free, Monthly and Yearly side by side, with what each one gets. */
+function Tiers({
+  config,
+  current,
+  canBuy,
+  busy,
+  onBuy,
+}: {
+  config: Config | null;
+  current: string;
+  canBuy: boolean;
+  busy: string;
+  onBuy: (plan: "monthly" | "yearly") => void;
+}) {
+  const m = config?.amounts?.monthly;
+  const y = config?.amounts?.yearly;
+  const monthsFree = m && y ? Math.round(12 - y.amount / m.amount) : 0;
+  const plans = [
+    { id: "free", title: "Free", price: "Free", sub: "Forever", col: "free" as const },
+    {
+      id: "monthly",
+      title: "Pro Monthly",
+      price: config?.monthlyLabel ?? (m ? `${money(m)}/mo` : "Monthly"),
+      sub: "Cancel anytime",
+      col: "monthly" as const,
+      show: config?.monthly ?? true,
+    },
+    {
+      id: "yearly",
+      title: "Pro Yearly",
+      price: config?.yearlyLabel ?? (y ? `${money(y)}/yr` : "Yearly"),
+      sub: y ? `${money(y, true)}/mo, billed yearly` : "Billed yearly",
+      col: "yearly" as const,
+      show: config?.yearly ?? true,
+      flag: monthsFree >= 1 ? `${monthsFree} month${monthsFree === 1 ? "" : "s"} free` : "Best value",
+    },
+  ].filter((p) => p.show !== false);
+  const onLifetime = current === "lifetime";
+  return (
+    <section className="tiers" aria-label="Plans">
+      {plans.map((p) => {
+        const isCurrent = current === p.id || (onLifetime && p.id === "yearly");
+        return (
+          <div key={p.id} className={`tier ${p.id} ${isCurrent ? "current" : ""}`}>
+            {p.flag && <span className="tierflag">{p.flag}</span>}
+            <span className="tiername">{p.title}</span>
+            <strong className="tierprice">{p.price}</strong>
+            <small className="muted">{p.sub}</small>
+            <ul>
+              {TIERS.map((t) => (
+                <li key={t.name} className={t[p.col] ? "" : "off"}>
+                  {mark(Boolean(t[p.col]))}
+                  <span>{t.name}</span>
+                  {typeof t[p.col] === "string" && <span className="tierval">{t[p.col]}</span>}
+                </li>
+              ))}
+            </ul>
+            {isCurrent ? (
+              <span className="tiercurrent">{onLifetime && p.id === "yearly" ? "You have lifetime Pro (gold)" : "Your plan"}</span>
+            ) : p.id !== "free" && canBuy ? (
+              <button className={p.id === "yearly" ? "" : "ghost"} onClick={() => onBuy(p.id as "monthly" | "yearly")} disabled={!!busy}>
+                {busy === p.id ? "Opening checkout…" : `Get ${p.title}`}
+              </button>
+            ) : null}
+          </div>
+        );
+      })}
+    </section>
   );
 }

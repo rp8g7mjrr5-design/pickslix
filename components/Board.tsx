@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import GamePicker from "@/components/GamePicker";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
+import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
 import { bestSlip } from "@/lib/bestSlip.ts";
@@ -401,6 +402,7 @@ export default function Board() {
             {!visible.length && <p className="empty">No lines match these filters.</p>}
           </div>
         ) : null}
+        <Pulse />
       </section>
 
       <Slip

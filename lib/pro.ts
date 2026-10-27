@@ -14,6 +14,8 @@ export interface ProPass {
   checkedAt?: string;
   /** The lifetime code it came from. */
   code?: string;
+  /** Given by an admin from the accounts page. */
+  granted?: boolean;
 }
 
 const STRIPE = "https://api.stripe.com/v1";
@@ -84,6 +86,32 @@ export async function checkPass(rawKey: string | null | undefined): Promise<ProP
   }
   return ACTIVE.has(pass.status ?? "") ? pass : null;
 }
+
+export interface PlanPrice {
+  /** In the smallest currency unit, as Stripe gives it. */
+  amount: number;
+  currency: string;
+}
+
+/** Monthly and yearly prices from Stripe, cached for an hour, so the Pro page can show the yearly savings. */
+export async function planPrices(): Promise<{ monthly: PlanPrice | null; yearly: PlanPrice | null }> {
+  const none = { monthly: null, yearly: null };
+  if (!stripeEnabled()) return none;
+  const cached = await kvGet<{ monthly: PlanPrice | null; yearly: PlanPrice | null }>("stripe:prices").catch(() => null);
+  if (cached) return cached;
+  const one = async (id?: string): Promise<PlanPrice | null> => {
+    if (!id) return null;
+    const p = await stripe(`/prices/${encodeURIComponent(id)}`).catch(() => null);
+    return typeof p?.unit_amount === "number" ? { amount: p.unit_amount, currency: String(p.currency ?? "usd") } : null;
+  };
+  const ids = prices();
+  const result = { monthly: await one(ids.monthly), yearly: await one(ids.yearly) };
+  await kvSet("stripe:prices", result, 3600).catch(() => {});
+  return result;
+}
+
+/** Yearly and lifetime members get the gold badge on the leaderboard and in crews. */
+export const isGold = (pass: ProPass | null | undefined) => pass?.plan === "yearly" || pass?.plan === "lifetime";
 
 /** Turn a finished Checkout session into a Pro key. Calling it again for the same session returns the same key. */
 export async function claimCheckout(sessionId: string): Promise<{ key: string; pass: ProPass } | null> {

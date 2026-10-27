@@ -16,6 +16,7 @@ interface Member {
   you: boolean;
   owner: boolean;
   pro: boolean;
+  gold?: boolean;
   stats: { picks: number; hits: number; hitRate: number; slips: number; roi: number | null };
   recent: { id: string; createdAt: string; legs: Leg[] }[];
 }
@@ -153,7 +154,7 @@ export default function Crew({ id }: { id: string }) {
               <span className="who">
                 <strong>
                   {m.username}
-                  {m.pro && <span className="probadge">PRO</span>}
+                  {m.pro && <span className={`probadge ${m.gold ? "gold" : ""}`}>PRO</span>}
                   {m.owner && <b className="autotag">owner</b>}
                 </strong>
                 <small>

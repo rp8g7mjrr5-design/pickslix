@@ -7,6 +7,7 @@ import { SignInPrompt, useAccount } from "@/components/Account";
 interface Row {
   username: string;
   pro: boolean;
+  gold?: boolean;
   picks: number;
   hits: number;
   hitRate: number;
@@ -67,7 +68,7 @@ export default function Leaderboard() {
               <span className="who">
                 <strong>
                   {r.username}
-                  {r.pro && <span className="probadge">PRO</span>}
+                  {r.pro && <span className={`probadge ${r.gold ? "gold" : ""}`}>PRO</span>}
                 </strong>
                 <small>
                   {r.hits}/{r.picks} picks{r.slips ? ` · ${r.slips} slip${r.slips === 1 ? "" : "s"}` : ""}
