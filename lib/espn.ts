@@ -173,15 +173,28 @@ export function parseGameLog(json: any, sport: EspnSport): GameLog[] {
   return logs.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/** Current season's games, topped up with last season's when it's early in the year. */
+/** A game this long ago is from before the offseason (or a long injury), whatever ESPN's season filter says. */
+const STALE_DAYS = 100;
+
+/** Mark games from an earlier season, so the model can count them for less. */
+export function markPrior(logs: GameLog[], now = Date.now()): GameLog[] {
+  return logs.map((g) => (g.prior || now - Date.parse(g.date) > STALE_DAYS * 86400_000 ? { ...g, prior: true } : g));
+}
+
+/**
+ * Current season's games. Early in the year, last season's games fill in up to `minGames`, marked as prior
+ * so they count for less and never crowd out this season's.
+ */
 export async function fetchGameLogs(athleteId: string, sport: EspnSport, minGames = 15): Promise<GameLog[]> {
   const base = `${WEB}/sports/${PATHS[sport]}/athletes/${athleteId}/gamelog`;
   const current = await espnJson(base, TTL.gamelog);
-  const logs = parseGameLog(current, sport);
+  const logs = markPrior(parseGameLog(current, sport));
   const season = Number(current?.filters?.find((f: any) => f?.name === "season")?.value);
   if (logs.length >= minGames || !season) return logs;
   const prev = await espnJson(`${base}?season=${season - 1}`, TTL.finished).catch(() => null);
-  return prev ? [...logs, ...parseGameLog(prev, sport)] : logs;
+  if (!prev) return logs;
+  const older = parseGameLog(prev, sport).slice(0, minGames - logs.length).map((g) => ({ ...g, prior: true }));
+  return [...logs, ...older];
 }
 
 // ---------- Injuries ----------

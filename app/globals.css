@@ -271,7 +271,7 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
   -moz-appearance: textfield; appearance: textfield;
 }
 .stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.linefacts { display: grid; gap: 2px; font-size: 13px; }
+.linefacts { display: grid; gap: 2px; font-size: 13px; flex: 1; min-width: 120px; }
 .linefacts strong { font-size: 16px; }
 .hint { font-size: 11px; }
 .minispark { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 52px; padding-top: 14px; }
@@ -692,3 +692,6 @@ button.tipbtn:hover:not(:disabled) { color: var(--text); filter: none; }
 .faq details p { margin: 8px 0 0; color: var(--muted); line-height: 1.5; }
 .faq a { color: var(--text); text-decoration: underline; }
 .help > .button { justify-self: start; }
+
+/* Games from last season: still shown, but faded because they count for less. */
+.spark i.prior, .minispark i.prior { opacity: 0.35; }

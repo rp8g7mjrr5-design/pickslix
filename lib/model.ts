@@ -15,6 +15,10 @@ const HALF_LIFE_GAMES: Record<Sport, number> = { NBA: 6, NFL: 4, MLB: 10, NHL: 8
 /** How far we trust a defense factor (0 = ignore, 1 = take it at face value). */
 const DEFENSE_SHRINK = 0.6;
 const MAX_GAMES = 25;
+/** Last season's games count this much as this season's (on top of recency): rosters and roles change over the summer. */
+const PRIOR_WEIGHT = 0.35;
+/** With fewer games than this from this season, the projection is flagged as early and capped at medium confidence. */
+const EARLY_GAMES = 5;
 /**
  * Pick 6 lines already price in a lot of information, so the projection is
  * pulled this far toward the line. 0 trusts the model fully.
@@ -25,20 +29,21 @@ export function statValue(g: GameLog, stat: StatKey): number {
   return STATS[stat].parts.reduce((sum, f) => sum + (g.stats[f] ?? 0), 0);
 }
 
-/** Exponentially weighted mean and variance; logs are newest first. */
-export function weightedStats(values: number[], halfLife = 6): { mean: number; variance: number; n: number } {
+/** Exponentially weighted mean and variance; logs are newest first. `scale` down-weights single games (e.g. last season's). */
+export function weightedStats(values: number[], halfLife = 6, scale?: number[]): { mean: number; variance: number; n: number } {
   const decay = Math.pow(0.5, 1 / halfLife);
+  const weight = (i: number) => Math.pow(decay, i) * (scale?.[i] ?? 1);
   let wSum = 0;
   let mean = 0;
   values.forEach((v, i) => {
-    const w = Math.pow(decay, i);
+    const w = weight(i);
     wSum += w;
     mean += w * v;
   });
   mean /= wSum || 1;
   let variance = 0;
   values.forEach((v, i) => {
-    variance += Math.pow(decay, i) * (v - mean) ** 2;
+    variance += weight(i) * (v - mean) ** 2;
   });
   variance /= wSum || 1;
   // Small samples understate spread; inflate a little.
@@ -125,11 +130,15 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
       status: "ok",
     };
   }
-  const base = weightedStats(values, HALF_LIFE_GAMES[prop.sport]);
+  const scale = recentLogs.map((g) => (g.prior ? PRIOR_WEIGHT : 1));
+  const thisSeason = recentLogs.filter((g) => !g.prior).length;
+  const base = weightedStats(values, HALF_LIFE_GAMES[prop.sport], scale);
   let mean = base.mean;
   let variance = base.variance;
   reasons.push(
-    `Recency-weighted average ${base.mean.toFixed(1)} over last ${base.n} games vs line ${prop.line}`,
+    thisSeason === base.n
+      ? `Recency-weighted average ${base.mean.toFixed(1)} over last ${base.n} games vs line ${prop.line}`
+      : `Recency-weighted average ${base.mean.toFixed(1)} vs line ${prop.line}: ${thisSeason} game${thisSeason === 1 ? "" : "s"} this season, plus ${base.n - thisSeason} from last season counted for less`,
   );
 
   // Matchup
@@ -180,7 +189,8 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
   const pick = pOver >= pUnder ? "OVER" : "UNDER";
   const pickProb = Math.max(pOver, pUnder);
 
-  const last10 = values.slice(0, 10);
+  // Hit rate from this season's games once there are enough of them.
+  const last10 = (thisSeason >= EARLY_GAMES ? values.filter((_, i) => !recentLogs[i].prior) : values).slice(0, 10);
   const hits = last10.filter((v) => (pick === "OVER" ? v > prop.line : v < prop.line)).length;
   const hitRateLast10 = last10.length ? hits / last10.length : 0;
   if (last10.length) reasons.push(`Hit the ${pick.toLowerCase()} in ${hits} of last ${last10.length}`);
@@ -188,7 +198,8 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
   const cv = Math.sqrt(variance) / Math.max(mean, 0.5);
   let confidence: Projection["confidence"] = "medium";
   if (base.n < 6 || questionable || cv > 0.7) confidence = "low";
-  else if (base.n >= 12 && cv < 0.4 && pickProb > 0.58) confidence = "high";
+  else if (base.n >= 12 && thisSeason >= EARLY_GAMES && cv < 0.4 && pickProb > 0.58) confidence = "high";
+  if (thisSeason < EARLY_GAMES && base.n > thisSeason) reasons.push("Early in the season: leans partly on last year");
 
   if (out) {
     reasons.unshift("Ruled OUT: this prop will likely be voided");
@@ -205,6 +216,7 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
     edge: pickProb - 0.5,
     confidence: out ? "low" : confidence,
     sampleSize: base.n,
+    thisSeason,
     hitRateLast10,
     reasons,
     status: out ? "out" : "ok",

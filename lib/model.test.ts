@@ -73,3 +73,20 @@ test("NFL props are on the sample board", async () => {
   assert.ok(nfl.length > 10);
   for (const r of nfl) assert.ok(r.projection.mean > 0 && r.projection.pickProb >= 0.5 && r.projection.pickProb < 1);
 });
+
+test("last season's games count for less than this season's", () => {
+  const now = Array.from({ length: 4 }, () => log(30));
+  const old = Array.from({ length: 11 }, () => ({ ...log(15), prior: true }));
+  const p = project({ prop, logs: [...now, ...old], defense: {}, news: [] });
+  const flat = project({ prop, logs: [...now, ...old.map(({ prior: _, ...g }) => g)], defense: {}, news: [] });
+  assert.equal(p.thisSeason, 4);
+  assert.ok(p.mean > flat.mean, `${p.mean} should beat ${flat.mean}`);
+  assert.notEqual(p.confidence, "high");
+  assert.ok(p.reasons.some((r) => r.includes("last season")));
+});
+
+test("weightedStats scale down-weights games", () => {
+  const plain = weightedStats([30, 10], 6).mean;
+  const scaled = weightedStats([30, 10], 6, [1, 0.35]).mean;
+  assert.ok(scaled > plain);
+});
