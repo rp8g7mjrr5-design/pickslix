@@ -419,7 +419,7 @@ function exportCsv(slips: SavedSlip[]) {
   const blob = new Blob([rows.map((r) => r.map(cell).join(",")).join("\n")], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `crewcheck-tracker-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `laylock-tracker-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }

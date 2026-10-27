@@ -1,4 +1,4 @@
-# Crew Check
+# LayLock
 
 Tracks DraftKings Pick 6 over/under player props for NBA and NFL and estimates
 the chance each one hits, using recent games, the opponent matchup, and injury news.
@@ -134,7 +134,7 @@ so a cancelled plan stops working at the end of its period. Nothing is locked un
 
 Setting it up:
 
-1. In Stripe, create a product "Crew Check Pro" with a monthly and a yearly recurring price. Copy
+1. In Stripe, create a product "LayLock Pro" with a monthly and a yearly recurring price. Copy
    each price ID (`price_...`) into `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_YEARLY`.
 2. Copy the secret key into `STRIPE_SECRET_KEY` and set the two `NEXT_PUBLIC_PRO_*_LABEL`s.
 3. Turn on the customer portal (Settings → Billing → Customer portal) so subscribers can cancel.

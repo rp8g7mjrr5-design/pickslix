@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Crew Check",
-    short_name: "Crew Check",
+    name: "LayLock",
+    short_name: "LayLock",
     description: "Over/under probabilities for DraftKings Pick 6 player props",
     start_url: "/",
     display: "standalone",
