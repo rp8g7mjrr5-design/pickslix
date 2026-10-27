@@ -18,9 +18,10 @@ demo board with made-up lines instead.
 
 ## Adding lines
 
-- **Pick from games (easiest):** the top of the board lists upcoming NBA and NFL games. Tap one,
-  choose a player and stat, nudge the line to match Pick 6 (it starts at the season average), and
-  tap More or Less. Odds update live as the line moves.
+- **Pick from games (easiest):** the top of the board lists upcoming NBA, NFL, NHL and MLB games.
+  Tap one, choose a player and stat, and tap More or Less. With `ODDS_API_KEY` set the line starts at
+  Pick 6's posted line (or the sportsbook median when Pick 6 hasn't posted it); otherwise at the
+  season average. Odds update live as the line moves.
 - **Screenshot:** upload, drop or paste a screenshot of the Pick 6 board or of an entry you made.
   Picks with More/Less chosen load straight into the slip. Without a key it's read on the device
   with Tesseract.js (free; the engine downloads from jsDelivr the first time). Set
@@ -88,7 +89,14 @@ Picks from the same game are usually correlated, so treat that number as rough.
 - Pasted lines live in the browser. Saved slips live in the browser and, when Redis is
   connected, sync under a code shown on the Tracker page (enter it on another device).
 
+## Tracker
+
+Saved picks grade themselves: after each game the tracker looks up the player's box score and marks
+hit, miss or push (a player who doesn't play counts as a push). Tap a result to override. The
+model report card buckets graded picks by the model's chance so you can see whether 60% picks
+really hit about 60% of the time. `/setup` shows which optional keys the deployment has.
+
 ## Next up
 
-- Live lines from The Odds API (DraftKings player props) instead of pasting
+- NHL and MLB team defense (both use recent form only for now)
 - Accounts instead of sync codes

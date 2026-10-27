@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
@@ -10,14 +10,65 @@ const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 export default function Tracker() {
   const [slips, setSlips] = useState<SavedSlip[]>([]);
   const [synced, setSynced] = useState(false);
+  const [grading, setGrading] = useState(false);
+  const [gradedNote, setGradedNote] = useState("");
+  const graded = useRef(false);
   const load = () => {
     setSlips(loadSlips());
     pullSlips().then((r) => {
       setSynced(r.enabled);
       setSlips(r.slips);
+      if (!graded.current) {
+        graded.current = true;
+        autoGrade(r.slips);
+      }
     });
   };
   useEffect(load, []);
+
+  /** Grade every open leg whose game should be over, from the box scores. */
+  const autoGrade = async (current: SavedSlip[]) => {
+    const now = Date.now();
+    const open = current.flatMap((s) =>
+      s.legs
+        .filter((l) => !l.result && now > Date.parse(l.gameTime ?? s.createdAt) + 3 * 3600_000)
+        .map((l) => ({ slipId: s.id, leg: l, savedAt: s.createdAt })),
+    );
+    if (!open.length) return;
+    setGrading(true);
+    try {
+      const res = await fetch("/api/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legs: open.slice(0, 60).map(({ leg, savedAt }) => ({
+            player: leg.player, stat: leg.stat, line: leg.line, side: leg.side,
+            sport: leg.sport, team: leg.team, gameTime: leg.gameTime, savedAt,
+          })),
+        }),
+      });
+      const { results } = (await res.json()) as { results: (SlipLeg["result"] | null)[] };
+      const found = new Map<string, NonNullable<SlipLeg["result"]>>();
+      open.slice(0, 60).forEach((o, i) => results[i] && found.set(`${o.slipId}|${o.leg.propId}`, results[i]!));
+      if (!found.size) return;
+      // Re-read so a mark made while grading isn't lost.
+      const latest = loadSlips();
+      const next = latest.map((s) => ({
+        ...s,
+        legs: s.legs.map((l) => {
+          const r = found.get(`${s.id}|${l.propId}`);
+          return r && !l.result ? { ...l, result: r, auto: true } : l;
+        }),
+      }));
+      setSlips(next);
+      persistSlips(next);
+      setGradedNote(`Graded ${found.size} pick${found.size === 1 ? "" : "s"} from box scores.`);
+    } catch {
+      // Leave legs open; the next visit tries again.
+    } finally {
+      setGrading(false);
+    }
+  };
 
   const update = (next: SavedSlip[]) => {
     setSlips(next);
@@ -29,13 +80,18 @@ export default function Tracker() {
       slips.map((s) =>
         s.id !== slipId
           ? s
-          : { ...s, legs: s.legs.map((l) => (l.propId === propId ? { ...l, result: l.result === result ? undefined : result } : l)) },
+          : {
+              ...s,
+              legs: s.legs.map((l) =>
+                l.propId === propId ? { ...l, result: l.result === result ? undefined : result, auto: false } : l,
+              ),
+            },
       ),
     );
 
-  const graded = slips.flatMap((s) => s.legs).filter((l) => l.result === "hit" || l.result === "miss");
-  const hits = graded.filter((l) => l.result === "hit").length;
-  const expected = graded.reduce((a, l) => a + l.prob, 0);
+  const settledLegs = slips.flatMap((s) => s.legs).filter((l) => l.result === "hit" || l.result === "miss");
+  const hits = settledLegs.filter((l) => l.result === "hit").length;
+  const expected = settledLegs.reduce((a, l) => a + l.prob, 0);
 
   const settled = slips.filter((s) => s.legs.every((l) => l.result));
   const profit = settled.reduce((a, s) => {
@@ -49,13 +105,17 @@ export default function Tracker() {
       <div className="hero">
         <div>
           <h1>Tracker</h1>
-          <p className="muted">Mark each pick as it settles to see how you and the model are doing.</p>
+          <p className="muted">
+            {grading
+              ? "Checking box scores…"
+              : gradedNote || "Picks grade themselves from box scores after each game. Tap a result to fix one."}
+          </p>
         </div>
       </div>
       <div className="cards">
-        <Card label="Picks graded" value={String(graded.length)} />
-        <Card label="Your hit rate" value={graded.length ? pct(hits / graded.length) : "–"} />
-        <Card label="Model expected" value={graded.length ? pct(expected / graded.length) : "–"} />
+        <Card label="Picks graded" value={String(settledLegs.length)} />
+        <Card label="Your hit rate" value={settledLegs.length ? pct(hits / settledLegs.length) : "–"} />
+        <Card label="Model expected" value={settledLegs.length ? pct(expected / settledLegs.length) : "–"} />
         <Card
           label="Settled slips P/L"
           value={`${profit >= 0 ? "+" : "−"}$${Math.abs(profit).toFixed(2)}`}
@@ -66,6 +126,7 @@ export default function Tracker() {
         Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout
         instead.
       </p>
+      {settledLegs.length > 0 && <ReportCard legs={settledLegs} />}
       {synced && <SyncCode onChange={load} />}
       {!slips.length && (
         <div className="emptycard">
@@ -88,6 +149,7 @@ export default function Tracker() {
               <div>
                 <strong>{l.player}</strong>
                 <small>
+                  {l.auto && <b className="autotag" title="Graded from the box score">auto</b>}
                   <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
                   {STATS[l.stat].label} · model {pct(l.prob)}
                 </small>
@@ -104,6 +166,65 @@ export default function Tracker() {
         </div>
       ))}
     </div>
+  );
+}
+
+const BUCKETS: [number, number, string][] = [
+  [0, 0.55, "Under 55%"],
+  [0.55, 0.6, "55–60%"],
+  [0.6, 0.65, "60–65%"],
+  [0.65, 1.01, "65%+"],
+];
+
+/** Did picks the model liked more actually hit more? Buckets settled legs by the model's chance. */
+function ReportCard({ legs }: { legs: SlipLeg[] }) {
+  const rows = BUCKETS.map(([lo, hi, label]) => {
+    const inB = legs.filter((l) => l.prob >= lo && l.prob < hi);
+    const hit = inB.filter((l) => l.result === "hit").length;
+    const exp = inB.reduce((a, l) => a + l.prob, 0);
+    return { label, n: inB.length, rate: inB.length ? hit / inB.length : 0, exp: inB.length ? exp / inB.length : 0 };
+  });
+  const bySport = new Map<string, { n: number; hit: number }>();
+  for (const l of legs) {
+    const s = l.sport ?? STATS[l.stat].sport;
+    const e = bySport.get(s) ?? { n: 0, hit: 0 };
+    e.n += 1;
+    e.hit += l.result === "hit" ? 1 : 0;
+    bySport.set(s, e);
+  }
+  const total = legs.length;
+  return (
+    <section className="report">
+      <div className="reporthead">
+        <h2>Model report card</h2>
+        <small>{total < 30 ? `Only ${total} graded picks so far, so treat this as early.` : `${total} graded picks.`}</small>
+      </div>
+      <div className="buckets">
+        {rows.map((r) => (
+          <div key={r.label} className="bucket">
+            <small>Model said {r.label}</small>
+            <div className="bucketbar" aria-hidden>
+              <i style={{ width: `${r.rate * 100}%` }} className={r.n && r.rate >= r.exp ? "good" : "meh"} />
+              {r.n > 0 && <b style={{ left: `${r.exp * 100}%` }} title="Expected" />}
+            </div>
+            <span className="num">
+              {r.n ? (
+                <>
+                  <strong>{pct(r.rate)}</strong> hit <span className="muted">of {r.n} · expected {pct(r.exp)}</span>
+                </>
+              ) : (
+                <span className="muted">No picks yet</span>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+      {bySport.size > 1 && (
+        <p className="fine">
+          {[...bySport.entries()].map(([s, e]) => `${s} ${pct(e.hit / e.n)} of ${e.n}`).join(" · ")}
+        </p>
+      )}
+    </section>
   );
 }
 

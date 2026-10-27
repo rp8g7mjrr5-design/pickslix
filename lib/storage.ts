@@ -1,5 +1,5 @@
 "use client";
-import type { Prop, StatKey } from "./types.ts";
+import type { Prop, Sport, StatKey } from "./types.ts";
 
 export interface SlipLeg {
   propId: string;
@@ -9,6 +9,11 @@ export interface SlipLeg {
   side: "OVER" | "UNDER";
   prob: number;
   result?: "hit" | "miss" | "push";
+  /** Set when the tracker graded this leg from the box score (a manual mark clears it). */
+  auto?: boolean;
+  sport?: Sport;
+  team?: string;
+  gameTime?: string;
 }
 
 export interface SavedSlip {

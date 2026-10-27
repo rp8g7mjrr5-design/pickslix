@@ -46,7 +46,15 @@ export default function Slip({
     setSaved(true);
     // Pull first so a slip saved on another device isn't overwritten.
     const { slips } = await pullSlips();
-    persistSlips([{ id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs }, ...slips]);
+    // Keep what the tracker needs to find each game later and grade it.
+    const withGame = legs.map((l) => {
+      const r = rows.find((x) => x.id === l.propId);
+      return r ? { ...l, sport: r.sport, team: r.team || undefined, gameTime: r.gameTime } : l;
+    });
+    persistSlips([
+      { id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs: withGame },
+      ...slips,
+    ]);
   };
 
   const copy = async () => {

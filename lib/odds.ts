@@ -2,6 +2,7 @@
 // Pick 6 hasn't posted a player, the median line across a few sportsbooks stands in.
 // Each event-odds call costs one credit per market, so lines are fetched per game, only when someone
 // opens that game, and cached for everyone.
+import { kvSet } from "./db.ts";
 import { normName } from "./names.ts";
 import type { Sport, StatKey } from "./types.ts";
 
@@ -85,6 +86,9 @@ async function oddsJson(path: string, revalidate: number): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${BASE}${path}${sep}apiKey=${process.env.ODDS_API_KEY}`, { next: { revalidate } } as RequestInit);
   if (!res.ok) throw new Error(`Odds API ${res.status} for ${path}`);
+  // Credits left this month, for the setup page.
+  const remaining = res.headers.get("x-requests-remaining");
+  if (remaining !== null) kvSet("odds:remaining", { remaining: Number(remaining), at: new Date().toISOString() }).catch(() => {});
   return res.json();
 }
 
