@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { slipHitProbability } from "@/lib/model.ts";
-import { DEFAULT_MULTIPLIERS, pct } from "@/lib/format.ts";
+import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type PropWithProjection } from "@/lib/types.ts";
 
@@ -62,11 +62,11 @@ export default function Slip({
     <aside className="slip" id="slip">
       <div className="sliphead">
         <h2>Your slip</h2>
-        {legs.length > 0 && <span className="count">{legs.length}/6</span>}
+        {legs.length > 0 && <span className="count">{legs.length}/{MAX_PICKS}</span>}
       </div>
       {!legs.length && (
         <p className="muted">
-          Tap a percentage on the board to add a pick, or upload a screenshot of an entry. Pick 6 takes 2 to 6 picks.
+          Tap a percentage on the board to add a pick, or upload a screenshot of an entry. Pick 6 takes 2 to {MAX_PICKS} picks.
         </p>
       )}
       {legs.map((l) => (
