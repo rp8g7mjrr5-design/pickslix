@@ -32,7 +32,7 @@ export async function setAccountProKey(userId: string, proKey: string) {
 }
 
 const USERNAME = /^[A-Za-z0-9_]{3,20}$/;
-const RESERVED = new Set(["admin", "legup", "support", "official", "moderator", "staff", "draftkings", "pick6"]);
+const RESERVED = new Set(["admin", "legup", "crewcheck", "crew_check", "support", "official", "moderator", "staff", "draftkings", "pick6"]);
 const nameKey = (name: string) => `username:${name.toLowerCase()}`;
 
 /** Why a username can't be used, or null when it's fine to try. */

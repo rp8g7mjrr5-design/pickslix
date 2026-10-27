@@ -23,7 +23,7 @@ const PERKS = [
   ["Your insights", "Profit over time, ROI, streaks, and the stats you hit most (and least)."],
   ["Model report card", "See how often the model's 55%, 60% and 65% picks really hit."],
   ["Export to CSV", "Download every slip and result for your own spreadsheet."],
-  ["Support the site", "Pro pays for the live odds feed and keeps LegUp running."],
+  ["Support the site", "Pro pays for the live odds feed and keeps Crew Check running."],
 ];
 
 async function post<T>(url: string, body: unknown): Promise<T & { error?: string }> {
@@ -126,10 +126,10 @@ export default function Pro() {
     <div className="pro">
       <section className="prohero">
         <span className="probadge">PRO</span>
-        <h1>{isPro ? "You're Pro" : "LegUp Pro"}</h1>
+        <h1>{isPro ? "You're Pro" : "Crew Check Pro"}</h1>
         <p className="muted">
           {isPro
-            ? `Thanks for supporting LegUp${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
+            ? `Thanks for supporting Crew Check${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
             : "Lines filled in for every game, one-tap best slips, and insights on how you really do."}
         </p>
       </section>

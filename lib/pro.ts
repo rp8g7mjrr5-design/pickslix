@@ -1,4 +1,4 @@
-// LegUp Pro without accounts: buying (or redeeming a lifetime code) issues a Pro key, which the
+// Crew Check Pro without accounts: buying (or redeeming a lifetime code) issues a Pro key, which the
 // browser keeps and can be typed into any other device. Keys live in the database; subscription keys
 // are re-checked against Stripe now and then, so a cancelled subscription stops working on its own.
 import { kvClaim, kvGet, kvSet } from "./db.ts";
