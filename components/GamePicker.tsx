@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { project, statValue } from "@/lib/model.ts";
 import { pct } from "@/lib/format.ts";
 import { normName } from "@/lib/names.ts";
+import { proHeaders } from "@/lib/proClient.ts";
 import type { SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type DefenseFactors, type GameLog, type NewsItem, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
@@ -210,6 +211,7 @@ function GameSheet({
   const [openPlayer, setOpenPlayer] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [lines, setLines] = useState<GameLines>({});
+  const [linesLocked, setLinesLocked] = useState(false);
   const team = [away, home][teamIdx];
   const opp = [away, home][1 - teamIdx];
 
@@ -223,9 +225,12 @@ function GameSheet({
         .catch(() => setPlayers((p) => ({ ...p, [t.abbr]: "error" })));
     }
     const q = new URLSearchParams({ sport, home: home?.name ?? home?.abbr ?? "", away: away?.name ?? away?.abbr ?? "", date: game.date });
-    fetch(`/api/games/lines?${q}`)
+    fetch(`/api/games/lines?${q}`, { headers: proHeaders() })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((b: { lines?: GameLines }) => setLines(b.lines ?? {}))
+      .then((b: { lines?: GameLines; locked?: boolean }) => {
+        setLines(b.lines ?? {});
+        setLinesLocked(Boolean(b.locked));
+      })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, sport]);
@@ -291,6 +296,16 @@ function GameSheet({
           </div>
           <input type="search" placeholder="Find a player" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Find a player" />
         </div>
+
+        {linesLocked && (
+          <a href="/pro" className="probanner">
+            <span>
+              <strong>Pick 6 lines, filled in for you</strong>
+              <small>Pro loads every posted line for this game.</small>
+            </span>
+            <b>Get Pro</b>
+          </a>
+        )}
 
         <div className="playerlist">
           {roster === undefined &&

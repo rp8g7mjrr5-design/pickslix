@@ -1,4 +1,4 @@
-# PickSlix
+# LegUp
 
 Tracks DraftKings Pick 6 over/under player props for NBA and NFL and estimates
 the chance each one hits, using recent games, the opponent matchup, and injury news.
@@ -95,6 +95,23 @@ Saved picks grade themselves: after each game the tracker looks up the player's 
 hit, miss or push (a player who doesn't play counts as a push). Tap a result to override. The
 model report card buckets graded picks by the model's chance so you can see whether 60% picks
 really hit about 60% of the time. `/setup` shows which optional keys the deployment has.
+
+## Pro (`lib/pro.ts`)
+
+Pro unlocks auto-filled lines and the report card. There are no accounts: paying (Stripe Checkout)
+or redeeming a lifetime code gives the browser a Pro key like `LEG-ABCD-EFGH-JKLM`, which works on
+any device it's typed into on `/pro`. Subscription keys are re-checked with Stripe every few hours,
+so a cancelled plan stops working at the end of its period. Nothing is locked until
+`STRIPE_SECRET_KEY` or `LIFETIME_CODES` is set.
+
+Setting it up:
+
+1. In Stripe, create a product "LegUp Pro" with a monthly and a yearly recurring price. Copy
+   each price ID (`price_...`) into `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_YEARLY`.
+2. Copy the secret key into `STRIPE_SECRET_KEY` and set the two `NEXT_PUBLIC_PRO_*_LABEL`s.
+3. Turn on the customer portal (Settings → Billing → Customer portal) so subscribers can cancel.
+4. The database (Upstash) is required: it's where Pro keys and used codes are kept.
+5. For free lifetime passes, put codes in `LIFETIME_CODES`, comma separated. Each works once.
 
 ## Next up
 

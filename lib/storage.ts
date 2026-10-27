@@ -41,6 +41,7 @@ function read<T>(key: string, fallback: T): T {
 function write(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    window.dispatchEvent(new Event("pickslix:change"));
   } catch {
     // storage unavailable (private mode); keep going in memory
   }

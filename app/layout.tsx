@@ -5,10 +5,10 @@ import Nav from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "PickSlix", template: "%s · PickSlix" },
+  title: { default: "LegUp", template: "%s · LegUp" },
   description: "Over/under probabilities for DraftKings Pick 6 player props, from recent games, matchups and injury news.",
-  applicationName: "PickSlix",
-  appleWebApp: { capable: true, title: "PickSlix", statusBarStyle: "black-translucent" },
+  applicationName: "LegUp",
+  appleWebApp: { capable: true, title: "LegUp", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
@@ -23,10 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <header className="topbar">
-          <Link href="/" className="brand" aria-label="PickSlix home">
+          <Link href="/" className="brand" aria-label="LegUp home">
             <Logo />
             <span className="wordmark">
-              Pick<span>Slix</span>
+              Leg<span>Up</span>
             </span>
           </Link>
           <Nav />
@@ -35,6 +35,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="foot">
           Probabilities are model estimates from public stats, not guarantees. Not affiliated with DraftKings. 21+.
           Gambling problem? Call 1-800-GAMBLER. <Link href="/setup">Setup check</Link>
+          {process.env.NEXT_PUBLIC_TIP_URL && (
+            <>
+              {" · "}
+              <a className="tiplink" href={process.env.NEXT_PUBLIC_TIP_URL} target="_blank" rel="noopener noreferrer">
+                Leave a tip
+              </a>
+            </>
+          )}
         </footer>
       </body>
     </html>

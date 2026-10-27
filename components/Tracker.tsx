@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
+import { unlocked, usePro } from "@/lib/proClient.ts";
 
 const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
 export default function Tracker() {
   const [slips, setSlips] = useState<SavedSlip[]>([]);
+  const pro = usePro();
   const [synced, setSynced] = useState(false);
   const [grading, setGrading] = useState(false);
   const [gradedNote, setGradedNote] = useState("");
@@ -126,7 +128,7 @@ export default function Tracker() {
         Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout
         instead.
       </p>
-      {settledLegs.length > 0 && <ReportCard legs={settledLegs} />}
+      {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={!unlocked(pro)} />}
       {synced && <SyncCode onChange={load} />}
       {!slips.length && (
         <div className="emptycard">
@@ -177,7 +179,7 @@ const BUCKETS: [number, number, string][] = [
 ];
 
 /** Did picks the model liked more actually hit more? Buckets settled legs by the model's chance. */
-function ReportCard({ legs }: { legs: SlipLeg[] }) {
+function ReportCard({ legs, locked }: { legs: SlipLeg[]; locked: boolean }) {
   const rows = BUCKETS.map(([lo, hi, label]) => {
     const inB = legs.filter((l) => l.prob >= lo && l.prob < hi);
     const hit = inB.filter((l) => l.result === "hit").length;
@@ -193,7 +195,7 @@ function ReportCard({ legs }: { legs: SlipLeg[] }) {
     bySport.set(s, e);
   }
   const total = legs.length;
-  return (
+  const card = (
     <section className="report">
       <div className="reporthead">
         <h2>Model report card</h2>
@@ -225,6 +227,19 @@ function ReportCard({ legs }: { legs: SlipLeg[] }) {
         </p>
       )}
     </section>
+  );
+  if (!locked) return card;
+  return (
+    <div className="prolock">
+      <div className="blurred" aria-hidden>
+        {card}
+      </div>
+      <div className="unlock">
+        <strong>See how the model is really doing</strong>
+        <small>The report card compares the model's odds with your actual results.</small>
+        <a href="/pro">Unlock with Pro</a>
+      </div>
+    </div>
   );
 }
 

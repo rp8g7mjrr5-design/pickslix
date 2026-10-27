@@ -10,6 +10,10 @@ interface Status {
   oddsRemaining: number | null;
   defenseUpdatedAt: string | null;
   dataSource: string;
+  stripe: boolean;
+  stripePrices: boolean;
+  lifetimeCodes: number;
+  tips: boolean;
 }
 
 const ago = (iso: string) => {
@@ -54,6 +58,28 @@ export default function Setup() {
           title: "Sharper screenshot reading",
           on: "Screenshots are read by Claude, which handles busy Pick 6 screens well.",
           off: "Add ANTHROPIC_API_KEY for much better screenshot reading. Without it, screenshots are read on your phone, which misses more.",
+        },
+        {
+          ok: s.stripe && s.stripePrices && s.database,
+          title: "Pro subscriptions",
+          on: "Stripe checkout is on. Auto-filled lines and the report card need Pro.",
+          off: !s.stripe
+            ? "Optional. Add STRIPE_SECRET_KEY plus STRIPE_PRICE_MONTHLY and/or STRIPE_PRICE_YEARLY to sell Pro. Until then everything is free."
+            : !s.stripePrices
+              ? "STRIPE_SECRET_KEY is set, but add STRIPE_PRICE_MONTHLY and/or STRIPE_PRICE_YEARLY (price IDs starting with price_)."
+              : "Pro needs the database to remember who paid. Add the Upstash Redis integration.",
+        },
+        {
+          ok: s.lifetimeCodes > 0,
+          title: "Lifetime codes",
+          on: `${s.lifetimeCodes} lifetime code${s.lifetimeCodes === 1 ? "" : "s"} set up. Each one works once.`,
+          off: "Optional. Add LIFETIME_CODES (comma separated) to give free lifetime Pro to friends and family.",
+        },
+        {
+          ok: s.tips,
+          title: "Tip jar",
+          on: "The tip link shows in the footer and on the Pro page.",
+          off: "Optional. Add NEXT_PUBLIC_TIP_URL (a Ko-fi or Buy Me a Coffee link) to show a tip button.",
         },
       ]
     : [];
