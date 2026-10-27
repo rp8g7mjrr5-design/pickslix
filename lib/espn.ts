@@ -1,11 +1,16 @@
 // ESPN's public JSON feeds (no key). These are undocumented, so every parser here is defensive:
 // a missing field turns into 0 or gets skipped instead of throwing.
 import { canonTeam, normName } from "./names.ts";
-import { STATS, type DefenseFactors, type GameLog, type NewsItem, type StatKey } from "./types.ts";
+import { STATS, type DefenseFactors, type GameLog, type NewsItem, type Sport, type StatKey } from "./types.ts";
 
-export type EspnSport = "NBA" | "NFL";
+export type EspnSport = Sport;
 
-const PATHS: Record<EspnSport, string> = { NBA: "basketball/nba", NFL: "football/nfl" };
+const PATHS: Record<EspnSport, string> = {
+  NBA: "basketball/nba",
+  NFL: "football/nfl",
+  NHL: "hockey/nhl",
+  MLB: "baseball/mlb",
+};
 const SITE = "https://site.api.espn.com/apis/site/v2/sports";
 const WEB = "https://site.web.api.espn.com/apis/common/v3";
 
@@ -100,13 +105,43 @@ const COLUMNS: Record<EspnSport, Record<string, string>> = {
     rec: "receptions",
     recYds: "receivingYards",
   },
+  NHL: {
+    goals: "goals",
+    assists: "assists",
+    shots: "shotsTotal",
+    saves: "saves",
+  },
+  MLB: {
+    hits: "hits",
+    runs: "runs",
+    rbi: "RBIs",
+    hr: "homeRuns",
+    doubles: "doubles",
+    triples: "triples",
+  },
+};
+
+/** A pitcher's log reuses "hits" and "strikeouts" for what he allowed and threw. */
+const MLB_PITCHING: Record<string, string> = { k: "strikeouts", hitsAllowed: "hits", outs: "innings" };
+
+/** "22:27" → 22.45 minutes */
+const clock = (v: unknown) => {
+  const [m, s] = String(v ?? "").split(":");
+  return num(m) + num(s) / 60;
+};
+
+/** Innings as ESPN writes them ("5.2" is five and two-thirds) → outs. */
+export const inningsToOuts = (v: unknown) => {
+  const [whole, part] = String(v ?? "0").split(".");
+  return num(whole) * 3 + Math.min(2, num(part));
 };
 
 export function parseGameLog(json: any, sport: EspnSport): GameLog[] {
   const names: string[] = json?.names ?? [];
   const col = (n: string) => names.indexOf(n);
-  const minutes = col("minutes");
-  const fields = Object.entries(COLUMNS[sport]).map(([field, name]) => [field, col(name)] as const);
+  const minutes = col(sport === "NHL" ? "timeOnIcePerGame" : "minutes");
+  const pitcher = sport === "MLB" && names.includes("innings");
+  const fields = Object.entries(pitcher ? MLB_PITCHING : COLUMNS[sport]).map(([field, name]) => [field, col(name)] as const);
   const seen = new Set<string>();
   const logs: GameLog[] = [];
   for (const st of json?.seasonTypes ?? []) {
@@ -121,11 +156,15 @@ export function parseGameLog(json: any, sport: EspnSport): GameLog[] {
         const stats: Record<string, number> = {};
         // "made-attempted" columns keep the made half.
         for (const [field, i] of fields) if (i >= 0) stats[field] = num(String(row[i] ?? "").split("-")[0]);
+        if (pitcher) stats.outs = inningsToOuts(row[col("innings")]);
+        if (sport === "MLB" && !pitcher) {
+          stats.tb = (stats.hits ?? 0) + (stats.doubles ?? 0) + 2 * (stats.triples ?? 0) + 3 * (stats.hr ?? 0);
+        }
         logs.push({
           date: String(meta.gameDate ?? "").slice(0, 10),
           opponent: canonTeam(meta.opponent?.abbreviation ?? "", sport),
-          // ESPN only lists games the player appeared in. NFL logs have no snap counts, so 100 stands for "played".
-          playing: sport === "NBA" && minutes >= 0 ? num(row[minutes]) : 100,
+          // ESPN only lists games the player appeared in. NFL and MLB logs have no playing time, so 100 stands for "played".
+          playing: minutes < 0 ? 100 : sport === "NHL" ? clock(row[minutes]) : num(row[minutes]),
           stats,
         });
       }
@@ -313,6 +352,8 @@ export function parseTeamPlayers(json: any, sport: EspnSport): TeamPlayer[] {
       .sort((a: any, b: any) => b.minutes - a.minutes)
       .map(({ minutes, ...p }: any) => p as TeamPlayer);
   }
+  if (sport === "NHL") return nhlPlayers(results);
+  if (sport === "MLB") return mlbPlayers(results);
   const byId = new Map<string, TeamPlayer & { yards: number }>();
   for (const cat of results) {
     if (!["passing", "rushing", "receiving"].includes(cat?.name)) continue;
@@ -346,12 +387,75 @@ export function parseTeamPlayers(json: any, sport: EspnSport): TeamPlayer[] {
     .map(({ yards, ...p }) => p);
 }
 
+/** Skaters by ice time, then goalies. */
+function nhlPlayers(results: any[]): TeamPlayer[] {
+  const rows: (TeamPlayer & { rank: number })[] = [];
+  for (const cat of results) {
+    for (const l of cat?.leaders ?? []) {
+      const st = flatStats(l);
+      const games = st.games ?? st.gamesPlayed ?? 0;
+      if (!games) continue;
+      const per = (v = 0) => r1(v / games);
+      const pos = l?.athlete?.position?.abbreviation ?? "";
+      const goalie = cat?.name === "goalkeeping" || pos === "G";
+      if (rows.some((r) => r.id === String(l?.athlete?.id))) continue;
+      rows.push({
+        ...athleteOf(l?.athlete, pos),
+        games,
+        avg: goalie
+          ? { SAVES: per(st.saves) }
+          : { SOG: per(st.shotsTotal), NHL_PTS: per(st.points), GOALS: per(st.goals), NHL_AST: per(st.assists) },
+        rank: goalie ? -1 : st.timeOnIce ?? st.points ?? 0,
+      });
+    }
+  }
+  return rows.sort((a, b) => b.rank - a.rank).map(({ rank, ...p }) => p);
+}
+
+/** Hitters by plate appearances, then pitchers by innings. */
+function mlbPlayers(results: any[]): TeamPlayer[] {
+  const rows: (TeamPlayer & { rank: number })[] = [];
+  for (const cat of results) {
+    const pitching = cat?.name === "pitching";
+    if (!pitching && cat?.name !== "batting") continue;
+    for (const l of cat?.leaders ?? []) {
+      const st = flatStats(l);
+      const games = st.gamesPlayed ?? 0;
+      if (!games) continue;
+      const per = (v = 0) => r1(v / games);
+      if (pitching) {
+        const outs = inningsToOuts(st.innings ?? 0);
+        rows.push({
+          ...athleteOf(l?.athlete, l?.athlete?.position?.abbreviation ?? "P"),
+          games,
+          avg: { K: per(st.strikeouts), OUTS: per(outs), HITS_ALLOWED: per(st.hits) },
+          rank: outs / 1000,
+        });
+      } else {
+        rows.push({
+          ...athleteOf(l?.athlete, l?.athlete?.position?.abbreviation ?? ""),
+          games,
+          avg: {
+            HITS: per(st.hits), TB: per(st.totalBases), HRR: per((st.hits ?? 0) + (st.runs ?? 0) + (st.RBIs ?? 0)),
+            RUNS: per(st.runs), RBI: per(st.RBIs),
+          },
+          rank: 1000 + (st.plateAppearances ?? st.atBats ?? 0),
+        });
+      }
+    }
+  }
+  return rows.sort((a, b) => b.rank - a.rank).map(({ rank, ...p }) => p);
+}
+
 /** Fallback before anyone has stats (season openers): the roster, with no averages. */
 export function parseRoster(json: any, sport: EspnSport): TeamPlayer[] {
   const groups: any[] = json?.athletes ?? [];
-  const athletes = sport === "NBA" ? groups : groups.filter((g) => g?.position === "offense").flatMap((g) => g?.items ?? []);
+  const athletes =
+    sport === "NBA"
+      ? groups
+      : groups.filter((g) => sport !== "NFL" || g?.position === "offense").flatMap((g) => g?.items ?? []);
   return athletes
-    .filter((a) => a?.id && (sport === "NBA" || NFL_POS.includes(a?.position?.abbreviation)))
+    .filter((a) => a?.id && (sport !== "NFL" || NFL_POS.includes(a?.position?.abbreviation)))
     .map((a) => ({ ...athleteOf(a, a?.position?.abbreviation ?? ""), games: 0, avg: {} }));
 }
 

@@ -16,7 +16,7 @@ export function normName(name: string): string {
 export const sameName = (a: string, b: string) => normName(a) === normName(b);
 
 /** Team abbreviations as ESPN writes them. Other common spellings map onto these. */
-export const TEAMS: Record<"NBA" | "NFL", string[]> = {
+export const TEAMS: Record<Sport, string[]> = {
   NBA: [
     "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GS", "HOU", "IND", "LAC", "LAL", "MEM",
     "MIA", "MIL", "MIN", "NO", "NY", "OKC", "ORL", "PHI", "PHX", "POR", "SAC", "SA", "TOR", "UTAH", "WSH",
@@ -25,9 +25,17 @@ export const TEAMS: Record<"NBA" | "NFL", string[]> = {
     "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
     "LAC", "LAR", "LV", "MIA", "MIN", "NE", "NO", "NYG", "NYJ", "PHI", "PIT", "SEA", "SF", "TB", "TEN", "WSH",
   ],
+  NHL: [
+    "ANA", "BOS", "BUF", "CAR", "CBJ", "CGY", "CHI", "COL", "DAL", "DET", "EDM", "FLA", "LA", "MIN", "MTL", "NJ",
+    "NSH", "NYI", "NYR", "OTT", "PHI", "PIT", "SEA", "SJ", "STL", "TB", "TOR", "UTAH", "VAN", "VGK", "WPG", "WSH",
+  ],
+  MLB: [
+    "ARI", "ATH", "ATL", "BAL", "BOS", "CHC", "CHW", "CIN", "CLE", "COL", "DET", "HOU", "KC", "LAA", "LAD", "MIA",
+    "MIL", "MIN", "NYM", "NYY", "PHI", "PIT", "SD", "SEA", "SF", "STL", "TB", "TEX", "TOR", "WSH",
+  ],
 };
 
-const ALIASES: Record<"NBA" | "NFL", Record<string, string>> = {
+const ALIASES: Record<Sport, Record<string, string>> = {
   NBA: {
     GSW: "GS", NOP: "NO", NOR: "NO", SAS: "SA", NYK: "NY", UTA: "UTAH", WAS: "WSH", PHO: "PHX", BRK: "BKN",
     BKLYN: "BKN", CHO: "CHA", CHH: "CHA",
@@ -36,16 +44,23 @@ const ALIASES: Record<"NBA" | "NFL", Record<string, string>> = {
     WAS: "WSH", JAC: "JAX", LA: "LAR", ARZ: "ARI", GNB: "GB", KAN: "KC", NWE: "NE", NOR: "NO", SFO: "SF",
     TAM: "TB", LVR: "LV", OAK: "LV", SD: "LAC",
   },
+  NHL: {
+    LAK: "LA", NJD: "NJ", SJS: "SJ", TBL: "TB", VEG: "VGK", WAS: "WSH", MON: "MTL", UTA: "UTAH", NAS: "NSH",
+    CLB: "CBJ", CLS: "CBJ", WIN: "WPG", ARI: "UTAH",
+  },
+  MLB: {
+    CWS: "CHW", OAK: "ATH", AZ: "ARI", WAS: "WSH", TBR: "TB", SDP: "SD", SFG: "SF", KCR: "KC", LA: "LAD",
+    ANA: "LAA", WSN: "WSH", CHA: "CHW", CHN: "CHC", NYA: "NYY", NYN: "NYM",
+  },
 };
 
 export function canonTeam(abbr: string, sport: Sport): string {
   const up = abbr.trim().toUpperCase();
-  if (sport !== "NBA" && sport !== "NFL") return up;
-  return ALIASES[sport][up] ?? up;
+  return ALIASES[sport]?.[up] ?? up;
 }
 
-/** True when the token is a team abbreviation (any spelling) in either sport. */
+/** True when the token is a team abbreviation (any spelling) in any sport. */
 export function isTeamToken(token: string): boolean {
   const up = token.toUpperCase();
-  return (["NBA", "NFL"] as const).some((s) => TEAMS[s].includes(up) || up in ALIASES[s]);
+  return (Object.keys(TEAMS) as Sport[]).some((s) => TEAMS[s].includes(up) || up in ALIASES[s]);
 }

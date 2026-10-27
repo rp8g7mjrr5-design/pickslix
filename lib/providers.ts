@@ -1,6 +1,6 @@
 import type { DefenseFactors, GameLog, NewsItem, Prop, Sport, StatKey } from "./types.ts";
 import { SAMPLE_DEFENSE, SAMPLE_NEWS, sampleLogs, teamForPlayer } from "./sampleData.ts";
-import { fetchGameLogs, fetchInjuries, findAthlete, findNextGame, type EspnSport } from "./espn.ts";
+import { fetchGameLogs, fetchInjuries, findAthlete, findNextGame } from "./espn.ts";
 import { canonTeam } from "./names.ts";
 import { loadDefense } from "./refresh.ts";
 
@@ -87,8 +87,6 @@ export function balldontlieProvider(apiKey: string, season: number): StatsProvid
   };
 }
 
-const isEspn = (s: Sport): s is EspnSport => s === "NBA" || s === "NFL";
-
 /**
  * ESPN's public feeds: real NBA and NFL game logs, team defense built from box scores, and the injury report.
  * No key needed.
@@ -96,7 +94,6 @@ const isEspn = (s: Sport): s is EspnSport => s === "NBA" || s === "NFL";
 export const espnProvider: StatsProvider = {
   name: "espn",
   async gameLogs(player, sport, team) {
-    if (!isEspn(sport)) return [];
     const athlete = await findAthlete(player, sport, team ? [team] : []);
     return athlete ? fetchGameLogs(athlete.id, sport) : [];
   },
@@ -108,14 +105,18 @@ export const espnProvider: StatsProvider = {
     return out;
   },
   async news() {
-    const lists = await Promise.allSettled([fetchInjuries("NBA"), fetchInjuries("NFL")]);
+    const lists = await Promise.allSettled((["NBA", "NFL", "NHL", "MLB"] as const).map((s) => fetchInjuries(s)));
     return lists.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   },
   async resolve(input) {
-    if (!isEspn(input.sport)) return resolveFromPaste(input);
     const hints = (input.teams ?? []).map((t) => canonTeam(t, input.sport));
     const athlete = await findAthlete(input.player, input.sport, hints).catch(() => undefined);
-    if (!athlete) return null;
+    if (!athlete) {
+      // "Points" and "Assists" read as NBA; a hockey player's line ends up here.
+      const hockey: Partial<Record<StatKey, StatKey>> = { PTS: "NHL_PTS", AST: "NHL_AST" };
+      const alt = input.sport === "NBA" ? hockey[input.stat] : undefined;
+      return alt ? espnProvider.resolve({ ...input, sport: "NHL", stat: alt }) : null;
+    }
     const prop = await resolveFromPaste({ ...input, player: athlete.name }, athlete.team);
     const game = athlete.team ? await findNextGame(input.sport, athlete.team).catch(() => null) : null;
     if (game) {

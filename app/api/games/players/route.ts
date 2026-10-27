@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { fetchInjuries, fetchTeamPlayers, type EspnSport } from "@/lib/espn.ts";
+import { fetchInjuries, fetchTeamPlayers } from "@/lib/espn.ts";
+import { toSport } from "@/lib/types.ts";
 import { sameName } from "@/lib/names.ts";
 
 /** One team's players with season averages and injury status. ?sport=NBA&team=<ESPN team id>&abbr=BOS */
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
-  const sport = q.get("sport") === "NFL" ? "NFL" : ("NBA" as EspnSport);
+  const sport = toSport(q.get("sport"));
   const team = q.get("team") ?? "";
   const abbr = q.get("abbr") ?? "";
   if (!/^\d+$/.test(team)) return NextResponse.json({ error: "team is required" }, { status: 400 });

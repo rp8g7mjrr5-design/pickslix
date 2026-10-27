@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { fetchGameLogs, fetchInjuries, type EspnSport } from "@/lib/espn.ts";
+import { fetchGameLogs, fetchInjuries } from "@/lib/espn.ts";
 import { loadDefense } from "@/lib/refresh.ts";
-import type { DefenseFactors } from "@/lib/types.ts";
+import { toSport, type DefenseFactors } from "@/lib/types.ts";
 
 /**
  * What the browser needs to score any line for one player as the user moves it:
@@ -10,7 +10,7 @@ import type { DefenseFactors } from "@/lib/types.ts";
  */
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams;
-  const sport = q.get("sport") === "NFL" ? "NFL" : ("NBA" as EspnSport);
+  const sport = toSport(q.get("sport"));
   const id = q.get("id") ?? "";
   const team = q.get("team") ?? "";
   const opp = q.get("opp") ?? "";

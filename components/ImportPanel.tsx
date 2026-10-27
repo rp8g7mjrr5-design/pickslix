@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { readTextOnDevice, toDataUrl } from "@/lib/ocr.ts";
 import { loadCustomProps, saveCustomProps } from "@/lib/storage.ts";
-import { STATS, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
+import { SPORTS, STATS, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
 export interface ImportResult {
   props: Prop[];
@@ -257,8 +257,9 @@ function TypeOne({ onImported }: { onImported: (r: ImportResult) => void }) {
   return (
     <form className="addline" onSubmit={submit}>
       <select value={form.sport} onChange={(e) => set("sport", e.target.value)} aria-label="Sport">
-        <option>NBA</option>
-        <option>NFL</option>
+        {SPORTS.map((s) => (
+          <option key={s}>{s}</option>
+        ))}
       </select>
       <input placeholder="Player name" value={form.player} onChange={(e) => set("player", e.target.value)} aria-label="Player" />
       <select value={form.stat} onChange={(e) => set("stat", e.target.value)} aria-label="Stat">

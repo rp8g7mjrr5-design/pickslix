@@ -1,5 +1,8 @@
 export type Sport = "NBA" | "NFL" | "MLB" | "NHL";
 
+export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB"];
+export const toSport = (v: unknown): Sport => (SPORTS.includes(v as Sport) ? (v as Sport) : "NBA");
+
 export interface StatDef {
   label: string;
   sport: Sport;
@@ -25,6 +28,21 @@ export const STATS = {
   REC: { label: "Receptions", sport: "NFL", parts: ["rec"] },
   REC_YDS: { label: "Receiving Yards", sport: "NFL", parts: ["recYds"] },
   RUSH_REC_YDS: { label: "Rush + Rec Yards", sport: "NFL", parts: ["rushYds", "recYds"] },
+  // NHL
+  SOG: { label: "Shots on Goal", sport: "NHL", parts: ["shots"] },
+  GOALS: { label: "Goals", sport: "NHL", parts: ["goals"] },
+  NHL_AST: { label: "Hockey Assists", sport: "NHL", parts: ["assists"] },
+  NHL_PTS: { label: "Hockey Points", sport: "NHL", parts: ["goals", "assists"] },
+  SAVES: { label: "Goalie Saves", sport: "NHL", parts: ["saves"] },
+  // MLB
+  HITS: { label: "Hits", sport: "MLB", parts: ["hits"] },
+  TB: { label: "Total Bases", sport: "MLB", parts: ["tb"] },
+  HRR: { label: "Hits + Runs + RBIs", sport: "MLB", parts: ["hits", "runs", "rbi"] },
+  RUNS: { label: "Runs", sport: "MLB", parts: ["runs"] },
+  RBI: { label: "RBIs", sport: "MLB", parts: ["rbi"] },
+  K: { label: "Pitcher Strikeouts", sport: "MLB", parts: ["k"] },
+  HITS_ALLOWED: { label: "Hits Allowed", sport: "MLB", parts: ["hitsAllowed"] },
+  OUTS: { label: "Pitching Outs", sport: "MLB", parts: ["outs"] },
 } satisfies Record<string, StatDef>;
 
 export type StatKey = keyof typeof STATS;

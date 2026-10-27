@@ -7,7 +7,7 @@ import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
 import { MAX_PICKS, pct } from "@/lib/format.ts";
 import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
-import { STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
+import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
 
 type SportFilter = "ALL" | Sport;
 type SortKey = "edge" | "time" | "player";
@@ -234,7 +234,7 @@ export default function Board() {
           <div className="toolbar">
             {sports.size > 1 && (
               <div className="tabs" role="tablist">
-                {(["ALL", "NBA", "NFL"] as SportFilter[]).map((s) => (
+                {(["ALL", ...SPORTS.filter((x) => sports.has(x))] as SportFilter[]).map((s) => (
                   <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "active" : ""} onClick={() => setSport(s)}>
                     {s === "ALL" ? "All" : s}
                   </button>
