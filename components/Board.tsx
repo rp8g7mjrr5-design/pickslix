@@ -97,7 +97,7 @@ export default function Board() {
     if (!r.props.length) return;
     const byId = await refresh();
     const picked = Object.entries(r.sides).filter(([id]) => byId.has(id));
-    const missing = r.unresolved.length ? ` Couldn't find ${r.unresolved.join(", ")}.` : "";
+    const missing = r.unresolved.length ? ` No stats found for ${r.unresolved.join(", ")}.` : "";
     if (picked.length) {
       setSlip(picked.slice(0, 6).map(([id, side]) => legFor(byId.get(id)!, side)));
       flash(`Loaded ${Math.min(picked.length, 6)} picks into your slip.${missing}`);
