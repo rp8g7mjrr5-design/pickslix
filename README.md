@@ -16,6 +16,16 @@ Out of the box it pulls live NBA and NFL stats and injuries from ESPN's public f
 each player, their next opponent, and scores the line. Set `DATA_SOURCE=sample` to see the
 demo board with made-up lines instead.
 
+## Adding lines
+
+- **Screenshot:** upload, drop or paste a screenshot of the Pick 6 board or of an entry you made.
+  Picks with More/Less chosen load straight into the slip. Without a key it's read on the device
+  with Tesseract.js (free; the engine downloads from jsDelivr the first time). Set
+  `ANTHROPIC_API_KEY` to read screenshots with Claude instead, which handles busy screenshots
+  much better.
+- **Paste text:** one prop per line or text copied from the app (`lib/parseLines.ts`).
+- **Type one:** player, stat and line.
+
 ## Deploy on Vercel (Hobby, free)
 
 1. Import the GitHub repo at vercel.com/new. No settings needed; it deploys as a Next.js app.

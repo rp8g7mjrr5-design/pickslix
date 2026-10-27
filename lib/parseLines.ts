@@ -10,7 +10,17 @@ export interface ParsedLine {
   stat: StatKey;
   line: number;
   teams: string[];
+  /** The side picked, when the text shows exactly one (a screenshot of a saved entry, "Jokic More 27.5 pts"). */
+  side?: "OVER" | "UNDER";
 }
+
+/** The stat named in a piece of text, if any. */
+export function statFromText(text: string): StatKey | undefined {
+  return STAT_PATTERNS.find(([re]) => re.test(text))?.[1];
+}
+
+const OVER_WORDS = /\b(more|over|higher|o)\b|[↑▲]/i;
+const UNDER_WORDS = /\b(less|under|lower|u)\b|[↓▼]/i;
 
 /** Longest phrases first so "Pts + Reb + Ast" isn't read as plain points. */
 const STAT_PATTERNS: [RegExp, StatKey][] = [
@@ -38,11 +48,13 @@ interface Partial {
   stat?: StatKey;
   line?: number;
   teams: string[];
+  /** Sides mentioned; a card showing both More and Less buttons tells us nothing. */
+  sides: Set<"OVER" | "UNDER">;
 }
 
 function readLine(raw: string): Partial {
   let text = ` ${raw.replace(/[|,;\t]/g, " ")} `;
-  const out: Partial = { teams: [] };
+  const out: Partial = { teams: [], sides: new Set() };
 
   for (const [re, key] of STAT_PATTERNS) {
     if (re.test(text)) {
@@ -53,12 +65,16 @@ function readLine(raw: string): Partial {
   }
   // Game times and dates would otherwise look like the line.
   text = text.replace(/\b\d{1,2}:\d{2}\s*(am|pm)?\b/gi, " ").replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, " ");
+  // "o27.5" / "u27.5" shorthand
+  text = text.replace(/\b([ou])(\d)/gi, "$1 $2");
   const n = text.match(/(?:^|\s)(\d+(?:\.\d+)?)(?=\s|$)/);
   if (n) {
     out.line = Number(n[1]);
     text = text.replace(n[0], " ");
   }
-  text = text.replace(/[@]/g, " ").replace(FILLER, " ");
+  if (OVER_WORDS.test(text)) out.sides.add("OVER");
+  if (UNDER_WORDS.test(text)) out.sides.add("UNDER");
+  text = text.replace(/[@↑↓▲▼]/g, " ").replace(FILLER, " ");
 
   const words: string[] = [];
   for (const w of text.split(/\s+/).filter(Boolean)) {
@@ -75,30 +91,57 @@ const complete = (p: Partial): p is Required<Partial> => Boolean(p.player && p.s
 export function parseLines(text: string): { lines: ParsedLine[]; skipped: string[] } {
   const lines: ParsedLine[] = [];
   const skipped: string[] = [];
-  let cur: Partial = { teams: [] };
+  let cur: Partial = { teams: [], sides: new Set() };
   let curRaw: string[] = [];
+
+  // Lines that only say More/Less (buttons, badges) are held until we know where they belong.
+  let sideRun = new Set<"OVER" | "UNDER">();
+  let pending: "OVER" | "UNDER" | undefined;
 
   const flush = () => {
     if (complete(cur)) {
-      lines.push({ sport: STATS[cur.stat].sport, player: cur.player, stat: cur.stat, line: cur.line, teams: cur.teams });
-    } else if (cur.player || cur.stat || cur.line != null) {
+      const side = cur.sides.size === 1 ? [...cur.sides][0] : undefined;
+      lines.push({ sport: STATS[cur.stat].sport, player: cur.player, stat: cur.stat, line: cur.line, teams: cur.teams, side });
+    } else if (cur.stat) {
+      // Only report things that looked like a prop; headers and stray text are dropped quietly.
       skipped.push(curRaw.join(" / "));
     }
-    cur = { teams: [] };
+    cur = { teams: [], sides: new Set() };
     curRaw = [];
+  };
+
+  /** A More and a Less together are unpicked buttons. One alone belongs to this prop, or the next if this one has a side. */
+  const settleSides = () => {
+    if (sideRun.size === 1) {
+      const s = [...sideRun][0];
+      if (cur.sides.size) pending = s;
+      else cur.sides.add(s);
+    }
+    sideRun = new Set();
   };
 
   for (const raw of text.split(/\r?\n/)) {
     if (!raw.trim()) continue;
     const got = readLine(raw);
+    if (got.sides.size && !got.player && !got.stat && got.line == null && !got.teams.length) {
+      got.sides.forEach((x) => sideRun.add(x));
+      continue;
+    }
+    settleSides();
     // A new name means a new prop, once the current one has something besides a name.
     if (got.player && cur.player && (cur.stat || cur.line != null)) flush();
+    if (pending && !cur.player) {
+      cur.sides.add(pending);
+      pending = undefined;
+    }
     if (got.player && !cur.player) cur.player = got.player;
     if (got.stat && !cur.stat) cur.stat = got.stat;
     if (got.line != null && cur.line == null) cur.line = got.line;
     cur.teams.push(...got.teams);
+    got.sides.forEach((x) => cur.sides.add(x));
     curRaw.push(raw.trim());
   }
+  settleSides();
   flush();
 
   const seen = new Set<string>();

@@ -54,3 +54,49 @@ test("incomplete entries are reported, duplicates dropped", () => {
   assert.equal(skipped.length, 1);
   assert.match(skipped[0], /LeBron/);
 });
+
+test("picks from a saved entry keep their side; a card with both buttons has none", () => {
+  const { lines } = parseLines(`
+Nikola Jokic
+DEN vs GS
+More than 27.5 Points
+Josh Allen BUF Pass Yds u245.5
+Jamal Murray
+27.5
+Points
+More
+Less
+`);
+  assert.deepEqual(
+    lines.map((l) => [l.player, l.stat, l.line, l.side]),
+    [
+      ["Nikola Jokic", "PTS", 27.5, "OVER"],
+      ["Josh Allen", "PASS_YDS", 245.5, "UNDER"],
+      ["Jamal Murray", "PTS", 27.5, undefined],
+    ],
+  );
+});
+
+test("on-device OCR of a saved entry: badges on the name line or on their own line", () => {
+  // Real output from the in-browser reader on a mock entry screenshot.
+  const { lines } = parseLines(`My Entry
+3 Picks - $10 to pay $60
+Nikola Jokic More.
+C - DEN 27.5
+vs GS Tue 9:00pm Points
+Shai Gilgeous-Alexander Less.
+G - OKC 40.5
+@ PHX Tue 7:00pm Pts + Reb + Ast
+More
+Josh Allen : :
+QB - BUF 245.5
+@ BAL Sun 1:00pm Pass Yds`);
+  assert.deepEqual(
+    lines.map((l) => [l.player, l.stat, l.line, l.side, l.teams.join(" ")]),
+    [
+      ["Nikola Jokic", "PTS", 27.5, "OVER", "DEN GS"],
+      ["Shai Gilgeous-Alexander", "PRA", 40.5, "UNDER", "OKC PHX"],
+      ["Josh Allen", "PASS_YDS", 245.5, "OVER", "BUF BAL"],
+    ],
+  );
+});

@@ -208,6 +208,7 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
     hitRateLast10,
     reasons,
     status: out ? "out" : "ok",
+    injury: out ? "out" : questionable ? "questionable" : undefined,
   };
 }
 

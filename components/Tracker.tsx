@@ -46,6 +46,12 @@ export default function Tracker() {
 
   return (
     <div className="tracker">
+      <div className="hero">
+        <div>
+          <h1>Tracker</h1>
+          <p className="muted">Mark each pick as it settles to see how you and the model are doing.</p>
+        </div>
+      </div>
       <div className="cards">
         <Card label="Picks graded" value={String(graded.length)} />
         <Card label="Your hit rate" value={graded.length ? pct(hits / graded.length) : "–"} />
@@ -61,7 +67,11 @@ export default function Tracker() {
         instead.
       </p>
       {synced && <SyncCode onChange={load} />}
-      {!slips.length && <p className="muted">No saved slips yet. Build one on the board and tap Save to tracker.</p>}
+      {!slips.length && (
+        <div className="emptycard">
+          <p>No saved slips yet. Build one on the board and tap Save to tracker.</p>
+        </div>
+      )}
       {slips.map((s) => (
         <div key={s.id} className="saved">
           <div className="savedhead">
@@ -78,7 +88,8 @@ export default function Tracker() {
               <div>
                 <strong>{l.player}</strong>
                 <small>
-                  {l.side === "OVER" ? "More" : "Less"} than {l.line} {STATS[l.stat].label} · model {pct(l.prob)}
+                  <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
+                  {STATS[l.stat].label} · model {pct(l.prob)}
                 </small>
               </div>
               <div className="grade">

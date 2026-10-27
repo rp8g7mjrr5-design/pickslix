@@ -92,6 +92,8 @@ export interface Projection {
   hitRateLast10: number;
   reasons: string[];
   status: "ok" | "out";
+  /** Injury report status for this player, if listed. */
+  injury?: "out" | "questionable";
 }
 
 export interface PropWithProjection extends Prop {
