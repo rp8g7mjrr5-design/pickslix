@@ -1,4 +1,4 @@
-// PickSlix Pro without accounts: buying (or redeeming a lifetime code) issues a Pro key, which the
+// LegUp Pro without accounts: buying (or redeeming a lifetime code) issues a Pro key, which the
 // browser keeps and can be typed into any other device. Keys live in the database; subscription keys
 // are re-checked against Stripe now and then, so a cancelled subscription stops working on its own.
 import { kvClaim, kvGet, kvSet } from "./db.ts";
@@ -37,14 +37,14 @@ export const prices = () => ({
   yearly: process.env.STRIPE_PRICE_YEARLY || undefined,
 });
 
-const KEY_RE = /^PSX(-[A-Z0-9]{4}){3}$/;
+const KEY_RE = /^LEG(-[A-Z0-9]{4}){3}$/;
 const passKey = (key: string) => `pro:${key}`;
 
 export function newKey(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   const chars = [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
-  return `PSX-${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8, 12)}`;
+  return `LEG-${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8, 12)}`;
 }
 
 export const normalizeKey = (key: string) => key.trim().toUpperCase();

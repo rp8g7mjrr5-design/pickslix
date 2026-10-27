@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PickSlix",
-    short_name: "PickSlix",
+    name: "LegUp",
+    short_name: "LegUp",
     description: "Over/under probabilities for DraftKings Pick 6 player props",
     start_url: "/",
     display: "standalone",

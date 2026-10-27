@@ -1,28 +1,20 @@
-/** The PickSlix mark: a Pick 6 ticket with a lightning bolt. Same drawing as app/icon.svg. */
+/** The LegUp mark: three slip legs stepping up, with an arrow on top. Same drawing as app/icon.svg. */
 export default function Logo({ size = 30 }: { size?: number }) {
   return (
     <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden className="logo">
       <defs>
-        <linearGradient id="pxg" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="lug" x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" stopColor="#3dff9a" />
           <stop offset=".5" stopColor="#14d6c8" />
           <stop offset="1" stopColor="#6a5cff" />
         </linearGradient>
-        <linearGradient id="pxs" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity=".35" />
-          <stop offset=".5" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
       </defs>
-      <rect width="64" height="64" rx="16" fill="url(#pxg)" />
-      <rect width="64" height="64" rx="16" fill="url(#pxs)" />
-      <g transform="rotate(-12 32 32)">
-        <path
-          d="M15 17h34a3 3 0 0 1 3 3v7a5 5 0 0 0 0 10v7a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3v-7a5 5 0 0 0 0-10v-7a3 3 0 0 1 3-3z"
-          fill="#0b0f14"
-        />
-        <path d="M22 20.5v23" stroke="#3dff9a" strokeOpacity=".45" strokeWidth="1.6" strokeDasharray="2.4 2.4" />
-        <path d="M39 18.5 26 34.5h7.5L30 46l14-17h-7.5l2.5-10.5z" fill="url(#pxg)" />
-      </g>
+      <rect width="64" height="64" rx="14" fill="#141a22" />
+      <rect x=".5" y=".5" width="63" height="63" rx="13.5" fill="none" stroke="#273140" />
+      <rect x="13" y="37" width="9" height="14" rx="3" fill="url(#lug)" />
+      <rect x="27.5" y="29" width="9" height="22" rx="3" fill="url(#lug)" />
+      <rect x="42" y="21" width="9" height="30" rx="3" fill="url(#lug)" />
+      <path d="M41.5 15.5 46.5 10.5 51.5 15.5" fill="none" stroke="url(#lug)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -9,10 +9,10 @@ beforeEach(() => {
   delete process.env.UPSTASH_REDIS_REST_URL;
 });
 
-test("keys look like PSX-XXXX-XXXX-XXXX and don't repeat", () => {
+test("keys look like LEG-XXXX-XXXX-XXXX and don't repeat", () => {
   const keys = new Set(Array.from({ length: 200 }, newKey));
   assert.equal(keys.size, 200);
-  for (const k of keys) assert.match(k, /^PSX(-[A-HJ-NP-Z2-9]{4}){3}$/);
+  for (const k of keys) assert.match(k, /^LEG(-[A-HJ-NP-Z2-9]{4}){3}$/);
 });
 
 test("nothing is locked until Stripe or lifetime codes are set up", () => {

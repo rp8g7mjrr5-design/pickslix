@@ -19,7 +19,7 @@ const TIP_URL = process.env.NEXT_PUBLIC_TIP_URL;
 const PERKS = [
   ["Pick 6 lines, filled in", "Open any game and every posted line is already set. No typing numbers in."],
   ["Model report card", "See how often the model's 55%, 60% and 65% picks really hit."],
-  ["Support the site", "Pro pays for the live odds feed and keeps PickSlix running."],
+  ["Support the site", "Pro pays for the live odds feed and keeps LegUp running."],
 ];
 
 async function post<T>(url: string, body: unknown): Promise<T & { error?: string }> {
@@ -118,10 +118,10 @@ export default function Pro() {
     <div className="pro">
       <section className="prohero">
         <span className="probadge">PRO</span>
-        <h1>{isPro ? "You're Pro" : "PickSlix Pro"}</h1>
+        <h1>{isPro ? "You're Pro" : "LegUp Pro"}</h1>
         <p className="muted">
           {isPro
-            ? `Thanks for supporting PickSlix${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
+            ? `Thanks for supporting LegUp${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
             : "Pick 6 lines filled in for every game, plus the model's report card."}
         </p>
       </section>
@@ -219,7 +219,7 @@ export default function Pro() {
           <form onSubmit={useKey}>
             <label htmlFor="key">Already Pro on another device?</label>
             <div>
-              <input id="key" placeholder="PSX-XXXX-XXXX-XXXX" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} autoCapitalize="characters" />
+              <input id="key" placeholder="LEG-XXXX-XXXX-XXXX" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} autoCapitalize="characters" />
               <button type="submit" className="ghost" disabled={!!busy}>
                 {busy === "key" ? "Checking…" : "Use key"}
               </button>
