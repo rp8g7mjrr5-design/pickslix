@@ -5,6 +5,7 @@ import GamePicker from "@/components/GamePicker";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
+import { bestSlip } from "@/lib/bestSlip.ts";
 import { MAX_PICKS, pct } from "@/lib/format.ts";
 import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
@@ -121,6 +122,13 @@ export default function Board() {
     });
     clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(refresh, 900);
+  };
+
+  const buildBest = (n: number) => {
+    const picks = bestSlip(rows, n);
+    if (!picks.length) return flash("Not enough strong lines on the board yet. Add a few games first.");
+    setSlip(picks.map((r) => legFor(r, r.projection.pick)));
+    flash(picks.length < n ? `Only ${picks.length} picks cleared the bar, so your slip has ${picks.length}.` : `Built your best ${n}-pick slip.`);
   };
 
   const viewSlip = () => document.getElementById("slip")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -390,6 +398,7 @@ export default function Board() {
         rows={rows}
         onRemove={(id) => setSlip((s) => s.filter((l) => l.propId !== id))}
         onClear={() => setSlip([])}
+        onBest={buildBest}
       />
 
       {slip.length > 0 && (

@@ -9,6 +9,18 @@ import { SignInPrompt, useAccount } from "@/components/Account";
 
 const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
+type Filter = "all" | "open" | "settled";
+
+/** A settled slip's result and profit. A push leg is treated as removed. */
+function outcome(s: SavedSlip): { state: "open" | "won" | "lost"; pnl: number } {
+  if (!s.legs.every((l) => l.result)) return { state: "open", pnl: 0 };
+  const live = s.legs.filter((l) => l.result !== "push");
+  const won = live.length >= 2 && live.every((l) => l.result === "hit");
+  return { state: won ? "won" : "lost", pnl: won ? s.entry * s.multiplier - s.entry : -s.entry };
+}
+
+const money = (x: number) => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
+
 export default function Tracker() {
   const [slips, setSlips] = useState<SavedSlip[]>([]);
   const pro = usePro();
@@ -17,6 +29,7 @@ export default function Tracker() {
   const account = useAccount();
   const [grading, setGrading] = useState(false);
   const [gradedNote, setGradedNote] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
   const graded = useRef(false);
   const load = () => {
     setSlips(loadSlips());
@@ -105,12 +118,16 @@ export default function Tracker() {
   const hits = settledLegs.filter((l) => l.result === "hit").length;
   const expected = settledLegs.reduce((a, l) => a + l.prob, 0);
 
-  const settled = slips.filter((s) => s.legs.every((l) => l.result));
-  const profit = settled.reduce((a, s) => {
-    const live = s.legs.filter((l) => l.result !== "push");
-    const won = live.length >= 2 && live.every((l) => l.result === "hit");
-    return a + (won ? s.entry * s.multiplier - s.entry : -s.entry);
-  }, 0);
+  const settled = slips.filter((s) => outcome(s).state !== "open");
+  const profit = settled.reduce((a, s) => a + outcome(s).pnl, 0);
+  const openCount = slips.length - settled.length;
+  const shown = slips.filter((s) => filter === "all" || (filter === "open") === (outcome(s).state === "open"));
+  const locked = !unlocked(pro);
+
+  const remove = (s: SavedSlip) => {
+    if (!confirm(`Delete this ${s.legs.length}-pick slip? This can't be undone.`)) return;
+    update(slips.filter((x) => x.id !== s.id));
+  };
 
   return (
     <div className="tracker">
@@ -128,17 +145,14 @@ export default function Tracker() {
         <Card label="Picks graded" value={String(settledLegs.length)} />
         <Card label="Your hit rate" value={settledLegs.length ? pct(hits / settledLegs.length) : "–"} />
         <Card label="Model expected" value={settledLegs.length ? pct(expected / settledLegs.length) : "–"} />
-        <Card
-          label="Settled slips P/L"
-          value={`${profit >= 0 ? "+" : "−"}$${Math.abs(profit).toFixed(2)}`}
-          tone={profit >= 0 ? "pos" : "neg"}
-        />
+        <Card label="Settled slips P/L" value={money(profit)} tone={profit >= 0 ? "pos" : "neg"} />
       </div>
       <p className="fine">
         Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout
         instead.
       </p>
-      {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={!unlocked(pro)} />}
+      {settled.length > 0 && <Insights slips={settled} locked={locked} />}
+      {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={locked} />}
       {account.enabled && account.loaded && !account.signedIn && (
         <div className="signinprompt">
           <small>Sign in to keep your slips and results on every device.</small>
@@ -151,38 +165,72 @@ export default function Tracker() {
           <p>No saved slips yet. Build one on the board and tap Save to tracker.</p>
         </div>
       )}
-      {slips.map((s) => (
-        <div key={s.id} className="saved">
-          <div className="savedhead">
-            <strong>
-              {s.legs.length}-pick · ${s.entry} at {s.multiplier}×
-            </strong>
-            <small>{new Date(s.createdAt).toLocaleString()}</small>
-            <button className="x" onClick={() => update(slips.filter((x) => x.id !== s.id))} aria-label="Delete slip">
-              ×
-            </button>
+      {slips.length > 0 && (
+        <div className="trackbar">
+          <div className="seg" role="tablist" aria-label="Show slips">
+            {(
+              [
+                ["all", `All ${slips.length}`],
+                ["open", `Open ${openCount}`],
+                ["settled", `Settled ${settled.length}`],
+              ] as [Filter, string][]
+            ).map(([f, label]) => (
+              <button key={f} role="tab" aria-selected={filter === f} className={filter === f ? "on" : ""} onClick={() => setFilter(f)}>
+                {label}
+              </button>
+            ))}
           </div>
-          {s.legs.map((l) => (
-            <div key={l.propId} className="leg">
-              <div>
-                <strong>{l.player}</strong>
-                <small>
-                  {l.auto && <b className="autotag" title="Graded from the box score">auto</b>}
-                  <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
-                  {STATS[l.stat].label} · model {pct(l.prob)}
-                </small>
-              </div>
-              <div className="grade">
-                {RESULTS.map((r) => (
-                  <button key={r} className={l.result === r ? `on ${r}` : ""} onClick={() => mark(s.id, l.propId, r)}>
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+          {locked ? (
+            <a href="/pro" className="prolink">
+              <span className="probadge">PRO</span> Export CSV
+            </a>
+          ) : (
+            <button className="ghost small" onClick={() => exportCsv(slips)}>
+              Export CSV
+            </button>
+          )}
         </div>
-      ))}
+      )}
+      {slips.length > 0 && !shown.length && <p className="muted empty">No {filter} slips.</p>}
+      {shown.map((s) => {
+        const o = outcome(s);
+        const done = s.legs.filter((l) => l.result).length;
+        return (
+          <div key={s.id} className={`saved ${o.state}`}>
+            <div className="savedhead">
+              <strong>
+                {s.legs.length}-pick · ${s.entry} at {s.multiplier}×
+              </strong>
+              <small>{new Date(s.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>
+              <span className={`result ${o.state}`}>
+                {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : "Lost"} ${money(o.pnl)}`}
+              </span>
+              <button className="x" onClick={() => remove(s)} aria-label="Delete slip">
+                ×
+              </button>
+            </div>
+            {s.legs.map((l) => (
+              <div key={l.propId} className="leg">
+                <div>
+                  <strong>{l.player}</strong>
+                  <small>
+                    {l.auto && <b className="autotag" title="Graded from the box score">auto</b>}
+                    <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
+                    {STATS[l.stat].label} · model {pct(l.prob)}
+                  </small>
+                </div>
+                <div className="grade">
+                  {RESULTS.map((r) => (
+                    <button key={r} className={l.result === r ? `on ${r}` : ""} onClick={() => mark(s.id, l.propId, r)}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -244,19 +292,136 @@ function ReportCard({ legs, locked }: { legs: SlipLeg[]; locked: boolean }) {
       )}
     </section>
   );
-  if (!locked) return card;
+  return (
+    <ProLock locked={locked} title="See how the model is really doing" detail="The report card compares the model's odds with your actual results.">
+      {card}
+    </ProLock>
+  );
+}
+
+function ProLock({ locked, title, detail, children }: { locked: boolean; title: string; detail: string; children: React.ReactNode }) {
+  if (!locked) return children;
   return (
     <div className="prolock">
       <div className="blurred" aria-hidden>
-        {card}
+        {children}
       </div>
       <div className="unlock">
-        <strong>See how the model is really doing</strong>
-        <small>The report card compares the model's odds with your actual results.</small>
+        <strong>{title}</strong>
+        <small>{detail}</small>
         <a href="/pro">Unlock with Pro</a>
       </div>
     </div>
   );
+}
+
+/** Profit over time, ROI, and where the user's picks do best. */
+function Insights({ slips, locked }: { slips: SavedSlip[]; locked: boolean }) {
+  const ordered = [...slips].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  let run = 0;
+  const points = [0, ...ordered.map((s) => (run += outcome(s).pnl))];
+  const staked = ordered.reduce((a, s) => a + s.entry, 0);
+  const won = ordered.filter((s) => outcome(s).state === "won").length;
+  let streak = 0;
+  for (let i = ordered.length - 1; i >= 0 && outcome(ordered[i]).state === outcome(ordered[ordered.length - 1]).state; i--) streak++;
+  const lastWon = outcome(ordered[ordered.length - 1]).state === "won";
+
+  const legs = ordered.flatMap((s) => s.legs).filter((l) => l.result === "hit" || l.result === "miss");
+  const rate = (ls: SlipLeg[]) => (ls.length ? ls.filter((l) => l.result === "hit").length / ls.length : 0);
+  const more = legs.filter((l) => l.side === "OVER");
+  const less = legs.filter((l) => l.side === "UNDER");
+  const byStat = new Map<string, SlipLeg[]>();
+  for (const l of legs) byStat.set(STATS[l.stat].label, [...(byStat.get(STATS[l.stat].label) ?? []), l]);
+  const stats = [...byStat.entries()].filter(([, ls]) => ls.length >= 3).map(([label, ls]) => ({ label, n: ls.length, rate: rate(ls) }));
+  stats.sort((a, b) => b.rate - a.rate);
+  const best = stats.slice(0, 3);
+  const worst = stats.length > 3 ? stats.slice(-2).reverse() : [];
+
+  const card = (
+    <section className="report insights">
+      <div className="reporthead">
+        <h2>Your insights</h2>
+        <small>
+          {won}-{ordered.length - won} on settled slips · ROI {staked ? `${((run / staked) * 100).toFixed(0)}%` : "–"} · {streak} {lastWon ? "win" : "loss"}
+          {streak === 1 ? "" : lastWon ? "s" : "es"} in a row
+        </small>
+      </div>
+      <ProfitChart points={points} />
+      <div className="insightgrid">
+        <div>
+          <small>More picks</small>
+          <strong>{more.length ? pct(rate(more)) : "–"}</strong>
+          <span className="muted">of {more.length}</span>
+        </div>
+        <div>
+          <small>Less picks</small>
+          <strong>{less.length ? pct(rate(less)) : "–"}</strong>
+          <span className="muted">of {less.length}</span>
+        </div>
+      </div>
+      {best.length > 0 && (
+        <div className="statlist">
+          <small>Your best stats</small>
+          {best.map((x) => (
+            <span key={x.label}>
+              {x.label} <b className="pos">{pct(x.rate)}</b> <span className="muted">of {x.n}</span>
+            </span>
+          ))}
+          {worst.length > 0 && <small>Toughest for you</small>}
+          {worst.map((x) => (
+            <span key={x.label}>
+              {x.label} <b className="neg">{pct(x.rate)}</b> <span className="muted">of {x.n}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {!best.length && <p className="fine">Stat breakdowns show up once a stat has 3 graded picks.</p>}
+    </section>
+  );
+  return (
+    <ProLock locked={locked} title="Know where you win" detail="Profit over time, ROI, streaks, and your best and worst stats.">
+      {card}
+    </ProLock>
+  );
+}
+
+function ProfitChart({ points }: { points: number[] }) {
+  const w = 600;
+  const h = 120;
+  const lo = Math.min(0, ...points);
+  const hi = Math.max(0, ...points);
+  const span = hi - lo || 1;
+  const x = (i: number) => (points.length > 1 ? (i / (points.length - 1)) * w : w / 2);
+  const y = (v: number) => h - 6 - ((v - lo) / span) * (h - 12);
+  const d = points.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const up = points[points.length - 1] >= 0;
+  return (
+    <svg className="profitchart" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={`Profit over ${points.length - 1} settled slips`}>
+      <line x1="0" x2={w} y1={y(0)} y2={y(0)} className="zero" />
+      <path d={`${d} L${x(points.length - 1)} ${y(0)} L0 ${y(0)} Z`} className={up ? "fillpos" : "fillneg"} />
+      <path d={d} className={up ? "pos" : "neg"} fill="none" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+function exportCsv(slips: SavedSlip[]) {
+  const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [["Saved", "Slip", "Entry", "Payout", "Slip result", "Slip P/L", "Player", "Stat", "Line", "Pick", "Model chance", "Result"]];
+  for (const s of slips) {
+    const o = outcome(s);
+    for (const l of s.legs) {
+      rows.push([
+        s.createdAt, s.id.slice(0, 8), String(s.entry), String(s.multiplier), o.state, o.state === "open" ? "" : o.pnl.toFixed(2),
+        l.player, STATS[l.stat].label, String(l.line), l.side === "OVER" ? "More" : "Less", (l.prob * 100).toFixed(1) + "%", l.result ?? "",
+      ]);
+    }
+  }
+  const blob = new Blob([rows.map((r) => r.map(cell).join(",")).join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `legup-tracker-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {

@@ -5,18 +5,24 @@ import { slipHitProbability } from "@/lib/model.ts";
 import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type PropWithProjection } from "@/lib/types.ts";
+import { unlocked, usePro } from "@/lib/proClient.ts";
+
+const BEST_SIZES = [2, 3, 4, 5, 6];
 
 export default function Slip({
   legs,
   rows,
   onRemove,
   onClear,
+  onBest,
 }: {
   legs: SlipLeg[];
   rows: PropWithProjection[];
   onRemove: (id: string) => void;
   onClear: () => void;
+  onBest: (n: number) => void;
 }) {
+  const pro = usePro();
   const [entry, setEntry] = useState(10);
   const [multiplier, setMultiplier] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
@@ -129,9 +135,15 @@ export default function Slip({
           {sameGame && <p className="warn">Some picks are from the same game, so they're not independent. Treat the chance as rough.</p>}
           <p className="fine">Check the payout in the DraftKings app; it changes with the picks you choose.</p>
           <div className="actions">
-            <button onClick={save} disabled={legs.length < 2 || saved}>
-              {saved ? "Saved ✓" : "Save to tracker"}
-            </button>
+            {saved ? (
+              <a className="button" href="/tracker">
+                Saved ✓ View
+              </a>
+            ) : (
+              <button onClick={save} disabled={legs.length < 2}>
+                Save to tracker
+              </button>
+            )}
             <button className="ghost" onClick={copy}>
               {copied ? "Copied" : "Copy"}
             </button>
@@ -140,6 +152,29 @@ export default function Slip({
             </button>
           </div>
         </>
+      )}
+      {rows.length > 0 && (
+        <div className="bestslip">
+          <div>
+            <strong>
+              <span aria-hidden>✦</span> Build my best slip
+            </strong>
+            <small>The model's strongest picks, one per game.</small>
+          </div>
+          {unlocked(pro) ? (
+            <div className="seg" role="group" aria-label="Number of picks">
+              {BEST_SIZES.map((n) => (
+                <button key={n} onClick={() => onBest(n)} aria-label={`Best ${n}-pick slip`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <a href="/pro" className="prolink">
+              <span className="probadge">PRO</span> Unlock
+            </a>
+          )}
+        </div>
       )}
     </aside>
   );
