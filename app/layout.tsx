@@ -7,31 +7,31 @@ import Nav from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "LegUp", template: "%s · LegUp" },
+  title: { default: "Crew Check", template: "%s · Crew Check" },
   description: "Over/under probabilities for DraftKings Pick 6 player props, from recent games, matchups and injury news.",
-  applicationName: "LegUp",
-  appleWebApp: { capable: true, title: "LegUp", statusBarStyle: "black-translucent" },
+  applicationName: "Crew Check",
+  appleWebApp: { capable: true, title: "Crew Check", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0f14",
+  themeColor: "#07090d",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
 
-// Clerk's sign-in screens, in LegUp's colors.
+// Clerk's sign-in screens, in Crew Check's colors.
 const clerkLook = {
   variables: {
-    colorPrimary: "#3dff9a",
-    colorPrimaryForeground: "#062b0d",
-    colorBackground: "#141a22",
-    colorForeground: "#e8eef5",
-    colorMutedForeground: "#8b97a6",
-    colorInput: "#1c242f",
-    colorInputForeground: "#e8eef5",
-    colorNeutral: "#e8eef5",
-    colorBorder: "#273140",
+    colorPrimary: "#2bf59b",
+    colorPrimaryForeground: "#07090d",
+    colorBackground: "#11171f",
+    colorForeground: "#eef3f8",
+    colorMutedForeground: "#8a96a6",
+    colorInput: "#161d27",
+    colorInputForeground: "#eef3f8",
+    colorNeutral: "#eef3f8",
+    colorBorder: "#222b37",
     borderRadius: "10px",
   },
 };
@@ -39,14 +39,16 @@ const clerkLook = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const page = (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* Archivo Expanded Black is only used for the logo ticket. */}
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&display=swap" />
+      </head>
       <body>
         <AccountProvider>
         <header className="topbar">
-          <Link href="/" className="brand" aria-label="LegUp home">
+          <Link href="/" className="brand" aria-label="Crew Check home">
             <Logo />
-            <span className="wordmark">
-              Leg<span>Up</span>
-            </span>
           </Link>
           <div className="topright">
             <Nav />
