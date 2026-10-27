@@ -26,7 +26,7 @@ export interface StatsProvider {
 export const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 /** Uses whatever team abbreviations came with the paste; the first is taken as the player's team. */
-async function resolveFromPaste(input: LineInput, team?: string): Promise<Prop> {
+export async function resolveFromPaste(input: LineInput, team?: string): Promise<Prop> {
   const teams = (input.teams ?? []).map((t) => canonTeam(t, input.sport));
   const own = team ?? teams[0] ?? "";
   return {

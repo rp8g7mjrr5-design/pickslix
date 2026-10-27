@@ -26,7 +26,7 @@ function commit(body: ImportResult): string {
   saveCustomProps([...body.props, ...loadCustomProps().filter((p) => !ids.has(p.id))]);
   const n = body.props.length;
   const parts = [n ? `Added ${n} line${n === 1 ? "" : "s"}.` : "No lines found."];
-  if (body.unresolved.length) parts.push(`Couldn't find ${body.unresolved.join(", ")}.`);
+  if (body.unresolved.length) parts.push(`No stats found for ${body.unresolved.join(", ")} yet, so ${body.unresolved.length === 1 ? "it shows" : "they show"} without a projection.`);
   if (body.skipped.length) parts.push(`Couldn't read ${body.skipped.length} entr${body.skipped.length === 1 ? "y" : "ies"}.`);
   return parts.join(" ");
 }
