@@ -24,6 +24,20 @@ const UNDER_WORDS = /\b(less|under|lower|u)\b|[↓▼]/i;
 
 /** Longest phrases first so "Pts + Reb + Ast" isn't read as plain points. */
 const STAT_PATTERNS: [RegExp, StatKey][] = [
+  // MLB and NHL first: their phrases contain words ("hits", "points") the basketball patterns would grab.
+  [/\bh\s*\+\s*r\s*\+\s*rbis?\b|\bhits\s*\+\s*runs\s*\+\s*rbis?\b|\bhrr\b/i, "HRR"],
+  [/\btotal\s*bases\b|\btb\b/i, "TB"],
+  [/\bhits\s*allowed\b/i, "HITS_ALLOWED"],
+  [/\b(pitcher\s*)?strikeouts\b|\bpitcher\s*ks?\b/i, "K"],
+  [/\b(pitching\s*)?outs(\s*recorded)?\b/i, "OUTS"],
+  [/\brbis?\b/i, "RBI"],
+  [/\bruns(\s*scored)?\b/i, "RUNS"],
+  [/\bhits\b/i, "HITS"],
+  [/\bshots(\s*on\s*goal)?\b|\bsog\b/i, "SOG"],
+  [/\b(goalie\s*)?saves\b/i, "SAVES"],
+  [/\bgoals\b/i, "GOALS"],
+  [/\bhockey\s*points\b/i, "NHL_PTS"],
+  [/\bhockey\s*assists\b/i, "NHL_AST"],
   [/\b(pts|points)\s*\+\s*(reb|rebs|rebounds)\s*\+\s*(ast|asts|assists)\b|\bp\s*\+\s*r\s*\+\s*a\b|\bpra\b/i, "PRA"],
   [/\b(pts|points)\s*\+\s*(reb|rebs|rebounds)\b|\bp\s*\+\s*r\b/i, "PR"],
   [/\b(pts|points)\s*\+\s*(ast|asts|assists)\b|\bp\s*\+\s*a\b/i, "PA"],
@@ -42,9 +56,9 @@ const STAT_PATTERNS: [RegExp, StatKey][] = [
 ];
 
 /** Position tags after a name, plus common OCR misreads of them (SC for SG). */
-const POSITION = /^(PG|SG|SF|PF|C|G|F|G-F|F-G|F-C|C-F|QB|RB|WR|TE|K|FB|DST|SC|PC|FC)$/;
+const POSITION = /^(PG|SG|SF|PF|C|G|F|G-F|F-G|F-C|C-F|QB|RB|WR|TE|K|FB|DST|SC|PC|FC|LW|RW|D|SP|RP|P|1B|2B|3B|SS|LF|CF|RF|OF|DH)$/;
 
-const FILLER = /\b(vs|v|at|more|less|over|under|higher|lower|nba|nfl|pick|o|u|projection|line|final|today|tomorrow|mon|tue|wed|thu|fri|sat|sun)\b/gi;
+const FILLER = /\b(vs|v|at|more|less|over|under|higher|lower|nba|nfl|nhl|mlb|pick|o|u|projection|line|final|today|tomorrow|mon|tue|wed|thu|fri|sat|sun)\b/gi;
 
 interface Partial {
   player?: string;

@@ -138,3 +138,23 @@ test("NFL team players merge passing, rushing and receiving; defense is left out
   assert.equal(kelce.avg.PASS_YDS, undefined);
   assert.ok(!players.some((p) => p.name === "Nick Bolton"));
 });
+
+test("NHL log reads goals, assists, shots and ice time", () => {
+  const logs = parseGameLog(fixture("espn-nhl-gamelog"), "NHL");
+  assert.equal(logs.length, 2);
+  const last = logs.find((g) => g.stats.goals === 0)!;
+  assert.deepEqual(last.stats, { goals: 0, assists: 2, shots: 3 });
+  assert.ok(Math.abs(last.playing - 22.45) < 0.01);
+});
+
+test("MLB hitter log adds up total bases; pitcher log reads strikeouts and outs", () => {
+  const hitter = parseGameLog(fixture("espn-mlb-gamelog"), "MLB");
+  const homer = hitter.find((g) => g.stats.hr === 1)!;
+  assert.equal(homer.stats.tb, 4);
+  assert.equal(homer.stats.rbi, 3);
+  const pitcher = parseGameLog(fixture("espn-mlb-pitcher-gamelog"), "MLB");
+  const start = pitcher.find((g) => g.stats.k === 8)!;
+  assert.equal(start.stats.outs, 17);
+  assert.equal(start.stats.hitsAllowed, 3);
+  assert.equal(start.stats.hits, undefined);
+});

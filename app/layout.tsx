@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main>{children}</main>
         <footer className="foot">
           Probabilities are model estimates from public stats, not guarantees. Not affiliated with DraftKings. 21+.
-          Gambling problem? Call 1-800-GAMBLER.
+          Gambling problem? Call 1-800-GAMBLER. <Link href="/setup">Setup check</Link>
         </footer>
       </body>
     </html>

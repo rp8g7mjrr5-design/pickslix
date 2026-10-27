@@ -3,10 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { project, statValue } from "@/lib/model.ts";
 import { pct } from "@/lib/format.ts";
+import { normName } from "@/lib/names.ts";
 import type { SlipLeg } from "@/lib/storage.ts";
-import { STATS, type DefenseFactors, type GameLog, type NewsItem, type Prop, type StatKey } from "@/lib/types.ts";
+import { SPORTS, STATS, type DefenseFactors, type GameLog, type NewsItem, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
-type GameSport = "NBA" | "NFL";
+type GameSport = Sport;
+
+interface OddsLine {
+  line: number;
+  book: string;
+}
+/** normName(player) → stat → line, from /api/games/lines */
+type GameLines = Record<string, Partial<Record<StatKey, OddsLine>>>;
 
 interface Team {
   abbr: string;
@@ -46,6 +54,8 @@ const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLo
 /** Stats offered for a player with no season averages yet. */
 function statsFor(sport: GameSport, pos: string): StatKey[] {
   if (sport === "NBA") return ["PTS", "REB", "AST", "3PM", "PRA", "PR", "PA", "RA"];
+  if (sport === "NHL") return pos === "G" ? ["SAVES"] : ["SOG", "NHL_PTS", "GOALS", "NHL_AST"];
+  if (sport === "MLB") return /^(SP|RP|P)$/.test(pos) ? ["K", "OUTS", "HITS_ALLOWED"] : ["HITS", "TB", "HRR", "RUNS", "RBI"];
   if (pos === "QB") return ["PASS_YDS", "PASS_TD", "PASS_ATT", "RUSH_YDS"];
   if (pos === "RB") return ["RUSH_YDS", "RUSH_REC_YDS", "REC", "REC_YDS"];
   return ["REC_YDS", "REC", "RUSH_REC_YDS"];
@@ -58,6 +68,8 @@ const SHORT: Partial<Record<StatKey, string>> = {
   PTS: "PTS", REB: "REB", AST: "AST", "3PM": "3PM", PRA: "PRA", PR: "P+R", PA: "P+A", RA: "R+A",
   PASS_YDS: "Pass yds", PASS_TD: "Pass TD", PASS_ATT: "Pass att", RUSH_YDS: "Rush yds", REC: "Rec",
   REC_YDS: "Rec yds", RUSH_REC_YDS: "Rush+Rec",
+  SOG: "SOG", GOALS: "Goals", NHL_AST: "AST", NHL_PTS: "PTS", SAVES: "Saves",
+  HITS: "Hits", TB: "TB", HRR: "H+R+RBI", RUNS: "Runs", RBI: "RBI", K: "K", HITS_ALLOWED: "Hits allowed", OUTS: "Outs",
 };
 
 const timeLabel = (g: Game) => {
@@ -90,7 +102,9 @@ export default function GamePicker({
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((g: Record<GameSport, Game[]>) => {
         setGames(g);
-        if (!g.NBA.length && g.NFL.length) setSport("NFL");
+        // Open on the first sport that has games.
+        const first = SPORTS.find((s) => g[s]?.length);
+        if (first) setSport(first);
       })
       .catch(() => setFailed(true));
   }, []);
@@ -105,10 +119,10 @@ export default function GamePicker({
           <small>Tap a game, choose players, set the Pick 6 line.</small>
         </div>
         <div className="seg" role="tablist">
-          {(["NBA", "NFL"] as GameSport[]).map((s) => (
+          {SPORTS.filter((s) => !games || games[s]?.length || s === sport).map((s) => (
             <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "on" : ""} onClick={() => setSport(s)}>
               {s}
-              {games && <span className="segcount">{games[s].length}</span>}
+              {games && <span className="segcount">{games[s]?.length ?? 0}</span>}
             </button>
           ))}
         </div>
@@ -195,6 +209,7 @@ function GameSheet({
   const [players, setPlayers] = useState<Record<string, Player[] | "error">>({});
   const [openPlayer, setOpenPlayer] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [lines, setLines] = useState<GameLines>({});
   const team = [away, home][teamIdx];
   const opp = [away, home][1 - teamIdx];
 
@@ -207,6 +222,11 @@ function GameSheet({
         .then((b: { players: Player[] }) => setPlayers((p) => ({ ...p, [t.abbr]: b.players })))
         .catch(() => setPlayers((p) => ({ ...p, [t.abbr]: "error" })));
     }
+    const q = new URLSearchParams({ sport, home: home?.name ?? home?.abbr ?? "", away: away?.name ?? away?.abbr ?? "", date: game.date });
+    fetch(`/api/games/lines?${q}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((b: { lines?: GameLines }) => setLines(b.lines ?? {}))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, sport]);
 
@@ -222,8 +242,12 @@ function GameSheet({
   }, [onClose]);
 
   const roster = players[team.abbr];
+  // Players with posted lines first, keeping ESPN's order within each group.
+  const hasLine = (p: Player) => Boolean(lines[normName(p.name)]);
   const shown = Array.isArray(roster)
-    ? roster.filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()))
+    ? roster
+        .filter((p) => !query || p.name.toLowerCase().includes(query.toLowerCase()))
+        .sort((a, b) => Number(hasLine(b)) - Number(hasLine(a)))
     : [];
   const inGame = slip.filter((l) => [away.abbr, home.abbr].includes(slipTeam(l))).length;
 
@@ -283,6 +307,7 @@ function GameSheet({
               gameTime={game.date}
               open={openPlayer === p.id}
               onToggle={() => setOpenPlayer(openPlayer === p.id ? null : p.id)}
+              posted={lines[normName(p.name)] ?? {}}
               slip={slip}
               onPick={onPick}
             />
@@ -333,6 +358,7 @@ function PlayerRow({
   gameTime,
   open,
   onToggle,
+  posted,
   slip,
   onPick,
 }: {
@@ -343,13 +369,17 @@ function PlayerRow({
   gameTime: string;
   open: boolean;
   onToggle: () => void;
+  posted: Partial<Record<StatKey, OddsLine>>;
   slip: SlipLeg[];
   onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
 }) {
   const stats = useMemo(() => {
     const withAvg = (Object.keys(STATS) as StatKey[]).filter((k) => player.avg[k] !== undefined);
-    return withAvg.length ? withAvg : statsFor(sport, player.pos);
-  }, [player, sport]);
+    const base = withAvg.length ? withAvg : statsFor(sport, player.pos);
+    // Stats with a posted line come first.
+    const extra = (Object.keys(posted) as StatKey[]).filter((k) => !base.includes(k));
+    return [...base, ...extra].sort((a, b) => Number(b in posted) - Number(a in posted));
+  }, [player, sport, posted]);
   const picked = slip.filter((l) => stats.some((s) => l.propId === propId(player.name, s)));
   const headline = stats
     .slice(0, 3)
@@ -377,12 +407,13 @@ function PlayerRow({
             {headline ? ` · ${headline}` : ""}
           </small>
         </span>
+        {Object.keys(posted).length > 0 && !picked.length && <span className="linesbadge">{Object.keys(posted).length} lines</span>}
         {picked.length > 0 && <span className="pickedbadge">{picked.length}</span>}
         <span className="chev" aria-hidden>
           ›
         </span>
       </button>
-      {open && <PickCard player={player} sport={sport} team={team} opp={opp} gameTime={gameTime} stats={stats} slip={slip} onPick={onPick} />}
+      {open && <PickCard player={player} sport={sport} team={team} opp={opp} gameTime={gameTime} stats={stats} posted={posted} slip={slip} onPick={onPick} />}
     </div>
   );
 }
@@ -394,6 +425,7 @@ function PickCard({
   opp,
   gameTime,
   stats,
+  posted,
   slip,
   onPick,
 }: {
@@ -403,6 +435,7 @@ function PickCard({
   opp: Team;
   gameTime: string;
   stats: StatKey[];
+  posted: Partial<Record<StatKey, OddsLine>>;
   slip: SlipLeg[];
   onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
 }) {
@@ -425,7 +458,11 @@ function PickCard({
   );
   const fallbackAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : undefined;
   const avg = player.avg[stat] ?? fallbackAvg;
-  const line = leg && !(stat in lines) ? leg.line : (lines[stat] ?? (avg !== undefined ? suggestLine(avg) : undefined));
+  const postedLine = posted[stat];
+  const line =
+    leg && !(stat in lines)
+      ? leg.line
+      : (lines[stat] ?? postedLine?.line ?? (avg !== undefined ? suggestLine(avg) : undefined));
 
   const prop: Prop | null =
     line === undefined
@@ -445,7 +482,7 @@ function PickCard({
           return (
             <button key={s} role="tab" aria-selected={stat === s} className={`chip ${stat === s ? "on" : ""} ${on ? "inslip" : ""}`} onClick={() => setStat(s)}>
               {SHORT[s] ?? STATS[s].label}
-              {player.avg[s] !== undefined && <span>{player.avg[s]}</span>}
+              {posted[s] ? <span className="posted">{posted[s]!.line}</span> : player.avg[s] !== undefined && <span>{player.avg[s]}</span>}
             </button>
           );
         })}
@@ -492,7 +529,13 @@ function PickCard({
       </div>
 
       {recent.length > 0 && line !== undefined && <MiniSpark values={recent} line={line} />}
-      <small className="hint">Match the line to what Pick 6 shows. We started it at the season average.</small>
+      <small className="hint">
+        {postedLine
+          ? postedLine.book === "Pick 6"
+            ? `Pick 6 line: ${postedLine.line}${line !== postedLine.line ? " (you changed it)" : ""}`
+            : `${postedLine.book} line: ${postedLine.line}. Pick 6 hasn't posted this one; adjust if theirs differs.`
+          : "No posted line found. We started it at the season average; match it to Pick 6."}
+      </small>
 
       <div className="bigsides">
         {(["OVER", "UNDER"] as const).map((side) => {

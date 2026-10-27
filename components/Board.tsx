@@ -5,9 +5,9 @@ import GamePicker from "@/components/GamePicker";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
-import { pct } from "@/lib/format.ts";
+import { MAX_PICKS, pct } from "@/lib/format.ts";
 import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
-import { STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
+import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
 
 type SportFilter = "ALL" | Sport;
 type SortKey = "edge" | "time" | "player";
@@ -99,8 +99,8 @@ export default function Board() {
     const picked = Object.entries(r.sides).filter(([id]) => byId.has(id));
     const missing = r.unresolved.length ? ` No stats found for ${r.unresolved.join(", ")}.` : "";
     if (picked.length) {
-      setSlip(picked.slice(0, 6).map(([id, side]) => legFor(byId.get(id)!, side)));
-      flash(`Loaded ${Math.min(picked.length, 6)} picks into your slip.${missing}`);
+      setSlip(picked.slice(0, MAX_PICKS).map(([id, side]) => legFor(byId.get(id)!, side)));
+      flash(`Loaded ${Math.min(picked.length, MAX_PICKS)} picks into your slip.${missing}`);
     } else {
       flash(`Added ${r.props.length} line${r.props.length === 1 ? "" : "s"}.${missing}`);
     }
@@ -110,7 +110,7 @@ export default function Board() {
   // Picks made from the games list: save the line, put the leg in the slip, then rescore the board.
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number) => {
-    if (!slip.some((l) => l.propId === prop.id) && slip.length >= 6) return flash("Pick 6 allows up to 6 picks");
+    if (!slip.some((l) => l.propId === prop.id) && slip.length >= MAX_PICKS) return flash(`Pick 6 allows up to ${MAX_PICKS} picks`);
     saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
     setSlip((s) => {
       const existing = s.find((l) => l.propId === prop.id);
@@ -161,8 +161,8 @@ export default function Board() {
       const existing = s.find((l) => l.propId === r.id);
       const rest = s.filter((l) => l.propId !== r.id);
       if (existing?.side === side) return rest;
-      if (!existing && s.length >= 6) {
-        flash("Pick 6 allows up to 6 picks");
+      if (!existing && s.length >= MAX_PICKS) {
+        flash(`Pick 6 allows up to ${MAX_PICKS} picks`);
         return s;
       }
       return [...rest, legFor(r, side)];
@@ -225,7 +225,7 @@ export default function Board() {
             </li>
             <li>
               <strong>Build and track</strong>
-              Pick 2 to 6, check the expected value, then grade results in the tracker.
+              Pick 2 to {MAX_PICKS}, check the expected value, then grade results in the tracker.
             </li>
           </ol>
         )}
@@ -234,7 +234,7 @@ export default function Board() {
           <div className="toolbar">
             {sports.size > 1 && (
               <div className="tabs" role="tablist">
-                {(["ALL", "NBA", "NFL"] as SportFilter[]).map((s) => (
+                {(["ALL", ...SPORTS.filter((x) => sports.has(x))] as SportFilter[]).map((s) => (
                   <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "active" : ""} onClick={() => setSport(s)}>
                     {s === "ALL" ? "All" : s}
                   </button>

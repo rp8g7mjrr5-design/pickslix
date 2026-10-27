@@ -61,6 +61,7 @@ small { display: block; color: var(--muted); font-size: 12px; }
 .topbar nav a:hover { color: var(--text); }
 .topbar nav a.active { color: var(--text); background: var(--panel-2); }
 main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+.foot a { text-decoration: underline; text-underline-offset: 2px; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 28px 16px 96px; max-width: 640px; margin: 0 auto; }
 
 /* ---------- Controls ---------- */
@@ -220,6 +221,12 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
   display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
   background: var(--brand); color: var(--accent-ink); font-size: 12px; font-weight: 800;
 }
+.linesbadge {
+  font-size: 11px; font-weight: 700; color: var(--accent); border: 1px solid #2f6b3a; border-radius: 999px; padding: 2px 8px;
+  white-space: nowrap;
+}
+.chip span.posted { color: var(--accent); opacity: 1; font-weight: 800; }
+.chip.on span.posted { color: #0d7a3e; }
 .chev { color: var(--muted); font-size: 22px; transition: transform 0.15s; }
 .playerwrap.open .chev { transform: rotate(90deg); }
 .pickcard { padding: 4px 12px 14px; display: grid; gap: 10px; animation: fade 0.15s ease-out; }
@@ -344,6 +351,30 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
 .sync code { background: var(--panel-2); padding: 4px 8px; border-radius: 6px; font-size: 12px; word-break: break-all; }
 .sync input { flex: 1; min-width: 200px; }
 .tracker .emptycard { margin-top: 14px; }
+.checks { display: grid; gap: 10px; }
+.check { display: flex; gap: 12px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.check strong { display: block; margin-bottom: 2px; }
+.check small { font-size: 13px; }
+.checkicon { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 900; }
+.check.ok .checkicon { background: var(--brand); color: var(--accent-ink); }
+.check.off .checkicon { background: #3a2f12; color: var(--warn); border: 1px solid #5a4a14; }
+.autotag {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 6px;
+  padding: 1px 5px; border-radius: 4px; background: var(--panel-3); color: var(--muted); vertical-align: 1px;
+}
+.report { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; }
+.reporthead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.reporthead h2 { margin: 0; font-size: 16px; }
+.buckets { display: grid; gap: 10px; }
+.bucket { display: grid; grid-template-columns: 130px 1fr 210px; gap: 12px; align-items: center; }
+.bucketbar { position: relative; height: 10px; background: var(--panel-2); border-radius: 999px; overflow: visible; }
+.bucketbar i { display: block; height: 100%; border-radius: 999px; }
+.bucketbar i.good { background: var(--brand); }
+.bucketbar i.meh { background: #5b6472; }
+.bucketbar b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); border-radius: 1px; }
+@media (max-width: 640px) {
+  .bucket { grid-template-columns: 1fr; gap: 4px; }
+}
 
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 14px; padding: 0; list-style: none; counter-reset: step; }
 .steps li { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; color: var(--muted); font-size: 13px; counter-increment: step; }

@@ -23,6 +23,8 @@ export async function refreshDefense(sport: EspnSport, full = false): Promise<De
 
 /** Saved factors when fresh, otherwise a quick recompute (shared between concurrent requests). */
 export async function loadDefense(sport: EspnSport): Promise<DefenseFactors> {
+  // Team defense is only modeled for NBA and NFL so far.
+  if (sport !== "NBA" && sport !== "NFL") return {};
   const snap = await kvGet<Snapshot>(key(sport)).catch(() => null);
   if (snap && Date.now() - Date.parse(snap.updatedAt) < STALE_MS) return snap.factors;
   if (!inflight.has(sport)) {

@@ -123,3 +123,23 @@ B. Podziemski SC
     ],
   );
 });
+
+test("hockey and baseball props", () => {
+  const { lines } = parseLines(`
+Connor McDavid EDM Shots on Goal 3.5
+Igor Shesterkin NYR Saves 27.5
+Aaron Judge NYY Total Bases 1.5
+Shohei Ohtani LAD H+R+RBI 2.5
+Gerrit Cole NYY Pitcher Strikeouts 6.5
+`);
+  assert.deepEqual(
+    lines.map((l) => [l.player, l.stat, l.line, l.sport, l.teams.join(" ")]),
+    [
+      ["Connor McDavid", "SOG", 3.5, "NHL", "EDM"],
+      ["Igor Shesterkin", "SAVES", 27.5, "NHL", "NYR"],
+      ["Aaron Judge", "TB", 1.5, "MLB", "NYY"],
+      ["Shohei Ohtani", "HRR", 2.5, "MLB", "LAD"],
+      ["Gerrit Cole", "K", 6.5, "MLB", "NYY"],
+    ],
+  );
+});
