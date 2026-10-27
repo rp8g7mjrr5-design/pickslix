@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { accountsEnabled, currentUserId, getAccount } from "@/lib/accounts.ts";
 import { checkPass } from "@/lib/pro.ts";
+import { isAdmin } from "@/lib/admin.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,15 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ enabled: accountsEnabled(), signedIn: false });
-  const { proKey } = await getAccount(userId).catch(() => ({ proKey: undefined }));
+  const { proKey, username } = await getAccount(userId).catch(() => ({ proKey: undefined, username: undefined }));
   const pass = proKey ? await checkPass(proKey) : null;
-  return NextResponse.json({ enabled: true, signedIn: true, proKey: proKey ?? null, pro: Boolean(pass), plan: pass?.plan ?? null });
+  return NextResponse.json({
+    enabled: true,
+    signedIn: true,
+    proKey: proKey ?? null,
+    pro: Boolean(pass),
+    plan: pass?.plan ?? null,
+    admin: await isAdmin(),
+    username: username ?? null,
+  });
 }

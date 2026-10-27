@@ -55,3 +55,21 @@ export async function kvClaim(key: string, value: unknown): Promise<boolean> {
   memory.set(key, { value: raw, expires: Infinity });
   return true;
 }
+
+export async function kvDel(key: string): Promise<void> {
+  if (dbEnabled()) await command(["DEL", key]);
+  else memory.delete(key);
+}
+
+/** Every key starting with prefix, up to limit. For the admin page, not hot paths. */
+export async function kvKeys(prefix: string, limit = 5000): Promise<string[]> {
+  if (!dbEnabled()) return [...memory.keys()].filter((k) => k.startsWith(prefix)).slice(0, limit);
+  const keys: string[] = [];
+  let cursor = "0";
+  do {
+    const [next, batch] = (await command(["SCAN", cursor, "MATCH", `${prefix}*`, "COUNT", 500])) as [string, string[]];
+    keys.push(...batch);
+    cursor = next;
+  } while (cursor !== "0" && keys.length < limit);
+  return keys.slice(0, limit);
+}

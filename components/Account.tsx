@@ -13,19 +13,25 @@ interface AccountState {
   /** Clerk has finished loading (always true when accounts are off). */
   loaded: boolean;
   signedIn: boolean;
+  /** Listed in ADMIN_EMAILS. */
+  admin: boolean;
+  /** Leaderboard name, if they picked one. */
+  username: string | null;
+  setUsername: (name: string | null) => void;
 }
 
-const Ctx = createContext<AccountState>({ enabled: false, loaded: true, signedIn: false });
+const Ctx = createContext<AccountState>({ enabled: false, loaded: true, signedIn: false, admin: false, username: null, setUsername: () => {} });
 export const useAccount = () => useContext(Ctx);
 
 /** Set when this device's Pro key came from the account, so signing out takes it away again. */
 const FROM_ACCOUNT = "pickslix.proFromAccount";
 
 /** Keep the device in step with the account: pick up its Pro key on sign-in, link a device key it lacks. */
-async function syncAccount() {
+async function syncAccount(): Promise<{ admin: boolean; username: string | null }> {
   const res = await fetch("/api/account", { cache: "no-store" });
-  const a = (await res.json()) as { signedIn?: boolean; proKey?: string | null; pro?: boolean };
-  if (!a.signedIn) return;
+  const a = (await res.json()) as { signedIn?: boolean; proKey?: string | null; pro?: boolean; admin?: boolean; username?: string | null };
+  const profile = { admin: Boolean(a.admin), username: a.username ?? null };
+  if (!a.signedIn) return profile;
   const local = getProKey();
   if (a.pro && a.proKey) {
     if (a.proKey !== local) setProKey(a.proKey);
@@ -41,18 +47,21 @@ async function syncAccount() {
   try {
     localStorage.setItem(FROM_ACCOUNT, "1");
   } catch {}
+  return profile;
 }
 
 function ClerkBridge({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const signedIn = Boolean(isSignedIn);
   const prev = useRef<boolean | null>(null);
+  const [profile, setProfile] = useState<{ admin: boolean; username: string | null }>({ admin: false, username: null });
   useEffect(() => {
     if (!isLoaded) return;
     const was = prev.current;
     prev.current = signedIn;
-    if (signedIn) syncAccount().catch(() => {});
-    else if (was) {
+    if (signedIn) syncAccount().then(setProfile).catch(() => {});
+    else setProfile({ admin: false, username: null });
+    if (!signedIn && was) {
       // Signed out: what came from the account leaves with it.
       try {
         if (localStorage.getItem(FROM_ACCOUNT)) {
@@ -64,7 +73,14 @@ function ClerkBridge({ children }: { children: React.ReactNode }) {
     }
     if (was !== null && was !== signedIn) window.dispatchEvent(new Event("pickslix:account"));
   }, [isLoaded, signedIn]);
-  return <Ctx.Provider value={{ enabled: true, loaded: isLoaded, signedIn }}>{children}</Ctx.Provider>;
+  const value = {
+    enabled: true,
+    loaded: isLoaded,
+    signedIn,
+    ...profile,
+    setUsername: (username: string | null) => setProfile((p) => ({ ...p, username })),
+  };
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function AccountProvider({ children }: { children: React.ReactNode }) {

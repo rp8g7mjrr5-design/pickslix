@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePro } from "@/lib/proClient.ts";
+import { useAccount } from "@/components/Account";
 
 const icons = {
   board: (
@@ -16,6 +17,18 @@ const icons = {
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 19h16" />
       <path d="M7 15v-3M12 15V8M17 15v-5" />
+    </svg>
+  ),
+  leaders: (
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z" />
+      <path d="M17 6h3v1a3 3 0 0 1-3 3M7 6H4v1a3 3 0 0 0 3 3" />
+    </svg>
+  ),
+  admin: (
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z" />
+      <path d="m9 12 2 2 4-4" />
     </svg>
   ),
   pro: (
@@ -58,6 +71,11 @@ export default function Nav() {
   const pro = usePro();
   // The Pro tab only shows once Pro is set up on this site.
   const showPro = Boolean(pro?.required);
+  const account = useAccount();
+  const extra = [
+    ...(account.enabled ? [{ href: "/leaderboard", label: "Leaders", icon: icons.leaders }] : []),
+    ...(account.admin ? [{ href: "/admin", label: "Admin", icon: icons.admin }] : []),
+  ];
   return (
     <nav className="mainnav">
       {LINKS.map((l) => {
@@ -75,6 +93,12 @@ export default function Nav() {
           </Link>
         );
       })}
+      {extra.map((l) => (
+        <Link key={l.href} href={l.href} className={path === l.href ? "active" : ""} aria-current={path === l.href ? "page" : undefined}>
+          {l.icon}
+          <span className="navlabel">{l.label}</span>
+        </Link>
+      ))}
       {showPro && (
         <Link href="/pro" className={path === "/pro" ? "active" : ""} aria-current={path === "/pro" ? "page" : undefined}>
           {icons.pro}
