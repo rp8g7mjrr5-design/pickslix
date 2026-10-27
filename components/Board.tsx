@@ -1,165 +1,334 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
+import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
-import { DEFAULT_MULTIPLIERS, pct } from "@/lib/format.ts";
-import { loadCustomProps, persistSlips, pullSlips, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
-import { STATS, type Prop, type PropWithProjection, type Sport, type StatKey } from "@/lib/types.ts";
+import { pct } from "@/lib/format.ts";
+import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
+import { STATS, type PropWithProjection, type Sport } from "@/lib/types.ts";
 
-const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+type SportFilter = "ALL" | Sport;
+type SortKey = "edge" | "time" | "player";
+
+const SLIP_KEY = "pickslix.slip";
 
 const gameTimeLabel = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 
-type SportFilter = "ALL" | Sport;
+const legFor = (r: PropWithProjection, side: "OVER" | "UNDER"): SlipLeg => ({
+  propId: r.id,
+  player: r.player,
+  stat: r.stat,
+  line: r.line,
+  side,
+  prob: side === "OVER" ? r.projection.pOver : r.projection.pUnder,
+});
 
 export default function Board() {
   const [rows, setRows] = useState<PropWithProjection[]>([]);
   const [provider, setProvider] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updated, setUpdated] = useState<Date | null>(null);
   const [sport, setSport] = useState<SportFilter>("ALL");
   const [query, setQuery] = useState("");
   const [minEdge, setMinEdge] = useState(0);
+  const [sort, setSort] = useState<SortKey>("edge");
   const [open, setOpen] = useState<string | null>(null);
   const [slip, setSlip] = useState<SlipLeg[]>([]);
-  const [panel, setPanel] = useState<"paste" | "add" | null>(null);
-  const [mineCount, setMineCount] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [toast, setToast] = useState("");
+
+  // Keep the slip across reloads.
+  useEffect(() => {
+    try {
+      setSlip(JSON.parse(localStorage.getItem(SLIP_KEY) ?? "[]"));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(SLIP_KEY, JSON.stringify(slip));
+    } catch {}
+  }, [slip]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const custom = loadCustomProps();
-    setMineCount(custom.length);
-    const [base, mine] = await Promise.all([
-      fetch("/api/props").then((r) => r.json()),
-      custom.length
-        ? fetch("/api/props", { method: "POST", body: JSON.stringify({ props: custom }) }).then((r) => r.json())
-        : Promise.resolve({ board: [] }),
-    ]);
-    const byId = new Map<string, PropWithProjection>();
-    for (const r of [...base.board, ...mine.board]) byId.set(r.id, r);
-    setRows([...byId.values()].sort((a, b) => b.projection.edge - a.projection.edge));
-    setProvider(base.provider);
-    setLoading(false);
-    // Live data starts with an empty board: open the paste box.
-    if (!base.board.length && !custom.length) setPanel("paste");
+    setError("");
+    try {
+      const custom = loadCustomProps();
+      const [base, mine] = await Promise.all([
+        fetch("/api/props").then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
+        custom.length
+          ? fetch("/api/props", { method: "POST", body: JSON.stringify({ props: custom }) }).then((r) =>
+              r.ok ? r.json() : Promise.reject(r.status),
+            )
+          : Promise.resolve({ board: [] }),
+      ]);
+      const byId = new Map<string, PropWithProjection>();
+      for (const r of [...base.board, ...mine.board]) byId.set(r.id, r);
+      const next = [...byId.values()];
+      setRows(next);
+      setProvider(base.provider);
+      setUpdated(new Date());
+      // Refresh probabilities on legs already in the slip; drop legs whose line is gone.
+      setSlip((s) => s.filter((l) => byId.has(l.propId)).map((l) => legFor(byId.get(l.propId)!, l.side)));
+      if (!next.length) setImporting(true);
+      return byId;
+    } catch {
+      setError("Couldn't load the board. Check your connection and try again.");
+      return new Map<string, PropWithProjection>();
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const visible = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          (sport === "ALL" || r.sport === sport) &&
-          r.projection.edge >= minEdge &&
-          (!query || `${r.player} ${r.team} ${r.opponent}`.toLowerCase().includes(query.toLowerCase())),
-      ),
-    [rows, sport, query, minEdge],
-  );
+  const flash = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3500);
+  };
+
+  const onImported = async (r: ImportResult) => {
+    // With nothing added, keep the panel open so its note explains why.
+    if (!r.props.length) return;
+    const byId = await refresh();
+    const picked = Object.entries(r.sides).filter(([id]) => byId.has(id));
+    const missing = r.unresolved.length ? ` Couldn't find ${r.unresolved.join(", ")}.` : "";
+    if (picked.length) {
+      setSlip(picked.slice(0, 6).map(([id, side]) => legFor(byId.get(id)!, side)));
+      flash(`Loaded ${Math.min(picked.length, 6)} picks into your slip.${missing}`);
+    } else {
+      flash(`Added ${r.props.length} line${r.props.length === 1 ? "" : "s"}.${missing}`);
+    }
+    setImporting(false);
+  };
+
+  const removeLine = (id: string) => {
+    saveCustomProps(loadCustomProps().filter((p) => p.id !== id));
+    setRows((rs) => rs.filter((r) => r.id !== id));
+    setSlip((s) => s.filter((l) => l.propId !== id));
+  };
+
+  const clearLines = () => {
+    if (!confirm("Remove all your lines from the board?")) return;
+    saveCustomProps([]);
+    setSlip([]);
+    refresh();
+  };
+
+  const visible = useMemo(() => {
+    const q = query.toLowerCase();
+    const list = rows.filter(
+      (r) =>
+        (sport === "ALL" || r.sport === sport) &&
+        r.projection.edge >= minEdge &&
+        (!q || `${r.player} ${r.team} ${r.opponent} ${STATS[r.stat].label}`.toLowerCase().includes(q)),
+    );
+    const byEdge = (a: PropWithProjection, b: PropWithProjection) =>
+      Number(a.projection.status === "out") - Number(b.projection.status === "out") || b.projection.edge - a.projection.edge;
+    return list.sort(
+      sort === "player"
+        ? (a, b) => a.player.localeCompare(b.player)
+        : sort === "time"
+          ? (a, b) => (a.gameTime ?? "~").localeCompare(b.gameTime ?? "~") || byEdge(a, b)
+          : byEdge,
+    );
+  }, [rows, sport, query, minEdge, sort]);
 
   const toggleLeg = (r: PropWithProjection, side: "OVER" | "UNDER") => {
     setSlip((s) => {
       const existing = s.find((l) => l.propId === r.id);
       const rest = s.filter((l) => l.propId !== r.id);
       if (existing?.side === side) return rest;
-      if (!existing && s.length >= 6) return s;
-      const prob = side === "OVER" ? r.projection.pOver : r.projection.pUnder;
-      return [...rest, { propId: r.id, player: r.player, stat: r.stat, line: r.line, side, prob }];
+      if (!existing && s.length >= 6) {
+        flash("Pick 6 allows up to 6 picks");
+        return s;
+      }
+      return [...rest, legFor(r, side)];
     });
   };
 
+  const strong = rows.filter((r) => r.projection.status !== "out" && r.projection.edge >= 0.1).length;
+  const sports = new Set(rows.map((r) => r.sport));
+  const hasMine = rows.some((r) => r.id.startsWith("custom-"));
+
   return (
     <div className="layout">
-      <section>
-        <div className="toolbar">
-          <div className="tabs">
-            {(["ALL", "NBA", "NFL"] as SportFilter[]).map((s) => (
-              <button key={s} className={sport === s ? "active" : ""} onClick={() => setSport(s)}>
-                {s === "ALL" ? "All" : s}
-              </button>
-            ))}
+      <section className="boardcol">
+        <div className="hero">
+          <div>
+            <h1>Today's board</h1>
+            <p className="muted">
+              {loading && !rows.length
+                ? "Loading…"
+                : rows.length
+                  ? `${rows.length} line${rows.length === 1 ? "" : "s"} · ${strong} with a 10%+ edge${
+                      updated ? ` · updated ${updated.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""
+                    }`
+                  : "Add lines to see the chance each one hits."}
+            </p>
           </div>
-          <input placeholder="Search player or team" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <label className="edge">
-            Min edge
-            <select value={minEdge} onChange={(e) => setMinEdge(Number(e.target.value))}>
-              <option value={0}>Any</option>
-              <option value={0.05}>5%+</option>
-              <option value={0.1}>10%+</option>
-              <option value={0.15}>15%+</option>
-            </select>
-          </label>
-          <button className="ghost" onClick={() => setPanel((v) => (v === "paste" ? null : "paste"))}>
-            {panel === "paste" ? "Close" : "Paste lines"}
-          </button>
-          <button className="ghost" onClick={() => setPanel((v) => (v === "add" ? null : "add"))}>
-            {panel === "add" ? "Close" : "+ Add line"}
-          </button>
-          {mineCount > 0 && (
-            <button
-              className="ghost"
-              onClick={() => {
-                if (!confirm(`Remove your ${mineCount} pasted/added lines?`)) return;
-                saveCustomProps([]);
-                refresh();
-              }}
-            >
-              Clear my lines
-            </button>
-          )}
+          <div className="heroactions">
+            {rows.length > 0 && (
+              <button className="ghost icon" onClick={refresh} disabled={loading} aria-label="Refresh">
+                ↻
+              </button>
+            )}
+            {!(importing && !rows.length) && (
+              <button onClick={() => setImporting((v) => !v)}>{importing ? "Done" : "+ Add lines"}</button>
+            )}
+          </div>
         </div>
 
         {provider === "sample" && (
-          <p className="banner">
-            Showing sample lines and generated stats (DATA_SOURCE=sample). Remove that setting to use live ESPN stats.
-          </p>
+          <p className="banner">Showing sample lines and made-up stats (DATA_SOURCE=sample).</p>
         )}
 
-        {panel === "paste" && <PasteLines onAdded={refresh} />}
-        {panel === "add" && <AddLine onAdded={refresh} />}
+        {importing && (
+          <ImportPanel onImported={onImported} onClose={rows.length ? () => setImporting(false) : undefined} />
+        )}
 
-        {loading ? (
-          <p className="muted">Crunching numbers…</p>
-        ) : (
+        {!rows.length && !loading && (
+          <ol className="steps">
+            <li>
+              <strong>Add the lines</strong>
+              Screenshot the Pick 6 board or your entry, or paste the text.
+            </li>
+            <li>
+              <strong>See the odds</strong>
+              Each line is scored from recent games, the matchup and the injury report.
+            </li>
+            <li>
+              <strong>Build and track</strong>
+              Pick 2 to 6, check the expected value, then grade results in the tracker.
+            </li>
+          </ol>
+        )}
+
+        {rows.length > 0 && (
+          <div className="toolbar">
+            {sports.size > 1 && (
+              <div className="tabs" role="tablist">
+                {(["ALL", "NBA", "NFL"] as SportFilter[]).map((s) => (
+                  <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "active" : ""} onClick={() => setSport(s)}>
+                    {s === "ALL" ? "All" : s}
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              type="search"
+              placeholder="Search player, team or stat"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search"
+            />
+            <select value={minEdge} onChange={(e) => setMinEdge(Number(e.target.value))} aria-label="Minimum edge">
+              <option value={0}>Any edge</option>
+              <option value={0.05}>5%+ edge</option>
+              <option value={0.1}>10%+ edge</option>
+              <option value={0.15}>15%+ edge</option>
+            </select>
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort">
+              <option value="edge">Best edge</option>
+              <option value="time">Game time</option>
+              <option value="player">Player A–Z</option>
+            </select>
+            {hasMine && (
+              <button className="ghost small" onClick={clearLines}>
+                Clear lines
+              </button>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="error">
+            <span>{error}</span>
+            <button className="ghost small" onClick={refresh}>
+              Try again
+            </button>
+          </div>
+        )}
+
+        {loading && !rows.length ? (
           <div className="table">
-            <div className="row head">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="rowwrap skeleton">
+                <div className="row">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : rows.length > 0 ? (
+          <div className={`table ${loading ? "stale" : ""}`}>
+            <div className="row head" aria-hidden>
               <span>Player</span>
               <span>Prop</span>
               <span>Line</span>
               <span>Proj</span>
-              <span>Over</span>
-              <span>Under</span>
+              <span>More</span>
+              <span>Less</span>
               <span>Last 10</span>
             </div>
             {visible.map((r) => {
               const p = r.projection;
               const leg = slip.find((l) => l.propId === r.id);
               return (
-                <div key={r.id} className={`rowwrap ${p.status === "out" ? "out" : ""}`}>
-                  <div className="row" onClick={() => setOpen(open === r.id ? null : r.id)}>
-                    <span>
-                      <strong>{r.player}</strong>
-                      <small className="mobile-only">{STATS[r.stat].label}</small>
+                <div key={r.id} className={`rowwrap ${p.status === "out" ? "out" : ""} ${open === r.id ? "open" : ""}`}>
+                  <div
+                    className="row"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={open === r.id}
+                    onClick={() => setOpen(open === r.id ? null : r.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setOpen(open === r.id ? null : r.id);
+                      }
+                    }}
+                  >
+                    <span className="who">
+                      <strong>
+                        {r.player}
+                        {p.injury === "out" && <b className="tag out">OUT</b>}
+                        {p.injury === "questionable" && <b className="tag q">Q</b>}
+                      </strong>
+                      <small className="mobile-only">
+                        {r.line} {STATS[r.stat].label}
+                      </small>
                       <small>
-                        {r.sport} · {r.team}
+                        {r.sport} · {r.team || "?"}
                         {r.opponent ? ` vs ${r.opponent}` : ""}
                         {r.gameTime ? ` · ${gameTimeLabel(r.gameTime)}` : ""}
                       </small>
                     </span>
                     <span>{STATS[r.stat].label}</span>
                     <span className="num">{r.line}</span>
-                    <span className="num">{p.mean.toFixed(1)}</span>
+                    <span className="num proj">{p.mean.toFixed(1)}</span>
                     <SideButton
+                      label="More"
                       prob={p.pOver}
-                      best={p.pick === "OVER"}
+                      best={p.pick === "OVER" && p.status !== "out"}
                       selected={leg?.side === "OVER"}
                       onClick={() => toggleLeg(r, "OVER")}
                     />
                     <SideButton
+                      label="Less"
                       prob={p.pUnder}
-                      best={p.pick === "UNDER"}
+                      best={p.pick === "UNDER" && p.status !== "out"}
                       selected={leg?.side === "UNDER"}
                       onClick={() => toggleLeg(r, "UNDER")}
                     />
@@ -167,10 +336,18 @@ export default function Board() {
                   </div>
                   {open === r.id && (
                     <div className="detail">
-                      <span className={`conf ${p.confidence}`}>{p.confidence} confidence</span>
-                      <span className="muted">
-                        Lean {p.pick} {pct(p.pickProb)} · hit {pct(p.hitRateLast10)} of last 10
-                      </span>
+                      <div className="detailhead">
+                        <span className={`conf ${p.confidence}`}>{p.confidence} confidence</span>
+                        <span className="muted">
+                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)} · hit {pct(p.hitRateLast10)} of last{" "}
+                          {Math.min(10, r.recent.length)} · {p.sampleSize} games
+                        </span>
+                        {r.id.startsWith("custom-") && (
+                          <button className="ghost small" onClick={() => removeLine(r.id)}>
+                            Remove line
+                          </button>
+                        )}
+                      </div>
                       <ul>
                         {p.reasons.map((x) => (
                           <li key={x}>{x}</li>
@@ -181,244 +358,73 @@ export default function Board() {
                 </div>
               );
             })}
-            {!visible.length && (
-              <p className="muted">
-                {rows.length ? "No props match these filters." : "No lines yet. Paste today's Pick 6 lines above to score them."}
-              </p>
-            )}
+            {!visible.length && <p className="empty">No lines match these filters.</p>}
           </div>
+        ) : (
+          !importing &&
+          !error && (
+            <div className="emptycard">
+              <p>No lines yet.</p>
+              <button onClick={() => setImporting(true)}>Add today's lines</button>
+            </div>
+          )
         )}
       </section>
-      <Slip legs={slip} onRemove={(id) => setSlip((s) => s.filter((l) => l.propId !== id))} onClear={() => setSlip([])} />
+
+      <Slip
+        legs={slip}
+        rows={rows}
+        onRemove={(id) => setSlip((s) => s.filter((l) => l.propId !== id))}
+        onClear={() => setSlip([])}
+      />
+
+      {slip.length > 0 && (
+        <a href="#slip" className="slipbar">
+          <span>
+            {slip.length} pick{slip.length === 1 ? "" : "s"}
+          </span>
+          <strong>{pct(slipHitProbability(slip.map((l) => l.prob)), 1)} to hit</strong>
+          <span>View slip ↓</span>
+        </a>
+      )}
+
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
 
-function SideButton(props: { prob: number; best: boolean; selected: boolean; onClick: () => void }) {
+function SideButton(props: { label: string; prob: number; best: boolean; selected: boolean; onClick: () => void }) {
   return (
     <button
       className={`side ${props.best ? "best" : ""} ${props.selected ? "selected" : ""}`}
+      aria-pressed={props.selected}
+      aria-label={`${props.label} ${pct(props.prob)}`}
       onClick={(e) => {
         e.stopPropagation();
         props.onClick();
       }}
     >
+      <small className="mobile-only">{props.label}</small>
       {pct(props.prob)}
     </button>
   );
 }
 
 function Spark({ values, line }: { values: number[]; line: number }) {
+  if (!values.length) return <span className="muted spark-empty">No games</span>;
   const max = Math.max(line * 1.6, ...values, 1);
   // Oldest on the left
   const ordered = [...values].reverse();
   return (
-    <span className="spark" title={ordered.join(", ")}>
+    <span className="spark" title={`Last ${ordered.length}: ${ordered.join(", ")}`}>
       {ordered.map((v, i) => (
         <i key={i} className={v > line ? "over" : "under"} style={{ height: `${Math.max(6, (v / max) * 100)}%` }} />
       ))}
       <b style={{ bottom: `${(line / max) * 100}%` }} />
     </span>
-  );
-}
-
-function Slip({ legs, onRemove, onClear }: { legs: SlipLeg[]; onRemove: (id: string) => void; onClear: () => void }) {
-  const [entry, setEntry] = useState(10);
-  const [multiplier, setMultiplier] = useState<number | null>(null);
-  const [saved, setSaved] = useState(false);
-  const mult = multiplier ?? DEFAULT_MULTIPLIERS[legs.length] ?? 0;
-  const hit = slipHitProbability(legs.map((l) => l.prob));
-  const ev = legs.length >= 2 ? hit * mult * entry - entry : 0;
-
-  useEffect(() => {
-    setMultiplier(null);
-    setSaved(false);
-  }, [legs.length]);
-
-  const save = async () => {
-    setSaved(true);
-    // Pull first so a slip saved on another device isn't overwritten.
-    const { slips } = await pullSlips();
-    persistSlips([{ id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs }, ...slips]);
-  };
-
-  return (
-    <aside className="slip">
-      <h2>Your slip</h2>
-      {!legs.length && <p className="muted">Tap an over or under percentage to add a pick. Pick 6 needs 2 to 6.</p>}
-      {legs.map((l) => (
-        <div key={l.propId} className="leg">
-          <div>
-            <strong>{l.player}</strong>
-            <small>
-              {l.side === "OVER" ? "More" : "Less"} than {l.line} {STATS[l.stat].label}
-            </small>
-          </div>
-          <span className="num">{pct(l.prob)}</span>
-          <button className="x" onClick={() => onRemove(l.propId)} aria-label="Remove">
-            ×
-          </button>
-        </div>
-      ))}
-      {legs.length > 0 && (
-        <>
-          <div className="stat">
-            <span>All legs hit</span>
-            <strong>{pct(hit, 1)}</strong>
-          </div>
-          <div className="inputs">
-            <label>
-              Entry $
-              <input type="number" min={1} value={entry} onChange={(e) => setEntry(Number(e.target.value))} />
-            </label>
-            <label>
-              Payout ×
-              <input
-                type="number"
-                min={1}
-                step={0.5}
-                value={mult}
-                onChange={(e) => setMultiplier(Number(e.target.value))}
-              />
-            </label>
-          </div>
-          {legs.length >= 2 && (
-            <div className="stat">
-              <span>Expected value</span>
-              <strong className={ev >= 0 ? "pos" : "neg"}>
-                {ev >= 0 ? "+" : "−"}${Math.abs(ev).toFixed(2)}
-              </strong>
-            </div>
-          )}
-          <p className="fine">
-            Assumes picks are independent. Picks from the same game often move together. Check the payout in the
-            DraftKings app.
-          </p>
-          <div className="actions">
-            <button onClick={save} disabled={legs.length < 2 || saved}>
-              {saved ? "Saved to tracker" : "Save to tracker"}
-            </button>
-            <button className="ghost" onClick={onClear}>
-              Clear
-            </button>
-          </div>
-        </>
-      )}
-    </aside>
-  );
-}
-
-function AddLine({ onAdded }: { onAdded: () => void }) {
-  const [form, setForm] = useState({
-    sport: "NBA" as Sport,
-    player: "",
-    team: "",
-    opponent: "",
-    stat: "PTS" as StatKey,
-    line: "",
-  });
-  const stats = (Object.keys(STATS) as StatKey[]).filter((k) => STATS[k].sport === form.sport);
-  const set = (k: keyof typeof form, v: string) =>
-    setForm((f) => {
-      const next = { ...f, [k]: v };
-      if (k === "sport") next.stat = (Object.keys(STATS) as StatKey[]).find((s) => STATS[s].sport === v)!;
-      return next;
-    });
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const line = Number(form.line);
-    if (!form.player || !Number.isFinite(line)) return;
-    const prop: Prop = {
-      id: propId(form.player, form.stat),
-      sport: form.sport,
-      player: form.player.trim(),
-      team: form.team.trim().toUpperCase(),
-      opponent: form.opponent.trim().toUpperCase(),
-      stat: form.stat,
-      line,
-    };
-    saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
-    setForm((f) => ({ ...f, player: "", line: "" }));
-    onAdded();
-  };
-
-  return (
-    <form className="addline" onSubmit={submit}>
-      <select value={form.sport} onChange={(e) => set("sport", e.target.value)}>
-        <option>NBA</option>
-        <option>NFL</option>
-      </select>
-      <input placeholder="Player name" value={form.player} onChange={(e) => set("player", e.target.value)} />
-      <input placeholder="Team" value={form.team} onChange={(e) => set("team", e.target.value)} size={4} />
-      <input placeholder="Opp" value={form.opponent} onChange={(e) => set("opponent", e.target.value)} size={4} />
-      <select value={form.stat} onChange={(e) => set("stat", e.target.value)}>
-        {stats.map((s) => (
-          <option key={s} value={s}>
-            {STATS[s].label}
-          </option>
-        ))}
-      </select>
-      <input placeholder="Line" inputMode="decimal" value={form.line} onChange={(e) => set("line", e.target.value)} size={5} />
-      <button type="submit">Add</button>
-    </form>
-  );
-}
-
-const PASTE_EXAMPLE = `Nikola Jokic DEN vs GS Points 27.5
-Shai Gilgeous-Alexander Pts + Reb + Ast 41.5
-Josh Allen Pass Yds 245.5`;
-
-function PasteLines({ onAdded }: { onAdded: () => void }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text.trim()) return;
-    setBusy(true);
-    setNote("");
-    try {
-      const res = await fetch("/api/lines", { method: "POST", body: JSON.stringify({ text }) });
-      const body = (await res.json()) as { props: Prop[]; skipped: string[]; unresolved: string[] };
-      const ids = new Set(body.props.map((p) => p.id));
-      saveCustomProps([...body.props, ...loadCustomProps().filter((p) => !ids.has(p.id))]);
-      const problems = [
-        body.unresolved.length ? `Couldn't find: ${body.unresolved.join(", ")}.` : "",
-        body.skipped.length ? `Couldn't read: ${body.skipped.slice(0, 3).join("; ")}${body.skipped.length > 3 ? "…" : ""}.` : "",
-      ].filter(Boolean);
-      setNote(`Added ${body.props.length} line${body.props.length === 1 ? "" : "s"}. ${problems.join(" ")}`);
-      if (body.props.length) {
-        setText("");
-        onAdded();
-      }
-    } catch {
-      setNote("Something went wrong reading those lines. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form className="paste" onSubmit={submit}>
-      <label htmlFor="paste-lines">
-        Paste lines from Pick 6, one per line or as copied from the app: player, stat, and the number. Teams are
-        optional.
-      </label>
-      <textarea
-        id="paste-lines"
-        rows={6}
-        placeholder={PASTE_EXAMPLE}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <div className="pasteactions">
-        <button type="submit" disabled={busy || !text.trim()}>
-          {busy ? "Looking up players…" : "Score these lines"}
-        </button>
-        {note && <span className="muted">{note}</span>}
-      </div>
-    </form>
   );
 }
