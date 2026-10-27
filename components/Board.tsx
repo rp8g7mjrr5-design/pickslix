@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import GamePicker from "@/components/GamePicker";
+import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
@@ -191,6 +192,7 @@ export default function Board() {
   return (
     <div className="layout">
       <section className="boardcol">
+        <Welcome />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} />
 
         <div className="hero">
@@ -313,10 +315,10 @@ export default function Board() {
               <span>Player</span>
               <span>Prop</span>
               <span>Line</span>
-              <span>Proj</span>
+              <span title="What the model expects the player to get">Exp.</span>
               <span>More</span>
               <span>Less</span>
-              <span>Last 10</span>
+              <span title="Last 10 games; green bars beat the line">Last 10</span>
             </div>
             {visible.map((r) => {
               const p = r.projection;

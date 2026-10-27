@@ -29,7 +29,7 @@ export default function Slip({
   const [copied, setCopied] = useState(false);
   const mult = multiplier ?? DEFAULT_MULTIPLIERS[legs.length] ?? 0;
   const hit = slipHitProbability(legs.map((l) => l.prob));
-  const ev = legs.length >= 2 ? hit * mult * entry - entry : 0;
+  const ev = legs.length >= 2 && entry > 0 && mult > 0 ? hit * mult * entry - entry : 0;
   const breakEven = mult > 0 ? Math.pow(1 / mult, 1 / Math.max(legs.length, 1)) : 0;
 
   // Legs from the same game tend to move together, so the multiplied chance overstates (or understates) it.
@@ -80,7 +80,7 @@ export default function Slip({
       </div>
       {!legs.length && (
         <p className="muted">
-          Tap a percentage on the board to add a pick, or upload a screenshot of an entry. Pick 6 takes 2 to {MAX_PICKS} picks.
+          Tap a game at the top, pick a player, then tap More or Less. Your picks land here. Pick 6 takes 2 to {MAX_PICKS} picks.
         </p>
       )}
       {legs.map((l) => (
@@ -101,17 +101,37 @@ export default function Slip({
       {legs.length > 0 && (
         <>
           <div className="stat big">
-            <span>Chance all hit</span>
+            <span>
+              Chance all hit <Tip text="The model's chance every pick on this slip wins. More picks pay more but hit less often." />
+            </span>
             <strong>{pct(hit, 1)}</strong>
           </div>
           <div className="inputs">
             <label>
               Entry $
-              <input type="number" min={1} value={entry} onChange={(e) => setEntry(Number(e.target.value))} />
+              <input
+                type="number"
+                inputMode="decimal"
+                min={1}
+                value={entry || ""}
+                placeholder="10"
+                onChange={(e) => setEntry(Math.max(0, Number(e.target.value) || 0))}
+                onBlur={() => entry < 1 && setEntry(1)}
+              />
             </label>
             <label>
-              Payout ×
-              <input type="number" min={1} step={0.5} value={mult} onChange={(e) => setMultiplier(Number(e.target.value))} />
+              <span>
+                Payout × <Tip text="What Pick 6 multiplies your entry by if every pick hits. It's shown in the DraftKings app before you submit." />
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={1}
+                step={0.5}
+                value={mult || ""}
+                onChange={(e) => setMultiplier(Math.max(0, Number(e.target.value) || 0))}
+                onBlur={() => mult < 1 && setMultiplier(DEFAULT_MULTIPLIERS[legs.length] ?? 1)}
+              />
             </label>
           </div>
           {legs.length >= 2 && (
@@ -121,11 +141,18 @@ export default function Slip({
                 <strong>${(entry * mult).toFixed(2)}</strong>
               </div>
               <div className="stat">
-                <span>Expected value</span>
+                <span>
+                  Expected profit <Tip text="What you'd win or lose per entry on average if you played this slip many times. Positive is good." />
+                </span>
                 <strong className={ev >= 0 ? "pos" : "neg"}>
                   {ev >= 0 ? "+" : "−"}${Math.abs(ev).toFixed(2)}
                 </strong>
               </div>
+              {entry > 0 && mult > 0 && <p className={`verdict ${ev >= 0 ? "good" : "bad"}`}>
+                {ev >= 0
+                  ? "✓ Worth it: the model thinks this slip pays off over time."
+                  : "✗ Not worth it at this payout. Try stronger picks (higher %) or fewer picks."}
+              </p>}
               <p className="fine">Each pick needs about {pct(breakEven)} to break even at this payout.</p>
             </>
           )}
@@ -139,10 +166,10 @@ export default function Slip({
               <a className="button" href="/tracker">
                 Saved ✓ View
               </a>
+            ) : legs.length < 2 ? (
+              <button disabled>Add 1 more pick</button>
             ) : (
-              <button onClick={save} disabled={legs.length < 2}>
-                Save to tracker
-              </button>
+              <button onClick={save}>Save to tracker</button>
             )}
             <button className="ghost" onClick={copy}>
               {copied ? "Copied" : "Copy"}
@@ -177,5 +204,28 @@ export default function Slip({
         </div>
       )}
     </aside>
+  );
+}
+
+/** A small "?" that explains a term on tap or hover. */
+export function Tip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="tip">
+      <button
+        type="button"
+        className="tipbtn"
+        aria-label="What's this?"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen((o) => !o);
+        }}
+        onBlur={() => setOpen(false)}
+      >
+        ?
+      </button>
+      {open && <span className="tipbox" role="tooltip">{text}</span>}
+    </span>
   );
 }

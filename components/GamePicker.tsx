@@ -180,9 +180,11 @@ function TeamLine({ team }: { team?: Team }) {
 }
 
 function Logo({ team, size }: { team: Team; size: number }) {
-  return team.logo ? (
+  // Fall back to the team's initial if the logo doesn't load (blocked, offline, or missing).
+  const [broken, setBroken] = useState(false);
+  return team.logo && !broken ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={team.logo} alt="" width={size} height={size} className="teamlogo" loading="lazy" />
+    <img src={team.logo} alt="" width={size} height={size} className="teamlogo" loading="lazy" onError={() => setBroken(true)} />
   ) : (
     <span className="teamlogo fallback" style={{ width: size, height: size }}>
       {team.abbr.slice(0, 1)}
@@ -402,12 +404,14 @@ function PlayerRow({
     .map((s) => `${player.avg[s]} ${SHORT[s]}`)
     .join(" · ");
 
+  const [noPhoto, setNoPhoto] = useState(false);
+
   return (
     <div className={`playerwrap ${open ? "open" : ""} ${player.injury === "out" ? "isout" : ""}`}>
       <button className="playerrow" onClick={onToggle} aria-expanded={open}>
-        {player.headshot ? (
+        {player.headshot && !noPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={player.headshot} alt="" className="headshot" loading="lazy" />
+          <img src={player.headshot} alt="" className="headshot" loading="lazy" onError={() => setNoPhoto(true)} />
         ) : (
           <span className="headshot fallback">{player.name.slice(0, 1)}</span>
         )}
@@ -532,8 +536,8 @@ function PickCard({
             <span className="muted">Loading games…</span>
           ) : (
             <>
-              <span>
-                Proj <strong className="num">{proj ? proj.mean.toFixed(1) : "—"}</strong>
+              <span title="What the model expects this player to get">
+                Expected <strong className="num">{proj ? proj.mean.toFixed(1) : "—"}</strong>
               </span>
               <span className="muted">
                 {recent.length ? `Over in ${hits} of last ${recent.length}` : "No recent games"}
@@ -564,12 +568,16 @@ function PickCard({
               aria-pressed={leg?.side === side}
               onClick={() => prop && onPick(prop, side, prob)}
             >
-              <span>{side === "OVER" ? "More" : "Less"}</span>
+              <span>
+                {side === "OVER" ? "More" : "Less"}
+                {best && <b className="modelpick">Model pick</b>}
+              </span>
               <strong>{proj ? pct(prob) : "—"}</strong>
             </button>
           );
         })}
       </div>
+      {proj && <small className="hint">The % is the model's chance that side hits. Tap one to add it to your slip.</small>}
       {proj && proj.reasons.length > 0 && (
         <ul className="reasons">
           {proj.reasons.slice(0, 3).map((r) => (
