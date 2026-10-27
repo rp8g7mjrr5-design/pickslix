@@ -7,10 +7,10 @@ import Nav from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Crew Check", template: "%s · Crew Check" },
+  title: { default: "LayLock", template: "%s · LayLock" },
   description: "Over/under probabilities for DraftKings Pick 6 player props, from recent games, matchups and injury news.",
-  applicationName: "Crew Check",
-  appleWebApp: { capable: true, title: "Crew Check", statusBarStyle: "black-translucent" },
+  applicationName: "LayLock",
+  appleWebApp: { capable: true, title: "LayLock", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
@@ -20,7 +20,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// Clerk's sign-in screens, in Crew Check's colors.
+// Clerk's sign-in screens, in LayLock's colors.
 const clerkLook = {
   variables: {
     colorPrimary: "#2bf59b",
@@ -41,14 +41,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* Archivo Expanded Black is only used for the logo ticket. */}
+        {/* Archivo Expanded Black is only used for the wordmark. */}
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&display=swap" />
       </head>
       <body>
         <AccountProvider>
         <header className="topbar">
-          <Link href="/" className="brand" aria-label="Crew Check home">
+          <Link href="/" className="brand" aria-label="LayLock home">
             <Logo />
+            <span className="wordmark">
+              Lay<span>Lock</span>
+            </span>
           </Link>
           <div className="topright">
             <Nav />

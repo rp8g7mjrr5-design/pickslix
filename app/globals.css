@@ -53,22 +53,12 @@ small { display: block; color: var(--muted); font-size: 12px; }
   border-bottom: 1px solid var(--line); background: rgba(13, 18, 24, 0.92);
   backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 20;
 }
-.brand { display: flex; align-items: center; }
-/* The Crew Check ticket: a slanted pick slip with notched sides and a check after a tear line. */
-.ticket {
-  --notch: 4px;
-  display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px 5px 10px; border-radius: 4px;
-  background: var(--accent); color: var(--accent-ink); transform: skewX(-9deg);
-  font: 900 17px/1 Archivo, system-ui, sans-serif; font-stretch: 125%; letter-spacing: -0.5px; text-transform: uppercase;
-  -webkit-mask: radial-gradient(circle at 0 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)) left / 51% 100% no-repeat,
-    radial-gradient(circle at 100% 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)) right / 51% 100% no-repeat;
-  mask: radial-gradient(circle at 0 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)) left / 51% 100% no-repeat,
-    radial-gradient(circle at 100% 50%, transparent var(--notch), #000 calc(var(--notch) + 0.5px)) right / 51% 100% no-repeat;
-  filter: drop-shadow(0 4px 14px rgba(43, 245, 155, 0.3)); transition: transform 0.2s;
-}
-.ticket .tear { align-self: stretch; border-left: 1px dashed currentColor; opacity: 0.35; }
-.ticket svg { flex: none; }
-.brand:hover .ticket { transform: skewX(-9deg) translateY(-1px) rotate(-2deg); }
+.brand { display: flex; align-items: center; gap: 8px; }
+/* The LayLock mark (two Ls locked around a keyhole) beside the wordmark. */
+.wordmark { font: 900 18px/1 Archivo, system-ui, sans-serif; font-stretch: 125%; letter-spacing: -0.6px; }
+.wordmark span { color: var(--accent); }
+.logo { flex: none; filter: drop-shadow(0 4px 14px rgba(43, 245, 155, 0.25)); transition: transform 0.2s; }
+.brand:hover .logo { transform: rotate(-8deg) scale(1.06); }
 .mainnav {
   display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: rgba(7, 9, 13, 0.7); border: 1px solid var(--line);
 }
