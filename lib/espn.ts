@@ -48,17 +48,32 @@ export function parseSearch(json: any, sport: EspnSport): EspnAthlete[] {
     }));
 }
 
-/** Best match for a name: exact (normalized) name first, then the hinted team, then ESPN's ranking. */
+/** "N. Jokic" / "N Jokic": Pick 6 shortens first names to an initial. */
+function shortName(name: string): { initial: string; last: string } | null {
+  const t = normName(name).split(" ");
+  return t.length >= 2 && t[0].length === 1 ? { initial: t[0], last: t.slice(1).join(" ") } : null;
+}
+
+/** Best match for a name: exact (normalized) name first, then initial + last name, then the hinted team. */
 export function pickAthlete(found: EspnAthlete[], player: string, teamHints: string[] = []): EspnAthlete | undefined {
   const target = normName(player);
-  const exact = found.filter((a) => normName(a.name) === target);
-  const pool = exact.length ? exact : found;
-  return pool.find((a) => teamHints.includes(a.team)) ?? (exact.length ? pool[0] : undefined);
+  let pool = found.filter((a) => normName(a.name) === target);
+  const short = shortName(player);
+  if (!pool.length && short) {
+    pool = found.filter((a) => {
+      const t = normName(a.name).split(" ");
+      return t[0]?.[0] === short.initial && t.slice(1).join(" ") === short.last;
+    });
+    // "A. Bailey" fits more than one player; without a team to go on, ESPN's ranking decides.
+    return pool.find((a) => teamHints.includes(a.team)) ?? pool[0];
+  }
+  return (pool.length ? pool : found).find((a) => teamHints.includes(a.team)) ?? pool[0];
 }
 
 export async function findAthlete(player: string, sport: EspnSport, teamHints: string[] = []) {
   const [sportPath, league] = PATHS[sport].split("/");
-  const q = encodeURIComponent(player.replace(/\./g, "").trim());
+  // ESPN's search doesn't match initials, so look short names up by last name.
+  const q = encodeURIComponent(shortName(player)?.last ?? player.replace(/\./g, "").trim());
   const json = await espnJson(`${WEB}/search?query=${q}&type=player&sport=${sportPath}&league=${league}&limit=10`, TTL.search);
   return pickAthlete(parseSearch(json, sport), player, teamHints);
 }

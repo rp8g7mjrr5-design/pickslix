@@ -100,3 +100,26 @@ QB - BUF 245.5
     ],
   );
 });
+
+test("Pick 6 short names with positions, and OCR scraps around them", () => {
+  const { lines } = parseLines(`L. Markkanen PF
+UTAH vs GS
+22.5 Points
+he S. Curry PG
+GS @ UTAH
+4.5 3-Pointers Made
+A. Bailey SF
+UTAH vs GS
+14.5 Points
+B. Podziemski SC
+12.5 Points`);
+  assert.deepEqual(
+    lines.map((l) => [l.player, l.stat, l.line, l.teams.join(" ")]),
+    [
+      ["L. Markkanen", "PTS", 22.5, "UTAH GS"],
+      ["S. Curry", "3PM", 4.5, "GS UTAH"],
+      ["A. Bailey", "PTS", 14.5, "UTAH GS"],
+      ["B. Podziemski", "PTS", 12.5, ""],
+    ],
+  );
+});
