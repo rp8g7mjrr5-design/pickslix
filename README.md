@@ -18,6 +18,9 @@ demo board with made-up lines instead.
 
 ## Adding lines
 
+- **Pick from games (easiest):** the top of the board lists upcoming NBA and NFL games. Tap one,
+  choose a player and stat, nudge the line to match Pick 6 (it starts at the season average), and
+  tap More or Less. Odds update live as the line moves.
 - **Screenshot:** upload, drop or paste a screenshot of the Pick 6 board or of an entry you made.
   Picks with More/Less chosen load straight into the slip. Without a key it's read on the device
   with Tesseract.js (free; the engine downloads from jsDelivr the first time). Set
@@ -47,6 +50,8 @@ Redis the app still works: it computes a lighter version on the first request an
 | Player lookup | `site.web.api.espn.com/apis/common/v3/search` | Exact name match first, team as a tiebreaker |
 | Game logs | `.../athletes/{id}/gamelog` | Regular season and playoffs; tops up with last season early in the year |
 | Injuries | `site.api.espn.com/.../injuries` | Out / IR / suspended → "ruled out"; questionable, doubtful, day-to-day → "questionable" |
+| Upcoming games | `.../scoreboard` | Next three days (NBA), rest of this week plus next week (NFL) |
+| Team players | `.../teams/{id}/athletes/statistics` | Season per-game averages, most minutes first; roster as a fallback |
 | Next opponent | `.../scoreboard` | Today through two days out (NBA), this week and next (NFL) |
 | Team defense | NBA scoreboards, NFL game summaries | What each team allows vs league average, shrunk toward average by games played |
 

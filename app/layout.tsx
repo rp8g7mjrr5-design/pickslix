@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
 import "./globals.css";
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d1117",
+  themeColor: "#0b0f14",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -23,10 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <header className="topbar">
           <Link href="/" className="brand" aria-label="PickSlix home">
-            <span className="logo" aria-hidden>
-              P6
-            </span>
-            <span>
+            <Logo />
+            <span className="wordmark">
               Pick<span>Slix</span>
             </span>
           </Link>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import GamePicker from "@/components/GamePicker";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
 import { pct } from "@/lib/format.ts";
 import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
-import { STATS, type PropWithProjection, type Sport } from "@/lib/types.ts";
+import { STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
 
 type SportFilter = "ALL" | Sport;
 type SortKey = "edge" | "time" | "player";
@@ -73,7 +74,6 @@ export default function Board() {
       setUpdated(new Date());
       // Refresh probabilities on legs already in the slip; drop legs whose line is gone.
       setSlip((s) => s.filter((l) => byId.has(l.propId)).map((l) => legFor(byId.get(l.propId)!, l.side)));
-      if (!next.length) setImporting(true);
       return byId;
     } catch {
       setError("Couldn't load the board. Check your connection and try again.");
@@ -106,6 +106,23 @@ export default function Board() {
     }
     setImporting(false);
   };
+
+  // Picks made from the games list: save the line, put the leg in the slip, then rescore the board.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number) => {
+    if (!slip.some((l) => l.propId === prop.id) && slip.length >= 6) return flash("Pick 6 allows up to 6 picks");
+    saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
+    setSlip((s) => {
+      const existing = s.find((l) => l.propId === prop.id);
+      const rest = s.filter((l) => l.propId !== prop.id);
+      if (existing?.side === side && existing.line === prop.line) return rest;
+      return [...rest, { propId: prop.id, player: prop.player, stat: prop.stat, line: prop.line, side, prob }];
+    });
+    clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(refresh, 900);
+  };
+
+  const viewSlip = () => document.getElementById("slip")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const removeLine = (id: string) => {
     saveCustomProps(loadCustomProps().filter((p) => p.id !== id));
@@ -159,9 +176,11 @@ export default function Board() {
   return (
     <div className="layout">
       <section className="boardcol">
+        <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} />
+
         <div className="hero">
           <div>
-            <h1>Today's board</h1>
+            <h1>Your board</h1>
             <p className="muted">
               {loading && !rows.length
                 ? "Loading…"
@@ -169,7 +188,7 @@ export default function Board() {
                   ? `${rows.length} line${rows.length === 1 ? "" : "s"} · ${strong} with a 10%+ edge${
                       updated ? ` · updated ${updated.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""
                     }`
-                  : "Add lines to see the chance each one hits."}
+                  : "Pick players above, or import your Pick 6 screenshot."}
             </p>
           </div>
           <div className="heroactions">
@@ -179,7 +198,9 @@ export default function Board() {
               </button>
             )}
             {!(importing && !rows.length) && (
-              <button onClick={() => setImporting((v) => !v)}>{importing ? "Done" : "+ Add lines"}</button>
+              <button className={rows.length ? "" : "ghost"} onClick={() => setImporting((v) => !v)}>
+                {importing ? "Done" : "Import screenshot"}
+              </button>
             )}
           </div>
         </div>
@@ -195,12 +216,12 @@ export default function Board() {
         {!rows.length && !loading && (
           <ol className="steps">
             <li>
-              <strong>Add the lines</strong>
-              Screenshot the Pick 6 board or your entry, or paste the text.
+              <strong>Pick a game</strong>
+              Tap any upcoming game above and choose a player and stat.
             </li>
             <li>
-              <strong>See the odds</strong>
-              Each line is scored from recent games, the matchup and the injury report.
+              <strong>Set the line</strong>
+              Match Pick 6's number. The More/Less odds update as you move it.
             </li>
             <li>
               <strong>Build and track</strong>
@@ -360,15 +381,7 @@ export default function Board() {
             })}
             {!visible.length && <p className="empty">No lines match these filters.</p>}
           </div>
-        ) : (
-          !importing &&
-          !error && (
-            <div className="emptycard">
-              <p>No lines yet.</p>
-              <button onClick={() => setImporting(true)}>Add today's lines</button>
-            </div>
-          )
-        )}
+        ) : null}
       </section>
 
       <Slip
