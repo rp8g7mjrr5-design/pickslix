@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePro } from "@/lib/proClient.ts";
 
 const icons = {
   board: (
@@ -15,6 +16,11 @@ const icons = {
     <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 19h16" />
       <path d="M7 15v-3M12 15V8M17 15v-5" />
+    </svg>
+  ),
+  pro: (
+    <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z" />
     </svg>
   ),
 };
@@ -49,6 +55,9 @@ function useCounts() {
 export default function Nav() {
   const path = usePathname();
   const counts = useCounts();
+  const pro = usePro();
+  // The Pro tab only shows once Pro is set up on this site.
+  const showPro = Boolean(pro?.required);
   return (
     <nav className="mainnav">
       {LINKS.map((l) => {
@@ -57,7 +66,7 @@ export default function Nav() {
         return (
           <Link key={l.href} href={l.href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}>
             {l.icon}
-            <span>{l.label}</span>
+            <span className="navlabel">{l.label}</span>
             {n > 0 && (
               <b className="navcount" aria-label={l.count === "slip" ? `${n} in slip` : `${n} open picks`}>
                 {n}
@@ -66,6 +75,12 @@ export default function Nav() {
           </Link>
         );
       })}
+      {showPro && (
+        <Link href="/pro" className={path === "/pro" ? "active" : ""} aria-current={path === "/pro" ? "page" : undefined}>
+          {icons.pro}
+          {pro?.pro ? <span className="probadge">PRO</span> : <span className="navlabel">Pro</span>}
+        </Link>
+      )}
     </nav>
   );
 }

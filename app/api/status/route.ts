@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dbEnabled, kvGet } from "@/lib/db.ts";
 import { oddsEnabled } from "@/lib/odds.ts";
+import { lifetimeCodes, prices, stripeEnabled } from "@/lib/pro.ts";
 import { visionEnabled } from "@/lib/vision.ts";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,10 @@ export async function GET() {
     odds: oddsEnabled(),
     oddsRemaining: odds?.remaining ?? null,
     defenseUpdatedAt: nba?.updatedAt ?? null,
+    stripe: stripeEnabled(),
+    stripePrices: Boolean(prices().monthly || prices().yearly),
+    lifetimeCodes: lifetimeCodes().length,
+    tips: Boolean(process.env.NEXT_PUBLIC_TIP_URL),
     dataSource: (process.env.DATA_SOURCE ?? "espn").toLowerCase(),
   });
 }

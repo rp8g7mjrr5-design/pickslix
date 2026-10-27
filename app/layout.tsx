@@ -35,6 +35,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="foot">
           Probabilities are model estimates from public stats, not guarantees. Not affiliated with DraftKings. 21+.
           Gambling problem? Call 1-800-GAMBLER. <Link href="/setup">Setup check</Link>
+          {process.env.NEXT_PUBLIC_TIP_URL && (
+            <>
+              {" · "}
+              <a className="tiplink" href={process.env.NEXT_PUBLIC_TIP_URL} target="_blank" rel="noopener noreferrer">
+                Leave a tip
+              </a>
+            </>
+          )}
         </footer>
       </body>
     </html>

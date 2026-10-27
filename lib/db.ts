@@ -45,3 +45,13 @@ export async function kvSet(key: string, value: unknown, ttlSeconds?: number): P
     memory.set(key, { value: raw, expires: ttlSeconds ? Date.now() + ttlSeconds * 1000 : Infinity });
   }
 }
+
+/** Set only if the key doesn't exist yet. True when this call claimed it (used for one-time codes). */
+export async function kvClaim(key: string, value: unknown): Promise<boolean> {
+  const raw = JSON.stringify(value);
+  if (dbEnabled()) return (await command(["SET", key, raw, "NX"])) === "OK";
+  const hit = memory.get(key);
+  if (hit && hit.expires > Date.now()) return false;
+  memory.set(key, { value: raw, expires: Infinity });
+  return true;
+}
