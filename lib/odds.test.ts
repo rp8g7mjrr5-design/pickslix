@@ -49,3 +49,27 @@ test("events match ESPN short team names and the nearest start time", () => {
   assert.equal(matchEvent(events, "Celtics", "Nets", "2026-10-27T23:30Z")?.id, "a");
   assert.equal(matchEvent(events, "Knicks", "Nets", "2026-10-27T23:30Z"), undefined);
 });
+
+test("spends no credits on started games or when credits are nearly gone", async () => {
+  const { fetchGameLines } = await import("./odds.ts");
+  const { kvSet } = await import("./db.ts");
+  const calls: string[] = [];
+  const realFetch = globalThis.fetch;
+  const future = new Date(Date.now() + 3 * 3600_000).toISOString();
+  globalThis.fetch = (async (url: string) => {
+    calls.push(String(url));
+    const events = [{ id: "e1", commence_time: future, home_team: "Boston Celtics", away_team: "Brooklyn Nets" }];
+    return new Response(JSON.stringify(events), { status: 200 });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await fetchGameLines("NBA", "Celtics", "Nets", new Date(Date.now() - 60_000).toISOString()), {});
+    assert.equal(calls.length, 0);
+    await kvSet("odds:remaining", { remaining: 6, at: new Date().toISOString() });
+    assert.deepEqual(await fetchGameLines("NBA", "Celtics", "Nets", future), {});
+    // Only the free events list was asked for; the odds call (5 credits) was skipped.
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], /\/events\?/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

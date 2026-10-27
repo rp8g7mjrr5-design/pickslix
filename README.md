@@ -22,6 +22,9 @@ demo board with made-up lines instead.
   Tap one, choose a player and stat, and tap More or Less. With `ODDS_API_KEY` set the line starts at
   Pick 6's posted line (or the sportsbook median when Pick 6 hasn't posted it); otherwise at the
   season average. Odds update live as the line moves.
+  To save Odds API credits, only the most-played stats are fetched (NBA points, rebounds, assists,
+  threes and PRA, for example), only for games that haven't started, and each game's lines are cached
+  for everyone for six hours. Fetching pauses before the monthly credits run out.
 - **Screenshot:** upload, drop or paste a screenshot of the Pick 6 board or of an entry you made.
   Picks with More/Less chosen load straight into the slip. Without a key it's read on the device
   with Tesseract.js (free; the engine downloads from jsDelivr the first time). Set

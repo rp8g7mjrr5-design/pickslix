@@ -1,8 +1,10 @@
 // Player prop lines from The Odds API (needs ODDS_API_KEY). DraftKings Pick 6 lines come first; when
 // Pick 6 hasn't posted a player, the median line across a few sportsbooks stands in.
-// Each event-odds call costs one credit per market, so lines are fetched per game, only when someone
-// opens that game, and cached for everyone.
-import { kvSet } from "./db.ts";
+// Each event-odds call costs one credit per market requested, so credits are spent as sparingly as possible:
+// only the most-played markets are requested, only for games that haven't started, only when someone opens
+// that game, and the result is cached in the database for everyone for hours. Fetching also stops before the
+// monthly credits run out, so the last few are never wasted on errors.
+import { kvGet, kvSet } from "./db.ts";
 import { normName } from "./names.ts";
 import type { Sport, StatKey } from "./types.ts";
 
@@ -66,6 +68,25 @@ export const MARKETS: Record<Sport, Partial<Record<string, StatKey>>> = {
   },
 };
 
+/**
+ * The markets actually requested: the stats people play most. Each costs a credit per game, so the rest
+ * (combos like PR/PA/RA, pass attempts, goals...) start at the season average instead. MARKETS above
+ * still reads any of them a response happens to include.
+ */
+export const FETCH_MARKETS: Record<Sport, string[]> = {
+  NBA: ["player_points", "player_rebounds", "player_assists", "player_threes", "player_points_rebounds_assists"],
+  NFL: ["player_pass_yds", "player_rush_yds", "player_receptions", "player_reception_yds"],
+  NHL: ["player_points", "player_shots_on_goal", "player_total_saves"],
+  MLB: ["batter_hits", "batter_total_bases", "batter_hits_runs_rbis", "pitcher_strikeouts"],
+};
+
+/** Lines barely move before a game, so one fetch serves everyone for this long. */
+const LINES_TTL = 6 * 3600;
+const EVENTS_TTL = 30 * 60;
+/** Credits kept back so a nearly empty month doesn't end in failed, wasted calls. */
+const CREDIT_RESERVE = 5;
+const PAUSE_KEY = "odds:paused";
+
 export interface OddsLine {
   line: number;
   /** Who posted it: "Pick 6", or the sportsbook the line came from. */
@@ -85,6 +106,10 @@ export interface OddsEvent {
 async function oddsJson(path: string, revalidate: number): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${BASE}${path}${sep}apiKey=${process.env.ODDS_API_KEY}`, { next: { revalidate } } as RequestInit);
+  if (res.status === 401 || res.status === 429) {
+    // Out of credits (or rate limited): stop asking for an hour instead of failing on every game opened.
+    await kvSet(PAUSE_KEY, { status: res.status, at: new Date().toISOString() }, 3600).catch(() => {});
+  }
   if (!res.ok) throw new Error(`Odds API ${res.status} for ${path}`);
   // Credits left this month, for the setup page.
   const remaining = res.headers.get("x-requests-remaining");
@@ -147,17 +172,39 @@ export function parseEventLines(json: any, sport: Sport): GameLines {
   return out;
 }
 
+/** Can we afford a call costing this many credits right now? */
+async function canSpend(cost: number): Promise<boolean> {
+  if (await kvGet(PAUSE_KEY).catch(() => null)) return false;
+  const left = await kvGet<{ remaining: number }>("odds:remaining").catch(() => null);
+  return !left || left.remaining - cost >= CREDIT_RESERVE;
+}
+
 /** Lines for one game, found by team names and start time. Empty when the game isn't listed yet. */
 export async function fetchGameLines(sport: Sport, home: string, away: string, date: string): Promise<GameLines> {
+  // Once a game starts, Pick 6 has closed it: don't spend credits on it.
+  if (Date.parse(date) < Date.now()) return {};
   const key = SPORT_KEYS[sport];
-  // The events list is free; the odds call below is what costs credits.
-  const events: OddsEvent[] = await oddsJson(`/sports/${key}/events`, 1800);
+  // The events list is free, but cache it anyway to keep calls down.
+  const eventsKey = `odds:events:${sport}`;
+  let events = await kvGet<OddsEvent[]>(eventsKey).catch(() => null);
+  if (!events) {
+    if (await kvGet(PAUSE_KEY).catch(() => null)) return {};
+    events = (await oddsJson(`/sports/${key}/events`, EVENTS_TTL)) as OddsEvent[];
+    await kvSet(eventsKey, events, EVENTS_TTL).catch(() => {});
+  }
   const event = matchEvent(events, home, away, date);
   if (!event) return {};
-  const markets = Object.keys(MARKETS[sport]).join(",");
+
+  const cacheKey = `odds:lines:${event.id}`;
+  const cached = await kvGet<GameLines>(cacheKey).catch(() => null);
+  if (cached) return cached;
+  const markets = FETCH_MARKETS[sport];
+  if (!(await canSpend(markets.length))) return {};
   const json = await oddsJson(
-    `/sports/${key}/events/${event.id}/odds?bookmakers=${BOOKS.join(",")}&markets=${markets}&oddsFormat=american`,
-    2 * 3600,
+    `/sports/${key}/events/${event.id}/odds?bookmakers=${BOOKS.join(",")}&markets=${markets.join(",")}&oddsFormat=american`,
+    LINES_TTL,
   );
-  return parseEventLines(json, sport);
+  const lines = parseEventLines(json, sport);
+  await kvSet(cacheKey, lines, LINES_TTL).catch(() => {});
+  return lines;
 }
