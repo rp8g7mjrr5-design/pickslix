@@ -471,10 +471,10 @@ function PickCard({
 
   const id = propId(player.name, stat);
   const leg = slip.find((l) => l.propId === id);
-  const recent = useMemo(
-    () => (data?.logs ?? []).filter((g) => g.playing > 0).slice(0, 10).map((g) => statValue(g, stat)),
-    [data, stat],
-  );
+  const recentLogs = useMemo(() => (data?.logs ?? []).filter((g) => g.playing > 0).slice(0, 10), [data]);
+  const recent = useMemo(() => recentLogs.map((g) => statValue(g, stat)), [recentLogs, stat]);
+  // Logs are newest first, so this season's games are the first `thisSeason` of them.
+  const thisSeason = recentLogs.filter((g) => !g.prior).length;
   const fallbackAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : undefined;
   const avg = player.avg[stat] ?? fallbackAvg;
   const postedLine = posted[stat];
@@ -488,7 +488,8 @@ function PickCard({
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
   const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news }) : null;
-  const hits = line === undefined ? 0 : recent.filter((v) => v > line).length;
+  const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
+  const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;
 
   const setLine = (v: number) => setLines((l) => ({ ...l, [stat]: Math.max(0.5, Math.round(v * 2) / 2) }));
   const step = sport === "NFL" && (stat.includes("YDS") || stat === "PASS_ATT") ? 5 : 1;
@@ -540,14 +541,23 @@ function PickCard({
                 Expected <strong className="num">{proj ? proj.mean.toFixed(1) : "—"}</strong>
               </span>
               <span className="muted">
-                {recent.length ? `Over in ${hits} of last ${recent.length}` : "No recent games"}
+                {!recent.length
+                  ? "No recent games"
+                  : thisSeason === 0
+                    ? "No games this season yet"
+                    : thisSeason < recent.length
+                      ? `Over in ${hits} of ${thisSeason} this season`
+                      : `Over in ${hits} of last ${recent.length}`}
               </span>
             </>
           )}
         </div>
       </div>
 
-      {recent.length > 0 && line !== undefined && <MiniSpark values={recent} line={line} />}
+      {recent.length > 0 && line !== undefined && <MiniSpark values={recent} line={line} thisSeason={thisSeason} />}
+      {thisSeason < recent.length && recent.length > 0 && (
+        <small className="hint">Faded bars are last season. They count for less.</small>
+      )}
       <small className="hint">
         {postedLine
           ? postedLine.book === "Pick 6"
@@ -589,13 +599,15 @@ function PickCard({
   );
 }
 
-function MiniSpark({ values, line }: { values: number[]; line: number }) {
+function MiniSpark({ values, line, thisSeason }: { values: number[]; line: number; thisSeason: number }) {
   const max = Math.max(line * 1.6, ...values, 1);
   const ordered = [...values].reverse();
+  // Oldest on the left, so last season's games are the first ones.
+  const priorCount = values.length - thisSeason;
   return (
     <div className="minispark" title={`Last ${ordered.length}: ${ordered.join(", ")}`}>
       {ordered.map((v, i) => (
-        <i key={i} className={v > line ? "over" : "under"} style={{ height: `${Math.max(6, (v / max) * 100)}%` }}>
+        <i key={i} className={`${v > line ? "over" : "under"} ${i < priorCount ? "prior" : ""}`} style={{ height: `${Math.max(6, (v / max) * 100)}%` }}>
           <em>{v}</em>
         </i>
       ))}

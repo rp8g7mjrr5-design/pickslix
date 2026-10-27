@@ -370,15 +370,17 @@ export default function Board() {
                       selected={leg?.side === "UNDER"}
                       onClick={() => toggleLeg(r, "UNDER")}
                     />
-                    <Spark values={r.recent} line={r.line} />
+                    <Spark values={r.recent} line={r.line} thisSeason={r.recentThisSeason} />
                   </div>
                   {open === r.id && (
                     <div className="detail">
                       <div className="detailhead">
                         <span className={`conf ${p.confidence}`}>{p.confidence} confidence</span>
                         <span className="muted">
-                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)} · hit {pct(p.hitRateLast10)} of last{" "}
-                          {Math.min(10, r.recent.length)} · {p.sampleSize} games
+                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)} · hits {pct(p.hitRateLast10)} lately ·{" "}
+                          {p.thisSeason !== undefined && p.thisSeason < p.sampleSize
+                            ? `${p.thisSeason} games this season + ${p.sampleSize - p.thisSeason} last season`
+                            : `${p.sampleSize} games`}
                         </span>
                         {r.id.startsWith("custom-") && (
                           <button className="ghost small" onClick={() => removeLine(r.id)}>
@@ -445,15 +447,16 @@ function SideButton(props: { label: string; prob: number; best: boolean; selecte
   );
 }
 
-function Spark({ values, line }: { values: number[]; line: number }) {
+function Spark({ values, line, thisSeason }: { values: number[]; line: number; thisSeason?: number }) {
   if (!values.length) return <span className="muted spark-empty">No games</span>;
   const max = Math.max(line * 1.6, ...values, 1);
-  // Oldest on the left
+  // Oldest on the left, so any games from last season come first (and are faded).
   const ordered = [...values].reverse();
+  const priorCount = thisSeason === undefined ? 0 : values.length - thisSeason;
   return (
-    <span className="spark" title={`Last ${ordered.length}: ${ordered.join(", ")}`}>
+    <span className="spark" title={`Last ${ordered.length}: ${ordered.join(", ")}${priorCount ? ` (first ${priorCount} from last season)` : ""}`}>
       {ordered.map((v, i) => (
-        <i key={i} className={v > line ? "over" : "under"} style={{ height: `${Math.max(6, (v / max) * 100)}%` }} />
+        <i key={i} className={`${v > line ? "over" : "under"} ${i < priorCount ? "prior" : ""}`} style={{ height: `${Math.max(6, (v / max) * 100)}%` }} />
       ))}
       <b style={{ bottom: `${(line / max) * 100}%` }} />
     </span>

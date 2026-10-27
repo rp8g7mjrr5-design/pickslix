@@ -18,6 +18,7 @@ export async function buildBoard(props: Prop[], provider: StatsProvider): Promis
         ...prop,
         projection: project({ prop, logs, defense, news: relevantNews }),
         recent: logs.slice(0, 10).map((g) => statValue(g, prop.stat)),
+        recentThisSeason: logs.slice(0, 10).some((g) => g.prior) ? logs.slice(0, 10).filter((g) => !g.prior).length : undefined,
       };
     }),
   );

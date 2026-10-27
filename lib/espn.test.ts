@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   defenseFactors,
+  markPrior,
   nbaAllowed,
   nflAllowed,
   parseGameLog,
@@ -157,4 +158,11 @@ test("MLB hitter log adds up total bases; pitcher log reads strikeouts and outs"
   assert.equal(start.stats.outs, 17);
   assert.equal(start.stats.hitsAllowed, 3);
   assert.equal(start.stats.hits, undefined);
+});
+
+test("markPrior flags games from before the offseason", () => {
+  const now = Date.parse("2026-10-27T12:00:00Z");
+  const g = (date: string) => ({ date, opponent: "X", playing: 30, stats: {} });
+  const marked = markPrior([g("2026-10-25"), g("2026-10-22"), g("2026-04-10")], now);
+  assert.deepEqual(marked.map((x) => Boolean(x.prior)), [false, false, true]);
 });

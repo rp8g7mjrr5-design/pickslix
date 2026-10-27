@@ -65,6 +65,8 @@ export interface GameLog {
   /** Minutes (NBA) or offensive snap share 0-100 (NFL). 0 means did not play. */
   playing: number;
   stats: Record<string, number>;
+  /** From last season, filled in early in the year. Counts for less in the model. */
+  prior?: boolean;
 }
 
 /**
@@ -107,6 +109,8 @@ export interface Projection {
   edge: number;
   confidence: "low" | "medium" | "high";
   sampleSize: number;
+  /** Games from this season in the sample. */
+  thisSeason?: number;
   hitRateLast10: number;
   reasons: string[];
   status: "ok" | "out";
@@ -117,4 +121,6 @@ export interface Projection {
 export interface PropWithProjection extends Prop {
   projection: Projection;
   recent: number[];
+  /** How many of `recent` (newest first) are from this season, when some are from last season. */
+  recentThisSeason?: number;
 }
