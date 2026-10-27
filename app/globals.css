@@ -541,6 +541,9 @@ button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
 }
 @media (max-width: 400px) {
   .mainnav:has(> a:nth-child(4)) .navlabel { display: none; }
+  .mainnav:has(> a:nth-child(5)) a { padding: 7px 8px; }
+  /* With five or more tabs, the top bar keeps the mark and drops the wordmark. */
+  .topbar:has(.mainnav > a:nth-child(5)) .wordmark { display: none; }
 }
 
 /* ---------- Best slip, tracker extras ---------- */
@@ -629,8 +632,6 @@ button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
   width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; font-size: 18px;
   background: var(--brand); color: var(--accent-ink); flex: none;
 }
-.globalboard { margin-top: 18px; }
-.globalboard .crewavatar { background: var(--panel-3); }
 .crewforms { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-top: 16px; }
 .crewforms form { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; }
 .crewforms label { font-weight: 700; font-size: 14px; }
