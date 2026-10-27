@@ -113,10 +113,25 @@ export async function claimCheckout(sessionId: string): Promise<{ key: string; p
   return { key, pass };
 }
 
+/** Lifetime codes made on the admin page, kept in the database next to the LIFETIME_CODES ones. */
+export interface AdminCode {
+  code: string;
+  createdAt: string;
+  note?: string;
+}
+export const ADMIN_CODES = "admin:codes";
+export const adminCodes = async () => (await kvGet<AdminCode[]>(ADMIN_CODES).catch(() => null)) ?? [];
+
+export function newLifetimeCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const chars = [...crypto.getRandomValues(new Uint8Array(8))].map((b) => alphabet[b % alphabet.length]).join("");
+  return `LIFE-${chars.slice(0, 4)}-${chars.slice(4)}`;
+}
+
 /** Redeem a lifetime code. Each code works once. */
 export async function redeemCode(rawCode: string): Promise<{ key: string } | { error: string }> {
   const code = rawCode.trim().toUpperCase();
-  if (!lifetimeCodes().includes(code)) return { error: "That code isn't valid." };
+  if (!lifetimeCodes().includes(code) && !(await adminCodes()).some((c) => c.code === code)) return { error: "That code isn't valid." };
   const key = newKey();
   if (!(await kvClaim(`code:${code}`, key))) return { error: "That code has already been used." };
   await kvSet(passKey(key), { plan: "lifetime", createdAt: new Date().toISOString(), code } satisfies ProPass);

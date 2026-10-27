@@ -110,9 +110,17 @@ Turn it on by adding Clerk from the Vercel Marketplace (it sets `NEXT_PUBLIC_CLE
 `CLERK_SECRET_KEY`), then pick sign-in methods in Clerk's dashboard. Without those keys the site runs
 signed out with Pro keys and sync codes, exactly as before.
 
+**Leaderboard** (`/leaderboard`, `lib/leaderboard.ts`): signed-in users pick a username to join. It ranks by
+hit rate once someone has 10 counted picks. Only picks graded from box scores and saved before their game
+started count, so hand-marked wins don't. The board is rebuilt at most every 10 minutes.
+
+**Admin** (`/admin`, `lib/admin.ts`): accounts whose verified email is in `ADMIN_EMAILS` get an Admin tab.
+It shows every lifetime code and whether it's been used, makes new codes (stored in the database, so they
+work without a redeploy), revokes a used code's Pro, and shows Pro member counts and Odds API credits left.
+
 ## Pro (`lib/pro.ts`)
 
-Pro unlocks auto-filled lines and the report card. There are no accounts: paying (Stripe Checkout)
+Pro unlocks auto-filled lines, the best-slip builder, tracker insights, CSV export and the report card. There are no accounts: paying (Stripe Checkout)
 or redeeming a lifetime code gives the browser a Pro key like `LEG-ABCD-EFGH-JKLM`, which works on
 any device it's typed into on `/pro`. Subscription keys are re-checked with Stripe every few hours,
 so a cancelled plan stops working at the end of its period. Nothing is locked until
@@ -125,7 +133,7 @@ Setting it up:
 2. Copy the secret key into `STRIPE_SECRET_KEY` and set the two `NEXT_PUBLIC_PRO_*_LABEL`s.
 3. Turn on the customer portal (Settings → Billing → Customer portal) so subscribers can cancel.
 4. The database (Upstash) is required: it's where Pro keys and used codes are kept.
-5. For free lifetime passes, put codes in `LIFETIME_CODES`, comma separated. Each works once.
+5. For free lifetime passes, put codes in `LIFETIME_CODES`, comma separated, or make them on `/admin`. Each works once.
 
 ## Next up
 
