@@ -270,13 +270,20 @@ export interface EspnTeam {
   home?: boolean;
   /** NHL: the probable (or confirmed) starting goalie. */
   goalie?: { name: string; confirmed: boolean };
+  /** MLB: the probable starting pitcher. */
+  pitcher?: { id: string; name: string };
 }
 
-/** ESPN lists hockey's starting goalie under "probables", marked confirmed once the team says so. */
-function starter(c: any): { goalie?: EspnTeam["goalie"] } {
-  const p = (c?.probables ?? []).find((x: any) => x?.name === "probableStartingGoalie");
-  const name = p?.athlete?.displayName ?? p?.athlete?.fullName;
-  return name ? { goalie: { name: String(name), confirmed: p?.status?.type === "confirmed" } } : {};
+/** ESPN lists hockey's starting goalie and baseball's starting pitcher under "probables". */
+function starter(c: any): { goalie?: EspnTeam["goalie"]; pitcher?: EspnTeam["pitcher"] } {
+  const find = (n: string) => (c?.probables ?? []).find((x: any) => x?.name === n);
+  const g = find("probableStartingGoalie");
+  const gName = g?.athlete?.displayName ?? g?.athlete?.fullName;
+  if (gName) return { goalie: { name: String(gName), confirmed: g?.status?.type === "confirmed" } };
+  const p = find("probableStartingPitcher");
+  const pName = p?.athlete?.displayName ?? p?.athlete?.fullName;
+  const id = p?.athlete?.id ?? p?.playerId;
+  return pName && id ? { pitcher: { id: String(id), name: String(pName) } } : {};
 }
 
 export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {

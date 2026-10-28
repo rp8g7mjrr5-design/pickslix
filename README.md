@@ -187,6 +187,24 @@ the projection is built that way instead of averaging fights that ran different 
 - **Not yet:** opponent striking defense (how much each opponent absorbs), and sportsbook prices (The Odds API
   has no fighter props).
 
+## MLB matchups (`lib/mlb.ts`, `lib/mlbData.ts`)
+
+Each piece is a multiplier on the player's average, shrunk toward league average by the sample behind it, and
+listed in the reasons:
+
+- **Opposing starter (hitters):** ESPN's probable starter and what hitters have done against them (AVG for
+  hits, SLG for total bases, OBP+SLG for runs/RBI/H+R+RBI), applied to the ~65% of plate appearances a starter
+  usually gets.
+- **Platoon (hitters):** the hitter's own numbers against the starter's hand vs overall (switch hitters skipped).
+- **Opposing lineup (pitchers):** strikeout rate for strikeouts, average for hits allowed, on-base for outs.
+- **Park:** run, hit and home-run factors (rounded multi-year values in `PARKS`), measured against the mix the
+  player's average already reflects (about half at their home park).
+- **Weather:** Open-Meteo temperature at first pitch for open-air parks: warmer air adds a little to hits, more
+  to runs and most to power, capped at ±8%. Wind speed is shown at 15 mph and up but not modeled (no direction).
+
+Early in a season, last season's splits and team batting fill in at half weight. All of it comes from ESPN
+except the weather; the matchup total is capped at −20%/+25%.
+
 ## Splits (`lib/splits.ts`)
 
 How often the player cleared today's line in games like today's: last 5, this season, against this opponent
@@ -249,5 +267,4 @@ Setting it up:
 
 ## Next up
 
-- MLB team defense (uses recent form only for now)
 - Accounts instead of sync codes

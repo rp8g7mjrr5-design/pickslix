@@ -3,6 +3,7 @@ import { fetchGameLogs, fetchInjuries, fetchNhlStarters } from "@/lib/espn.ts";
 import { loadNflContext } from "@/lib/nflData.ts";
 import { nflSlice } from "@/lib/nflverse.ts";
 import { loadDefense } from "@/lib/refresh.ts";
+import { loadMlbSlice } from "@/lib/mlbData.ts";
 import { loadUfcInput } from "@/lib/ufcData.ts";
 import { loadUsage } from "@/lib/usageData.ts";
 import { toSport, type DefenseFactors } from "@/lib/types.ts";
@@ -30,6 +31,9 @@ export async function GET(req: Request) {
   const usage = sport === "NBA" && name && team ? await loadUsage({ player: name, team, logs, news }).catch(() => []) : [];
   // UFC: the fight's scheduled rounds and the opponent's history set how long it's likely to last.
   const ufc = sport === "UFC" ? await loadUfcInput(id).catch(() => undefined) : undefined;
+  // MLB: tonight's starter, park and weather. Pitchers get the lineup they face instead of a starter.
+  const pitcherProp = q.get("role") === "pitcher";
+  const mlb = sport === "MLB" && team ? await loadMlbSlice({ player: name, team, pitcherProp, athleteId: id }).catch(() => null) : null;
   return NextResponse.json({
     logs: logs.slice(0, 25),
     defense: opp && defense[opp] ? { [opp]: defense[opp] } : {},
@@ -39,5 +43,6 @@ export async function GET(req: Request) {
     // NBA: rotation teammates ruled out, with this player's numbers with and without them.
     usage,
     ufc: ufc ?? null,
+    mlb,
   });
 }

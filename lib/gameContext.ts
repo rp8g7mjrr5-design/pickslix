@@ -1,6 +1,6 @@
 // What the board needs to know about each pasted line's game beyond the player's own stats: whether the
 // team is at home, the spread and total, the sportsbooks' price for that prop, and NFL role trends or NBA
-// teammates ruled out.
+// teammates ruled out, MLB starters, parks and weather.
 import { fetchGameLogs, fetchInjuries, fetchUpcomingGames, findAthlete, type EspnGame } from "./espn.ts";
 import type { MarketInput } from "./model.ts";
 import { loadNflContext } from "./nflData.ts";
@@ -8,6 +8,8 @@ import { nflAdjust, nflSlice, type Adjustment, type NflContext } from "./nflvers
 import { normName } from "./names.ts";
 import { fetchGameLines, fetchSlate, oddsEnabled, teamEnv, type GameLines, type Slate, type TeamEnv } from "./odds.ts";
 import type { NewsItem, Prop, Sport } from "./types.ts";
+import { mlbAdjust, type MlbSlice } from "./mlb.ts";
+import { isPitcherStat, loadMlbSlice } from "./mlbData.ts";
 import type { UfcInput } from "./ufc.ts";
 import { usageAdjust, type UsageSlice } from "./usage.ts";
 import { loadUsage } from "./usageData.ts";
@@ -52,6 +54,13 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
     }
     return usageCache.get(key)!;
   };
+  const mlbCache = new Map<string, Promise<MlbSlice | null>>();
+  const mlbFor = (prop: Prop, game: EspnGame) => {
+    const pitcherProp = isPitcherStat(prop.stat);
+    const key = `${prop.player}:${prop.team}:${pitcherProp}`;
+    if (!mlbCache.has(key)) mlbCache.set(key, loadMlbSlice({ player: prop.player, team: prop.team, pitcherProp, game }).catch(() => null));
+    return mlbCache.get(key)!;
+  };
   const lineCache = new Map<string, Promise<GameLines>>();
   await Promise.all(
     props.map(async (prop) => {
@@ -81,6 +90,7 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
         const rounds = game.teams[0].stats.rounds || 3;
         ctx.ufc = { rounds, opponent: opp?.id ? await fetchGameLogs(opp.id, "UFC").catch(() => []) : [] };
       }
+      if (prop.sport === "MLB") ctx.adjust = mlbAdjust(prop.stat, await mlbFor(prop, game));
       if (prop.sport === "NBA") ctx.adjust = usageAdjust(prop.stat, await usageFor(prop.player, prop.team, me.id));
       out.set(prop.id, ctx);
     }),
