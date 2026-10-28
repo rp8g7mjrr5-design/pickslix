@@ -82,7 +82,9 @@ export type NewsKind =
   | "player_questionable"
   | "minutes_limit"
   | "teammate_out"
-  | "opponent_out";
+  | "opponent_out"
+  /** NHL: who starts in goal next game (from ESPN's probables). */
+  | "starting_goalie";
 
 export interface NewsItem {
   id: string;
@@ -97,6 +99,8 @@ export interface NewsItem {
   usageBoost?: number;
   /** For minutes_limit: expected minutes. */
   minutes?: number;
+  /** For starting_goalie: the team has confirmed it (otherwise it's the probable starter). */
+  confirmed?: boolean;
 }
 
 export interface Projection {

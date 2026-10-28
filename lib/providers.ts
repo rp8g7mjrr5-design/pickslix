@@ -1,6 +1,6 @@
 import type { DefenseFactors, GameLog, NewsItem, Prop, Sport, StatKey } from "./types.ts";
 import { SAMPLE_DEFENSE, SAMPLE_NEWS, sampleLogs, teamForPlayer } from "./sampleData.ts";
-import { fetchGameLogs, fetchInjuries, findAthlete, findNextGame } from "./espn.ts";
+import { fetchGameLogs, fetchInjuries, fetchNhlStarters, findAthlete, findNextGame } from "./espn.ts";
 import { canonTeam } from "./names.ts";
 import { loadDefense } from "./refresh.ts";
 
@@ -98,14 +98,14 @@ export const espnProvider: StatsProvider = {
     return athlete ? fetchGameLogs(athlete.id, sport) : [];
   },
   async defense() {
-    const [nba, nfl] = await Promise.all([loadDefense("NBA"), loadDefense("NFL")]);
-    // NBA and NFL share some abbreviations (DEN, MIA, ...), so keep each sport's stat keys on the same team entry.
-    const out: DefenseFactors = { ...nba };
-    for (const [team, f] of Object.entries(nfl)) out[team] = { ...out[team], ...f };
+    const sports = await Promise.all([loadDefense("NBA"), loadDefense("NFL"), loadDefense("NHL")]);
+    // Sports share some abbreviations (DEN, MIA, BOS...), so keep each sport's stat keys on the same team entry.
+    const out: DefenseFactors = {};
+    for (const factors of sports) for (const [team, f] of Object.entries(factors)) out[team] = { ...out[team], ...f };
     return out;
   },
   async news() {
-    const lists = await Promise.allSettled((["NBA", "NFL", "NHL", "MLB"] as const).map((s) => fetchInjuries(s)));
+    const lists = await Promise.allSettled([...(["NBA", "NFL", "NHL", "MLB"] as const).map((s) => fetchInjuries(s)), fetchNhlStarters()]);
     return lists.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   },
   async resolve(input) {
