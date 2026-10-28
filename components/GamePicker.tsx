@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Calibration } from "@/lib/calibration.ts";
 import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
@@ -106,10 +106,13 @@ export default function GamePicker({
   slip,
   onPick,
   onViewSlip,
+  onOpenChange,
 }: {
   slip: SlipLeg[];
   onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
   onViewSlip: () => void;
+  /** A game opened or closed: the board hides its other sections while one is open. */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [games, setGames] = useState<Record<GameSport, Game[]> | null>(null);
   const [failed, setFailed] = useState(false);
@@ -129,6 +132,10 @@ export default function GamePicker({
   }, []);
 
   const list = games?.[sport] ?? [];
+  const select = (g: Game | null) => {
+    setOpen(g);
+    onOpenChange?.(Boolean(g));
+  };
 
   return (
     <section className="games" aria-label="Upcoming games">
@@ -139,7 +146,7 @@ export default function GamePicker({
         </div>
         <div className="seg" role="tablist">
           {SPORTS.filter((s) => !games || games[s]?.length || s === sport).map((s) => (
-            <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "on" : ""} onClick={() => setSport(s)}>
+            <button key={s} role="tab" aria-selected={sport === s} className={sport === s ? "on" : ""} onClick={() => (setSport(s), select(null))}>
               {s}
               {games && <span className="segcount">{games[s]?.length ?? 0}</span>}
             </button>
@@ -154,7 +161,13 @@ export default function GamePicker({
         {list.map((g) => {
           const [away, home] = ordered(g);
           return (
-            <button key={g.id} className="gamecard" onClick={() => setOpen(g)} style={teamGlow(away, home)}>
+            <button
+              key={g.id}
+              className={`gamecard ${open?.id === g.id ? "on" : ""}`}
+              aria-pressed={open?.id === g.id}
+              onClick={() => select(open?.id === g.id ? null : g)}
+              style={teamGlow(away, home)}
+            >
               <span className={`gametime ${g.state === "in" ? "live" : ""}`}>{timeLabel(g)}</span>
               <TeamLine team={away} />
               <TeamLine team={home} />
@@ -163,16 +176,14 @@ export default function GamePicker({
         })}
       </div>
       {open && (
-        <GameSheet
+        <GameView
+          key={open.id}
           game={open}
           sport={sport}
           slip={slip}
           onPick={onPick}
-          onClose={() => setOpen(null)}
-          onViewSlip={() => {
-            setOpen(null);
-            onViewSlip();
-          }}
+          onClose={() => select(null)}
+          onViewSlip={onViewSlip}
         />
       )}
     </section>
@@ -210,7 +221,8 @@ function Logo({ team, size }: { team: Team; size: number }) {
   );
 }
 
-function GameSheet({
+/** The open game, right on the page under the game strip: both rosters, lines and the pick card. */
+function GameView({
   game,
   sport,
   slip,
@@ -260,16 +272,11 @@ function GameSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, sport]);
 
+  const ref = useRef<HTMLDivElement>(null);
+  // Bring the game into view when it opens (the strip stays just above it).
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const roster = players[team.abbr];
   // Players with posted lines first, keeping ESPN's order within each group.
@@ -284,8 +291,10 @@ function GameSheet({
   const at = sport === "UFC" ? "vs" : "at";
 
   return (
-    <div className="sheetwrap" role="dialog" aria-modal="true" aria-label={`${away.abbr} ${at} ${home.abbr}`} onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={teamGlow(away, home)}>
+    <div className="gameview" ref={ref} aria-label={`${away.abbr} ${at} ${home.abbr}`} style={teamGlow(away, home)}>
+        <button className="ghost small backbtn" onClick={onClose}>
+          ← All games
+        </button>
         <div className="sheethead">
           <div className="matchup">
             <Logo team={away} size={40} />
@@ -299,9 +308,6 @@ function GameSheet({
             </div>
             <Logo team={home} size={40} />
           </div>
-          <button className="x" onClick={onClose} aria-label="Close">
-            ×
-          </button>
         </div>
 
         <div className="sheettools">
@@ -364,7 +370,6 @@ function GameSheet({
           </span>
           <button onClick={slip.length ? onViewSlip : onClose}>{slip.length ? "View slip" : "Done"}</button>
         </div>
-      </div>
     </div>
   );
 }

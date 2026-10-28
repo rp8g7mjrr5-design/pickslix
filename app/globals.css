@@ -210,28 +210,14 @@ button.icon { padding: 8px 12px; font-size: 16px; line-height: 1; }
 .gamesempty { padding: 18px 4px; margin: 0; }
 .skeletoncard { background: linear-gradient(90deg, var(--panel), var(--panel-2), var(--panel)); background-size: 200% 100%; animation: shimmer 1.2s infinite linear; border: 1px solid var(--line); }
 
-.sheetwrap {
-  position: fixed; inset: 0; z-index: 50; background: rgba(4, 7, 10, 0.66); backdrop-filter: blur(4px);
-  display: grid; place-items: center; padding: 20px; animation: fade 0.15s ease-out;
-}
 @keyframes fade { from { opacity: 0; } }
-.sheet {
-  width: min(560px, 100%); max-height: min(820px, calc(100vh - 40px)); display: flex; flex-direction: column;
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--ca) 22%, transparent), transparent 40%),
-    linear-gradient(200deg, color-mix(in srgb, var(--cb) 22%, transparent), transparent 40%),
-    var(--panel);
-  border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
-  overflow: hidden; animation: rise 0.2s ease-out;
-}
-@keyframes rise { from { transform: translateY(16px); opacity: 0; } }
 .sheethead { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 16px 10px; gap: 8px; }
 .matchup { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .matchup strong { display: block; font-size: 16px; }
 .sheettools { display: flex; gap: 8px; padding: 0 16px 10px; }
 .sheettools input { flex: 1; min-width: 0; }
 .teamseg button { display: inline-flex; align-items: center; gap: 6px; }
-.playerlist { overflow-y: auto; padding: 0 8px 8px; flex: 1; overscroll-behavior: contain; }
+.playerlist { padding: 0 8px 8px; }
 .playerwrap { border-radius: 12px; margin-bottom: 2px; }
 .playerwrap.open { background: var(--panel-2); }
 .playerwrap.isout .playerrow { opacity: 0.55; }
@@ -325,6 +311,7 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
   padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; background: rgba(43, 245, 155, 0.15); color: var(--over);
 }
 .sheetfoot {
+  position: sticky; bottom: 0; z-index: 2; border-radius: 0 0 20px 20px; backdrop-filter: blur(8px);
   display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px;
   padding-bottom: max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(11, 15, 20, 0.6);
 }
@@ -467,9 +454,7 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
   .gameshead { align-items: stretch; flex-direction: column; gap: 8px; }
   .gameshead small { display: none; }
   .gamestrip { grid-auto-columns: 150px; margin: 0 -14px; padding-left: 14px; padding-right: 14px; scroll-padding-left: 14px; }
-  .sheetwrap { padding: 0; place-items: end stretch; }
-  .sheet { width: 100%; max-height: 92vh; border-radius: 20px 20px 0 0; animation: slideup 0.22s ease-out; }
-  @keyframes slideup { from { transform: translateY(40px); opacity: 0; } }
+  .gameview { margin: 0 -14px; border-radius: 0; border-left: 0; border-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -915,3 +900,16 @@ button.linkish { background: none; border: 0; padding: 4px; color: var(--muted);
 .sharedslip .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .sharebtn { padding: 4px 8px; line-height: 0; min-width: 32px; }
 .sharedslip .pill { min-width: 50px; text-align: center; }
+
+/* ---------- Open game, inline under the strip ---------- */
+.gameview {
+  margin-top: 6px; scroll-margin-top: 80px; display: flex; flex-direction: column;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--ca) 18%, transparent), transparent 320px),
+    linear-gradient(200deg, color-mix(in srgb, var(--cb) 18%, transparent), transparent 320px),
+    var(--panel);
+  border: 1px solid var(--line); border-radius: 20px; animation: fade 0.15s ease-out;
+}
+.gameview .backbtn { align-self: flex-start; margin: 14px 16px 0; }
+.gamecard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 10px 24px rgba(0, 0, 0, 0.35); }
+.boardcol.gameopen > :not(.games) { display: none; }

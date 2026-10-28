@@ -48,6 +48,7 @@ export default function Board() {
   const [slip, setSlip] = useState<SlipLeg[]>([]);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
+  const [gameOpen, setGameOpen] = useState(false);
 
   // Keep the slip across reloads.
   useEffect(() => {
@@ -209,9 +210,9 @@ export default function Board() {
 
   return (
     <div className="layout">
-      <section className="boardcol">
+      <section className={`boardcol ${gameOpen ? "gameopen" : ""}`}>
         <Welcome />
-        <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} />
+        <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
 
         <div className="hero">
           <div>
