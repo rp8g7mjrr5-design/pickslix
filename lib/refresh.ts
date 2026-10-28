@@ -24,9 +24,9 @@ export async function refreshDefense(sport: EspnSport, full = false): Promise<De
       : sport === "NHL"
         ? await computeNhlDefense(full ? 45 : 20)
         : sport === "CBB"
-          ? await computeCbbDefense(full ? 45 : 21)
+          ? await computeCbbDefense(full ? 30 : 14)
           : sport === "CFB"
-            ? await computeCfbDefense(full ? 5 : 2)
+            ? await computeCfbDefense(full ? 4 : 2)
             : await computeNflDefense(full ? 10 : 3);
   if (Object.keys(factors).length) {
     await kvSet(key(sport), { updatedAt: new Date().toISOString(), factors } satisfies Snapshot, 3 * 86400);
