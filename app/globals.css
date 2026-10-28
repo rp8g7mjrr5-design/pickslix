@@ -909,3 +909,8 @@ button.linkish { background: none; border: 0; padding: 4px; color: var(--muted);
 }
 .alerts > div { flex: 1; min-width: 0; }
 .alerts button { flex: none; }
+.sharedslip { max-width: 560px; margin: 0 auto; }
+.sharedslip .slip { position: static; }
+.sharedslip .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.sharebtn { padding: 4px 8px; line-height: 0; min-width: 32px; }
+.sharedslip .pill { min-width: 50px; text-align: center; }

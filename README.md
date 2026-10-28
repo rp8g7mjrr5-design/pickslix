@@ -165,7 +165,8 @@ FBS football and Division I men's basketball come from the same ESPN feeds as th
 team stats, injuries) and use the NFL and NBA stat menus. A pasted line reads as NFL or NBA from its stat; a
 player ESPN doesn't find there is looked up in college next. What's different:
 
-- No team defense factors yet, and pro factors are never applied (abbreviations like MIA and HOU collide).
+- Team defense comes from daily college basketball scoreboards and recent FBS box scores, stored under keys like
+  `CBB:DUKE` so it never mixes with a pro team's abbreviation (MIA, HOU...).
 - Spreads, totals and prop prices come from The Odds API's NCAAF and NCAAB feeds when the key is set; books post
   fewer college props, so only passing, rushing and receiving yards and points, rebounds and assists are fetched.
 - College basketball blowouts need a bigger spread (15) before starters' minutes are trimmed; football's
@@ -184,8 +185,10 @@ the projection is built that way instead of averaging fights that ran different 
 - **Data:** ESPN's UFC scoreboards (a whole year per request: dates, scheduled rounds, the round and clock each
   fight ended) are boiled down to a fight index saved daily by the cron (`ufc:fights`); each fighter's stats page
   gives per-fight strikes and takedowns. The picker lists the next card, one fighter per side.
-- **Not yet:** opponent striking defense (how much each opponent absorbs), and sportsbook prices (The Odds API
-  has no fighter props).
+- **Opponent defense:** what the opponent absorbed per minute in their last six fights (read from those fights'
+  other fighters' stats pages), shrunk toward the league rate (3.7 strikes, 0.125 takedowns a minute) and scaling
+  the landing rate.
+- **Not yet:** sportsbook prices (The Odds API has no fighter props).
 
 ## MLB matchups (`lib/mlb.ts`, `lib/mlbData.ts`)
 
@@ -223,6 +226,27 @@ really hit about 60% of the time. `/setup` shows which optional keys the deploym
 scores, bucketed by the model's chance, with a Brier score and per-sport hit rates. Same counting rules as the
 leaderboard, and a pick many people played counts once. Rebuilt at most hourly; linked from the footer.
 
+**Closing-line check** (`lib/clv.ts`): a pick saves the sportsbooks' price it had when picked. Every fresh odds
+fetch keeps the latest price per prop for its game day (`odds:close:{sport}:{date}`), and once the game starts the
+tracker pulls the last one seen before it. Each pick shows how its chance moved, with a beat-the-close summary.
+
+**Self-tuning** (`lib/calibration.ts`): the daily refresh fits a two-number recalibration per sport (how sure the
+model should be, and any lean to overs or unders) to every graded pick, held at "no change" until a couple of hundred
+picks back it. The board and picker apply it with a reason line, picks save the untuned chance so it never learns
+from itself, and `/accuracy` shows what it's doing.
+
+**Alerts** (`lib/alerts.ts`, `lib/alertsData.ts`, `public/sw.js`): phone notifications (Web Push) when a player
+on an open pick is ruled out or questionable, or the books move the pick's chance 5+ points. People turn them on
+from the profile or tracker; on iPhone the site has to be added to the Home Screen first. Setup:
+
+1. Make keys with `npx web-push generate-vapid-keys` and set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and
+   `VAPID_PRIVATE_KEY` on Vercel (optionally `VAPID_SUBJECT`, a `mailto:` address). Redeploy.
+2. On the GitHub repo add the secrets `SITE_URL` (your site's address) and `CRON_SECRET` (same as on Vercel).
+   `.github/workflows/alerts.yml` then calls `/api/cron/alerts` every 15 minutes.
+
+**Share a slip** (`lib/share.ts`, `/s/{id}`): the slip and each saved slip have a Share button that makes a short
+link (kept a week) with a link-preview image of the picks. Anyone opening it can tail the picks still open.
+
 ## Accounts (`lib/accounts.ts`, `components/Account.tsx`)
 
 Sign-in is handled by [Clerk](https://clerk.com): Google, Apple or an email code, no passwords to store.
@@ -234,7 +258,11 @@ Turn it on by adding Clerk from the Vercel Marketplace (it sets `NEXT_PUBLIC_CLE
 `CLERK_SECRET_KEY`), then pick sign-in methods in Clerk's dashboard. Without those keys the site runs
 signed out with Pro keys and sync codes, exactly as before.
 
-**Leaderboard** (`/leaderboard`, `lib/leaderboard.ts`): signed-in users pick a username to join. It ranks by
+**Username and profile:** a new account picks a username before anything else (live availability check). The
+profile (`/profile`, from the avatar menu) shows record, hit rate against the model, slip profit, streaks, recent
+form, splits by sport, prop and side, closing-line results, leaderboard rank and alert settings.
+
+**Leaderboard** (`/leaderboard`, `lib/leaderboard.ts`): everyone with a username is on it unless they hide. It ranks by
 hit rate once someone has 10 counted picks. Only picks graded from box scores and saved before their game
 started count, so hand-marked wins don't. The board is rebuilt at most every 10 minutes.
 

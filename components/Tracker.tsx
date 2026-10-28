@@ -5,6 +5,7 @@ import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 import { clvSummary, legClv } from "@/lib/clv.ts";
+import { shareSlip } from "@/lib/shareClient.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
 import { AlertsToggle } from "@/components/Alerts";
@@ -263,6 +264,7 @@ export default function Tracker() {
               <span className={`result ${o.state}`}>
                 {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : "Lost"} ${money(o.pnl)}`}
               </span>
+              <ShareButton slip={s} />
               <button className="x" onClick={() => remove(s)} aria-label="Delete slip">
                 ×
               </button>
@@ -291,6 +293,26 @@ export default function Tracker() {
         );
       })}
     </div>
+  );
+}
+
+/** Share link for a saved slip, so friends can see it and tail the picks still open. */
+function ShareButton({ slip }: { slip: SavedSlip }) {
+  const [note, setNote] = useState("");
+  const go = async () => {
+    setNote("…");
+    const r = await shareSlip(slip.legs);
+    setNote(r.ok ? (r.how === "copied" ? "Copied" : "✓") : "!");
+    setTimeout(() => setNote(""), 2500);
+  };
+  return (
+    <button className="ghost small sharebtn" onClick={go} disabled={note === "…"} aria-label="Share slip" title="Share slip">
+      {note || (
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+        </svg>
+      )}
+    </button>
   );
 }
 
