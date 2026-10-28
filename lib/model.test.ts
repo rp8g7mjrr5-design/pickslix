@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { countPmf, overUnder, project, slipHitProbability, weightedStats } from "./model.ts";
+import { countPmf, impliedMean, overUnder, project, slipHitProbability, weightedStats } from "./model.ts";
 import { buildBoard } from "./board.ts";
 import { sampleProvider } from "./providers.ts";
 import { sampleProps } from "./sampleData.ts";
@@ -89,4 +89,23 @@ test("weightedStats scale down-weights games", () => {
   const plain = weightedStats([30, 10], 6).mean;
   const scaled = weightedStats([30, 10], 6, [1, 0.35]).mean;
   assert.ok(scaled > plain);
+});
+
+test("implied mean reproduces the books' price", () => {
+  const m = impliedMean({ line: 24.5, pOver: 0.6 }, 2);
+  const { pOver, pUnder } = overUnder(m, m * 2, 24.5);
+  close(pOver / (pOver + pUnder), 0.6, 1e-4);
+  assert.ok(m > 24.5);
+});
+
+test("books dealing above Pick 6's line push toward the over", () => {
+  const logs = Array.from({ length: 15 }, (_, i) => log(22 + (i % 5)));
+  const plain = project({ prop, logs, defense: {}, news: [] });
+  // Books have 26.5 at even money; Pick 6 has 24.5.
+  const withBooks = project({ prop, logs, defense: {}, news: [], market: { line: 26.5, pOver: 0.5, books: 3, sharp: true } });
+  assert.ok(withBooks.pOver > plain.pOver);
+  assert.equal(withBooks.pick, "OVER");
+  assert.ok(withBooks.marketProb! > 0.6, String(withBooks.marketProb));
+  assert.ok(withBooks.reasons.some((r) => /2 below Pick 6|above Pick 6/.test(r)));
+  assert.equal(plain.marketProb, undefined);
 });

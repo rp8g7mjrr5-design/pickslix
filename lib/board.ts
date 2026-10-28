@@ -1,4 +1,5 @@
 import { project, statValue } from "./model.ts";
+import { splits } from "./splits.ts";
 import type { StatsProvider } from "./providers.ts";
 import type { GameLog, Prop, PropWithProjection } from "./types.ts";
 
@@ -17,6 +18,7 @@ export async function buildBoard(props: Prop[], provider: StatsProvider): Promis
       return {
         ...prop,
         projection: project({ prop, logs, defense, news: relevantNews }),
+        splits: splits(prop, logs, { gameTime: prop.gameTime }),
         recent: logs.slice(0, 10).map((g) => statValue(g, prop.stat)),
         recentThisSeason: logs.slice(0, 10).some((g) => g.prior) ? logs.slice(0, 10).filter((g) => !g.prior).length : undefined,
       };

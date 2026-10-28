@@ -73,8 +73,10 @@ passing TD defense isn't computed; teammate-out usage bumps still need a manual 
    shrunk 40% toward average so one noisy number can't swing it.
 3. Apply news: teammate out (usage bump), minutes limit (scale down), key
    defender out, questionable (lower confidence), ruled out (flag as void).
-4. Pull the projection 30% toward the posted line, since the line already
-   prices in information the model doesn't see.
+4. Pull the projection toward the market. When sportsbooks have priced the prop (both sides, with odds),
+   their prices are de-vigged into a no-vig chance, Pinnacle and BetOnline counting double, and turned into
+   the mean that price implies; the projection goes halfway there. Without a priced market it's pulled 30%
+   toward the posted line instead, since the line already prices in information the model doesn't see.
 5. Fit a negative binomial (or Poisson) to that mean and spread and read off
    P(over), P(under), P(push).
 
@@ -91,6 +93,23 @@ Picks from the same game are usually correlated, so treat that number as rough.
   `lib/refresh.ts` defense snapshot + cron job, `lib/db.ts` Redis client
 - Pasted lines live in the browser. Saved slips live in the browser and, when Redis is
   connected, sync under a code shown on the Tracker page (enter it on another device).
+
+## Market check and line movement (`lib/odds.ts`)
+
+The same Odds API call that finds Pick 6's line also returns the sportsbooks' prices, so the market read costs
+no extra credits (Pinnacle and BetOnline are in the bookmaker list; up to 10 books cost the same as one region).
+The pick card shows the books' no-vig chance next to the model's, says when Pick 6's line sits off the books'
+(books at 27.5 and Pick 6 at 25.5 makes More the easier side), and shows how far the line has moved since we
+first saw it (openers are kept for five days under `odds:open:{eventId}`). This is the props version of
+"public vs sharp money": betting splits only exist for game lines, and the sharp books' price is the signal
+that matters for a player prop.
+
+## Splits (`lib/splits.ts`)
+
+How often the player cleared today's line in games like today's: last 5, this season, against this opponent
+(last season included), home or road, and the second night of a back-to-back (NBA and NHL). A split that goes
+the same way at least 75% of the time over 4+ games is ringed as a pattern. Splits are shown, not fed to the
+model: the samples are small and the model already weights recent form.
 
 ## Tracker
 

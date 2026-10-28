@@ -166,6 +166,8 @@ export function parseGameLog(json: any, sport: EspnSport): GameLog[] {
           // ESPN only lists games the player appeared in. NFL and MLB logs have no playing time, so 100 stands for "played".
           playing: minutes < 0 ? 100 : sport === "NHL" ? clock(row[minutes]) : num(row[minutes]),
           stats,
+          // "vs" at home, "@" away.
+          ...(meta.atVs === "vs" ? { home: true } : meta.atVs === "@" ? { home: false } : {}),
         });
       }
     }

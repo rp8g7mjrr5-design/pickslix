@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
+import { splits } from "@/lib/splits.ts";
 import { pct } from "@/lib/format.ts";
 import { normName } from "@/lib/names.ts";
 import { proHeaders } from "@/lib/proClient.ts";
@@ -13,6 +15,8 @@ type GameSport = Sport;
 interface OddsLine {
   line: number;
   book: string;
+  market?: { line: number; pOver: number; books: number; sharp: boolean };
+  open?: number;
 }
 /** normName(player) → stat → line, from /api/games/lines */
 type GameLines = Record<string, Partial<Record<StatKey, OddsLine>>>;
@@ -487,7 +491,8 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news }) : null;
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market }) : null;
+  const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;
 
@@ -588,6 +593,10 @@ function PickCard({
         })}
       </div>
       {proj && <small className="hint">The % is the model's chance that side hits. Tap one to add it to your slip.</small>}
+      {proj && line !== undefined && (
+        <MarketNote market={postedLine?.market} open={postedLine?.open} line={line} posted={postedLine?.line} proj={proj} />
+      )}
+      <SplitChips splits={split} />
       {proj && proj.reasons.length > 0 && (
         <ul className="reasons">
           {proj.reasons.slice(0, 3).map((r) => (

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import GamePicker from "@/components/GamePicker";
+import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Pulse from "@/components/Pulse";
@@ -394,6 +395,7 @@ export default function Board() {
                           <li key={x}>{x}</li>
                         ))}
                       </ul>
+                      <SplitChips splits={r.splits} />
                     </div>
                   )}
                 </div>
