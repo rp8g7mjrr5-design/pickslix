@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
+import { clvSummary, legClv } from "@/lib/clv.ts";
+import { shareSlip } from "@/lib/shareClient.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
+import { AlertsToggle } from "@/components/Alerts";
 
 const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
@@ -39,7 +42,7 @@ export default function Tracker() {
       setSlips(r.slips);
       if (!graded.current) {
         graded.current = true;
-        autoGrade(r.slips);
+        autoGrade(r.slips).then(fetchCloses);
       }
     });
   };
@@ -95,6 +98,39 @@ export default function Tracker() {
     }
   };
 
+  /** Closing prices for picks that had a sportsbook price when saved and whose games have started. */
+  const fetchCloses = async () => {
+    const now = Date.now();
+    const current = loadSlips();
+    const want = current.flatMap((s) =>
+      s.legs
+        .filter((l) => l.openPrice && !l.closePrice && l.gameTime && Date.parse(l.gameTime) < now && now - Date.parse(l.gameTime) < 4 * 86400_000)
+        .map((l) => ({ slipId: s.id, leg: l })),
+    );
+    if (!want.length) return;
+    try {
+      const res = await fetch("/api/clv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legs: want.slice(0, 100).map(({ leg }) => ({ sport: leg.sport ?? STATS[leg.stat].sport, player: leg.player, stat: leg.stat, gameTime: leg.gameTime })),
+        }),
+      });
+      const { closes } = (await res.json()) as { closes: ({ line: number; pOver: number } | null)[] };
+      const found = new Map<string, { line: number; pOver: number }>();
+      want.slice(0, 100).forEach((w, i) => closes[i] && found.set(`${w.slipId}|${w.leg.propId}`, closes[i]!));
+      if (!found.size) return;
+      const next = loadSlips().map((s) => ({
+        ...s,
+        legs: s.legs.map((l) => (found.has(`${s.id}|${l.propId}`) && !l.closePrice ? { ...l, closePrice: found.get(`${s.id}|${l.propId}`) } : l)),
+      }));
+      setSlips(next);
+      persistSlips(next);
+    } catch {
+      // Try again next visit.
+    }
+  };
+
   const update = (next: SavedSlip[]) => {
     setSlips(next);
     persistSlips(next);
@@ -121,6 +157,7 @@ export default function Tracker() {
   const settled = slips.filter((s) => outcome(s).state !== "open");
   const profit = settled.reduce((a, s) => a + outcome(s).pnl, 0);
   const openCount = slips.length - settled.length;
+  const clv = clvSummary(slips);
   const shown = slips.filter((s) => filter === "all" || (filter === "open") === (outcome(s).state === "open"));
   const locked = !unlocked(pro);
 
@@ -147,6 +184,28 @@ export default function Tracker() {
         <Card label="Model expected" value={settledLegs.length ? pct(expected / settledLegs.length) : "–"} />
         <Card label="Settled slips P/L" value={money(profit)} tone={profit >= 0 ? "pos" : "neg"} />
       </div>
+      {openCount > 0 && <AlertsToggle />}
+      {clv.n > 0 && (
+        <div className="clvbar">
+          <span>
+            <small>Beat the closing line</small>
+            <strong className={clv.beat >= clv.lost ? "pos" : "neg"}>
+              {clv.beat} of {clv.n}
+            </strong>
+          </span>
+          <span>
+            <small>Average line move</small>
+            <strong className={clv.avg >= 0 ? "pos" : "neg"}>
+              {clv.avg >= 0 ? "+" : "−"}
+              {Math.abs(clv.avg * 100).toFixed(1)} pts
+            </strong>
+          </span>
+          <small className="clvwhy">
+            How far the sportsbooks moved toward your picks between when you saved them and the start. Sharp bettors beat the close
+            more often than not, even through losing streaks.
+          </small>
+        </div>
+      )}
       <p className="fine">
         Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout
         instead.
@@ -205,6 +264,7 @@ export default function Tracker() {
               <span className={`result ${o.state}`}>
                 {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : "Lost"} ${money(o.pnl)}`}
               </span>
+              <ShareButton slip={s} />
               <button className="x" onClick={() => remove(s)} aria-label="Delete slip">
                 ×
               </button>
@@ -217,6 +277,7 @@ export default function Tracker() {
                     {l.auto && <b className="autotag" title="Graded from the box score">auto</b>}
                     <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
                     {STATS[l.stat].label} · model {pct(l.prob)}
+                    <ClvTag leg={l} />
                   </small>
                 </div>
                 <div className="grade">
@@ -232,6 +293,39 @@ export default function Tracker() {
         );
       })}
     </div>
+  );
+}
+
+/** Share link for a saved slip, so friends can see it and tail the picks still open. */
+function ShareButton({ slip }: { slip: SavedSlip }) {
+  const [note, setNote] = useState("");
+  const go = async () => {
+    setNote("…");
+    const r = await shareSlip(slip.legs);
+    setNote(r.ok ? (r.how === "copied" ? "Copied" : "✓") : "!");
+    setTimeout(() => setNote(""), 2500);
+  };
+  return (
+    <button className="ghost small sharebtn" onClick={go} disabled={note === "…"} aria-label="Share slip" title="Share slip">
+      {note || (
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+/** "Line moved your way" for one pick, once the closing price is in. */
+function ClvTag({ leg }: { leg: SlipLeg }) {
+  const c = legClv(leg);
+  if (!c) return null;
+  const way = c.diff >= 0.005 ? "pos" : c.diff <= -0.005 ? "neg" : "muted";
+  return (
+    <span className={`clvtag ${way}`} title={`Books had your side at ${pct(c.open)} when you saved it and ${pct(c.close)} at the close`}>
+      {" "}· close {pct(c.open)}→{pct(c.close)}
+      {way === "pos" ? " ✓" : ""}
+    </span>
   );
 }
 

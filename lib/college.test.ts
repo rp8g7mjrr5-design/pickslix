@@ -48,6 +48,10 @@ test("college props skip pro defense factors that share an abbreviation", () => 
   const pro = project({ prop: { ...prop, sport: "NFL" }, logs, defense, news: [] });
   assert.ok(!college.reasons.some((r) => r.includes("matchup")));
   assert.ok(pro.mean > college.mean);
+  // College factors live under their own keys.
+  const own = project({ prop, logs, defense: { ...defense, "CFB:MIA": { PASS_YDS: 0.8 } }, news: [] });
+  assert.ok(own.mean < college.mean);
+  assert.ok(own.reasons.some((r) => r.includes("tough matchup")));
 });
 
 test("game script and blowouts carry over to college, with bigger spreads before starters sit", () => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AccuracyReport } from "@/lib/accuracy.ts";
+import { applyTune, type Calibration, type Tune } from "@/lib/calibration.ts";
 import { pct } from "@/lib/format.ts";
 
 /** Fewer graded picks than this and the page says it's early. */
@@ -9,7 +10,7 @@ const EARLY = 100;
 
 /** Public proof that the percentages mean something: when the model says 60%, do those picks hit about 60%? */
 export default function Accuracy() {
-  const [report, setReport] = useState<(AccuracyReport & { at: string }) | null>(null);
+  const [report, setReport] = useState<(AccuracyReport & { at: string; tune?: Calibration | null }) | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     fetch("/api/accuracy")
@@ -83,9 +84,45 @@ export default function Accuracy() {
               </p>
             )}
           </section>
+          {report.tune && <Tuning cal={report.tune} />}
           <p className="fine">Updated {new Date(report.at).toLocaleString()}. Rebuilt every hour.</p>
         </>
       )}
     </div>
+  );
+}
+
+/** What a tune does to a 60% pick on each side, in words. */
+function tuneLine(label: string, t: Tune) {
+  const over = applyTune(0.6, t);
+  const under = 1 - applyTune(0.4, t);
+  const same = Math.abs(over - 0.6) < 0.005 && Math.abs(under - 0.6) < 0.005;
+  return (
+    <li key={label}>
+      <strong>{label}</strong>
+      <span className="muted">
+        {same ? "No change yet" : `A 60% over now shows ${pct(over)}, a 60% under ${pct(under)}`} · {t.n} picks
+      </span>
+    </li>
+  );
+}
+
+/** How the model has adjusted itself from these results. */
+function Tuning({ cal }: { cal: Calibration }) {
+  return (
+    <section className="report">
+      <div className="reporthead">
+        <h2>Self-tuning</h2>
+        <small>Rebuilt daily from these results</small>
+      </div>
+      <p className="fine">
+        The model learns from its own graded picks. When a sport's picks hit less often than it said, its chances get pulled in; when overs
+        or unders keep beating it, it leans that way. It moves slowly, so a hot or cold week doesn't swing it.
+      </p>
+      <ul className="tunelist">
+        {tuneLine("All sports", cal.all)}
+        {Object.entries(cal.sports).map(([sport, t]) => t && tuneLine(sport, t))}
+      </ul>
+    </section>
   );
 }

@@ -105,7 +105,8 @@ export function fightLogs(athleteId: string, stats: Map<string, FightStats>, fig
       date: f.date.slice(0, 10),
       opponent: fighterTag(opp.name),
       playing: Math.round(f.minutes * 100) / 100,
-      stats: { sigStr: s.sigStr, sigAtt: s.sigAtt, td: s.td, tdAtt: s.tdAtt, kd: s.kd, rounds: f.rounds, won: me.winner ? 1 : 0 },
+      // comp and oppId (numeric ids) let the opponent's side of the fight be looked up for what this fighter absorbed.
+      stats: { sigStr: s.sigStr, sigAtt: s.sigAtt, td: s.td, tdAtt: s.tdAtt, kd: s.kd, rounds: f.rounds, won: me.winner ? 1 : 0, comp: Number(comp), oppId: Number(opp.id) },
     });
   }
   return logs.sort((a, b) => b.date.localeCompare(a.date));
@@ -115,6 +116,42 @@ export function fightLogs(athleteId: string, stats: Map<string, FightStats>, fig
 export interface UfcInput {
   rounds: number;
   opponent: GameLog[];
+}
+
+/**
+ * Add what the fighter absorbed in each fight (their opponent's landed strikes and takedowns), from the
+ * opponents' own stats pages: `theirs` maps opponent id → that opponent's per-fight stats.
+ */
+export function withAbsorbed(logs: GameLog[], theirs: Map<string, Map<string, FightStats>>): GameLog[] {
+  return logs.map((g) => {
+    const s = theirs.get(String(g.stats.oppId))?.get(String(g.stats.comp));
+    return s ? { ...g, stats: { ...g.stats, sigStrAbs: s.sigStr, tdAbs: s.td } } : g;
+  });
+}
+
+/** League landing rates per fighter-minute (ESPN, 2025 UFC fights). */
+const LEAGUE_RATE: Record<string, number> = { sigStr: 3.7, td: 0.125 };
+/** Minutes of league-average defense mixed in before trusting a fighter's own. */
+const DEFENSE_PRIOR_MIN = 30;
+/** How much of the opponent's leakiness carries over (the rest is the fighter's own style). */
+const DEFENSE_WEIGHT = 0.6;
+const DEFENSE_CAP: [number, number] = [0.75, 1.3];
+
+/** How much more (or less) than average the opponent gives up per minute, shrunk toward average. */
+export function opponentFactor(field: string, opp: GameLog[]): { factor: number; reason?: string } {
+  const league = LEAGUE_RATE[field];
+  const fights = opp.slice(0, MAX_FIGHTS).filter((g) => g.stats[`${field}Abs`] !== undefined && g.playing > 0);
+  if (!league || !fights.length) return { factor: 1 };
+  const absorbed = fights.reduce((a, g) => a + g.stats[`${field}Abs`], 0);
+  const minutes = fights.reduce((a, g) => a + g.playing, 0);
+  const rate = (absorbed + league * DEFENSE_PRIOR_MIN) / (minutes + DEFENSE_PRIOR_MIN);
+  const factor = Math.min(DEFENSE_CAP[1], Math.max(DEFENSE_CAP[0], (rate / league) ** DEFENSE_WEIGHT));
+  if (Math.abs(factor - 1) < 0.02) return { factor };
+  const what = field === "td" ? "takedowns" : "significant strikes";
+  return {
+    factor,
+    reason: `Opponent absorbs ${(absorbed / minutes).toFixed(field === "td" ? 2 : 1)} ${what} per minute (average ${league}) over ${fights.length} fights: ${factor > 1 ? "+" : ""}${((factor - 1) * 100).toFixed(0)}%`,
+  };
 }
 
 /** Share of fights that end early, before any fighter history. */
@@ -153,7 +190,9 @@ export function ufcBase(field: string, logs: GameLog[], ufc?: UfcInput): { mean:
   const rounds = ufc?.rounds ?? 3;
   const full = rounds * 5;
   const pf = finishChance(logs, ufc?.opponent ?? []);
-  const rate = perMinute(logs, field);
+  const defense = opponentFactor(field, ufc?.opponent ?? []);
+  const own = perMinute(logs, field);
+  const rate = own * defense.factor;
   const t1 = pf * (full / 2) + (1 - pf) * full;
   const t2 = pf * (full * full / 3) + (1 - pf) * full * full;
   const mean = rate * t1;
@@ -163,8 +202,9 @@ export function ufcBase(field: string, logs: GameLog[], ufc?: UfcInput): { mean:
     mean,
     variance: Math.max(variance, mean),
     reasons: [
-      `Lands ${rate.toFixed(field === "td" ? 2 : 1)} ${what} per minute over ${Math.min(logs.length, MAX_FIGHTS)} recent fights`,
+      `Lands ${own.toFixed(field === "td" ? 2 : 1)} ${what} per minute over ${Math.min(logs.length, MAX_FIGHTS)} recent fights`,
       `${rounds}-round fight, ${(pf * 100).toFixed(0)}% chance it ends early from both fighters' records: expect about ${t1.toFixed(1)} of ${full} minutes`,
+      ...(defense.reason ? [defense.reason] : []),
     ],
   };
 }

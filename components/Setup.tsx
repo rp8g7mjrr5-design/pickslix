@@ -15,6 +15,7 @@ interface Status {
   stripePrices: boolean;
   lifetimeCodes: number;
   tips: boolean;
+  alerts: boolean;
 }
 
 const ago = (iso: string) => {
@@ -39,6 +40,12 @@ export default function Setup() {
           title: "Auto-filled lines",
           on: `Pick 6 lines load when you open a game.${s.oddsRemaining !== null ? ` ${s.oddsRemaining} Odds API credits left this month.` : ""}`,
           off: "Add ODDS_API_KEY (free at the-odds-api.com). Until then lines start at the season average.",
+        },
+        {
+          ok: s.alerts,
+          title: "Phone alerts",
+          on: "People can turn on alerts for players ruled out and line moves. The GitHub workflow in .github/workflows/alerts.yml checks every 15 minutes once its SITE_URL and CRON_SECRET secrets are set.",
+          off: "Add NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY (make a pair with: npx web-push generate-vapid-keys), then set the SITE_URL and CRON_SECRET secrets on the GitHub repo so the check runs every 15 minutes.",
         },
         {
           ok: s.database,

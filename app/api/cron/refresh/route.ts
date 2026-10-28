@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { refreshAll } from "@/lib/refresh.ts";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Daily refresh (see vercel.json): rebuilds NBA and NFL team defense from box scores and saves it, so page

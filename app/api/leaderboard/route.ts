@@ -20,7 +20,7 @@ export async function GET() {
   await Promise.all(
     keys.map(async (k) => {
       const account = await kvGet<Account>(k).catch(() => null);
-      if (!account?.username || account.banned) return;
+      if (!account?.username || account.banned || account.hidden) return;
       const userId = k.slice("account:".length);
       const slips = (await kvGet<LeaderSlip[]>(`slips:user:${userId}`).catch(() => null)) ?? [];
       const pass = account.proKey ? await checkPass(account.proKey).catch(() => null) : null;

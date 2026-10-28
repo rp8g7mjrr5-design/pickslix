@@ -117,3 +117,18 @@ test("strikes on both sides of one fight move together", () => {
   const r = correlatedHitProbability([a, b]);
   assert.ok(r.prob > r.independent);
 });
+
+test("opponent who absorbs a lot raises the count, shrunk toward average", async () => {
+  const { opponentFactor, withAbsorbed } = await import("./ufc.ts");
+  const fight = (abs: number, comp: number): GameLog => ({ date: "2026-01-01", opponent: "X", playing: 15, stats: { sigStr: 40, td: 1, rounds: 3, comp, oppId: 7 } });
+  const theirs = new Map([["7", new Map([["1", { sigStr: 90, sigAtt: 150, td: 0, tdAtt: 0, kd: 0 }], ["2", { sigStr: 90, sigAtt: 150, td: 0, tdAtt: 0, kd: 0 }]])]]);
+  const opp = withAbsorbed([fight(0, 1), fight(0, 2)], theirs);
+  assert.equal(opp[0].stats.sigStrAbs, 90);
+  const f = opponentFactor("sigStr", opp);
+  // Gives up 6/min against a 3.7 average: more strikes, but well short of the raw 1.6x.
+  assert.ok(f.factor > 1.1 && f.factor < 1.3, String(f.factor));
+  assert.match(f.reason ?? "", /absorbs 6.0/);
+  // Takedowns: none given up, so a little under average.
+  assert.ok(opponentFactor("td", opp).factor < 1);
+  assert.equal(opponentFactor("sigStr", []).factor, 1);
+});

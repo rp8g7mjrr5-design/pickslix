@@ -11,6 +11,7 @@ import type { NewsItem, Prop, Sport } from "./types.ts";
 import { mlbAdjust, type MlbSlice } from "./mlb.ts";
 import { isPitcherStat, loadMlbSlice } from "./mlbData.ts";
 import type { UfcInput } from "./ufc.ts";
+import { fetchDefenseLogs } from "./ufcData.ts";
 import { usageAdjust, type UsageSlice } from "./usage.ts";
 import { loadUsage } from "./usageData.ts";
 
@@ -88,7 +89,7 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
       if (prop.sport === "UFC") {
         const opp = game.teams.find((t) => t !== me);
         const rounds = game.teams[0].stats.rounds || 3;
-        ctx.ufc = { rounds, opponent: opp?.id ? await fetchGameLogs(opp.id, "UFC").catch(() => []) : [] };
+        ctx.ufc = { rounds, opponent: opp?.id ? await fetchDefenseLogs(opp.id).catch(() => []) : [] };
       }
       if (prop.sport === "MLB") ctx.adjust = mlbAdjust(prop.stat, await mlbFor(prop, game));
       if (prop.sport === "NBA") ctx.adjust = usageAdjust(prop.stat, await usageFor(prop.player, prop.team, me.id));

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { defenseKey } from "@/lib/model.ts";
+import { loadCalibration } from "@/lib/calibrationData.ts";
 import { fetchGameLogs, fetchInjuries, fetchNhlStarters } from "@/lib/espn.ts";
 import { loadNflContext } from "@/lib/nflData.ts";
 import { nflSlice } from "@/lib/nflverse.ts";
@@ -34,9 +36,10 @@ export async function GET(req: Request) {
   // MLB: tonight's starter, park and weather. Pitchers get the lineup they face instead of a starter.
   const pitcherProp = q.get("role") === "pitcher";
   const mlb = sport === "MLB" && team ? await loadMlbSlice({ player: name, team, pitcherProp, athleteId: id }).catch(() => null) : null;
+  const calibration = await loadCalibration();
   return NextResponse.json({
     logs: logs.slice(0, 25),
-    defense: opp && defense[opp] ? { [opp]: defense[opp] } : {},
+    defense: opp && defense[defenseKey(sport, opp)] ? { [defenseKey(sport, opp)]: defense[defenseKey(sport, opp)] } : {},
     news: news.filter((n) => n.team === team || n.team === opp),
     // Role trends and position matchups from nflverse, when it's reachable.
     nfl: nfl ? nflSlice(nfl, name, opp) : null,
@@ -44,5 +47,7 @@ export async function GET(req: Request) {
     usage,
     ufc: ufc ?? null,
     mlb,
+    // What the model has learned from its graded picks.
+    calibration,
   });
 }

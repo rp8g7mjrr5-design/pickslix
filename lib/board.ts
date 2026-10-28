@@ -1,3 +1,4 @@
+import type { Calibration } from "./calibration.ts";
 import { project, statValue } from "./model.ts";
 import { splits } from "./splits.ts";
 import type { PropContext } from "./gameContext.ts";
@@ -8,6 +9,7 @@ export async function buildBoard(
   props: Prop[],
   provider: StatsProvider,
   contexts: Map<string, PropContext> = new Map(),
+  calibration: Calibration | null = null,
 ): Promise<PropWithProjection[]> {
   const [defense, news] = await Promise.all([provider.defense(), provider.news()]);
   const logCache = new Map<string, Promise<GameLog[]>>();
@@ -24,7 +26,7 @@ export async function buildBoard(
       const relevantNews = news.filter((n) => n.team === prop.team || n.team === prop.opponent);
       return {
         ...prop,
-        projection: project({ prop, logs, defense, news: relevantNews, market: ctx.market, env: ctx.env, adjust: ctx.adjust, ufc: ctx.ufc }),
+        projection: project({ prop, logs, defense, news: relevantNews, market: ctx.market, env: ctx.env, adjust: ctx.adjust, ufc: ctx.ufc, calibration }),
         splits: splits(prop, logs, { gameTime: prop.gameTime, home: ctx.home }),
         recent: logs.slice(0, 10).map((g) => statValue(g, prop.stat)),
         recentThisSeason: logs.slice(0, 10).some((g) => g.prior) ? logs.slice(0, 10).filter((g) => !g.prior).length : undefined,

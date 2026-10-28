@@ -9,6 +9,8 @@ export interface Account {
   linkedAt?: string;
   /** Public name on the leaderboard. Having one is what puts you on it. */
   username?: string;
+  /** Has a username but chose to stay off the public leaderboard. */
+  hidden?: boolean;
   /** Banned by an admin: signed out by Clerk and hidden from the leaderboard and crews. */
   banned?: boolean;
 }
@@ -64,4 +66,13 @@ export async function setUsername(userId: string, raw: string): Promise<{ userna
   if (account.username && account.username.toLowerCase() !== name.toLowerCase()) await kvDel(nameKey(account.username));
   await kvSet(accountKey(userId), { ...account, username: name || undefined } satisfies Account);
   return { username: name || null };
+}
+
+/** Whether this account could take `raw` right now (or why not). */
+export async function checkUsername(userId: string | null, raw: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const name = raw.trim();
+  const problem = usernameProblem(name);
+  if (problem) return { ok: false, error: problem };
+  const owner = await kvGet<string>(nameKey(name));
+  return owner && owner !== userId ? { ok: false, error: "That username is taken." } : { ok: true };
 }

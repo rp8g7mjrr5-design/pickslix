@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { AccountButton, AccountProvider } from "@/components/Account";
 import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
+import { UsernameGate } from "@/components/Username";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
         </footer>
+        <UsernameGate />
         </AccountProvider>
       </body>
     </html>

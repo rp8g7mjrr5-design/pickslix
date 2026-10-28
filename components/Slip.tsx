@@ -6,6 +6,7 @@ import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type PropWithProjection } from "@/lib/types.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
+import { shareSlip } from "@/lib/shareClient.ts";
 
 const BEST_SIZES = [2, 3, 4, 5, 6];
 
@@ -27,6 +28,7 @@ export default function Slip({
   const [multiplier, setMultiplier] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareNote, setShareNote] = useState("");
   const mult = multiplier ?? DEFAULT_MULTIPLIERS[legs.length] ?? 0;
   // Same-game picks move together, so the slip's chance is simulated rather than multiplied.
   const corr = useMemo(
@@ -69,6 +71,17 @@ export default function Slip({
       { id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs: withGame },
       ...slips,
     ]);
+  };
+
+  const share = async () => {
+    setShareNote("…");
+    const withGame = legs.map((l) => {
+      const r = rows.find((x) => x.id === l.propId);
+      return r ? { ...l, sport: r.sport, team: r.team || undefined, opponent: r.opponent || undefined, gameTime: r.gameTime } : l;
+    });
+    const r = await shareSlip(withGame, hit);
+    setShareNote(r.ok ? (r.how === "copied" ? "Link copied" : "Shared ✓") : r.error);
+    setTimeout(() => setShareNote(""), 3000);
   };
 
   const copy = async () => {
@@ -174,6 +187,7 @@ export default function Slip({
             </p>
           )}
           <p className="fine">Check the payout in the DraftKings app; it changes with the picks you choose.</p>
+          {shareNote.length >= 16 && <p className="warn">{shareNote}</p>}
           <div className="actions">
             {saved ? (
               <a className="button" href="/tracker">
@@ -183,6 +197,11 @@ export default function Slip({
               <button disabled>Add 1 more pick</button>
             ) : (
               <button onClick={save}>Save to tracker</button>
+            )}
+            {legs.length >= 2 && (
+              <button className="ghost" onClick={share} disabled={shareNote === "…"}>
+                {shareNote && shareNote !== "…" && shareNote.length < 16 ? shareNote : "Share"}
+              </button>
             )}
             <button className="ghost" onClick={copy}>
               {copied ? "Copied" : "Copy"}

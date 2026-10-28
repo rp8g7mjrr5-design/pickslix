@@ -121,6 +121,9 @@ export interface Projection {
   pPush: number;
   pick: "OVER" | "UNDER";
   pickProb: number;
+  /** pOver and pUnder before tuning on graded results; what tuning learns from. */
+  rawPOver?: number;
+  rawPUnder?: number;
   /** pickProb - 0.5, the edge over a coin flip. */
   edge: number;
   confidence: "low" | "medium" | "high";
@@ -138,6 +141,10 @@ export interface Projection {
   marketMean?: number;
   /** The books' chance for `pick` at the Pick 6 line, when they've priced this prop. */
   marketProb?: number;
+  /** The books' price itself (no-vig over at their line), saved with picks for the closing-line check. */
+  market?: { line: number; pOver: number };
+  /** Variance over mean of the projection, to restate a price at another line. */
+  dispersion?: number;
 }
 
 /** How often a player cleared the line in games like this one (`lib/splits.ts`). */

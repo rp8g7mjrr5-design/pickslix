@@ -29,8 +29,19 @@ export interface AccuracyReport {
   since?: string;
 }
 
-export function accuracyReport(slips: SavedSlip[]): AccuracyReport {
-  const seen = new Map<string, { prob: number; hit: boolean; sport: Sport; date: string }>();
+export interface GradedPick {
+  prob: number;
+  /** Before tuning; what the tuning fits on. */
+  rawProb: number;
+  hit: boolean;
+  sport: Sport;
+  side: "OVER" | "UNDER";
+  date: string;
+}
+
+/** Each distinct pick graded from the box score and saved before its game, once (the first save wins). */
+export function gradedPicks(slips: SavedSlip[]): GradedPick[] {
+  const seen = new Map<string, GradedPick>();
   for (const s of slips) {
     if (!Array.isArray(s?.legs)) continue;
     for (const l of s.legs) {
@@ -39,10 +50,15 @@ export function accuracyReport(slips: SavedSlip[]): AccuracyReport {
       if (!(l.prob > 0 && l.prob < 1) || !(l.stat in STATS)) continue;
       const key = `${l.player.toLowerCase()}|${l.stat}|${l.line}|${l.side}|${l.gameTime.slice(0, 10)}`;
       // First save wins: that's the chance shown before anyone else piled on.
-      if (!seen.has(key)) seen.set(key, { prob: l.prob, hit: l.result === "hit", sport: l.sport ?? STATS[l.stat].sport, date: l.gameTime });
+      if (!seen.has(key))
+        seen.set(key, { prob: l.prob, rawProb: l.rawProb && l.rawProb > 0 && l.rawProb < 1 ? l.rawProb : l.prob, hit: l.result === "hit", sport: l.sport ?? STATS[l.stat].sport, side: l.side, date: l.gameTime });
     }
   }
-  const all = [...seen.values()];
+  return [...seen.values()];
+}
+
+export function accuracyReport(slips: SavedSlip[]): AccuracyReport {
+  const all = gradedPicks(slips);
   const buckets = BUCKETS.map(([lo, hi, label]) => {
     const inB = all.filter((p) => p.prob >= lo && p.prob < hi);
     return {

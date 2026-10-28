@@ -1,5 +1,6 @@
 import { kvGet, kvSet } from "./db.ts";
-import { computeNbaDefense, computeNflDefense, computeNhlDefense, fetchInjuries, type EspnSport } from "./espn.ts";
+import { refreshCalibration } from "./calibrationData.ts";
+import { computeCbbDefense, computeCfbDefense, computeNbaDefense, computeNflDefense, computeNhlDefense, fetchInjuries, type EspnSport } from "./espn.ts";
 import { refreshNflContext } from "./nflData.ts";
 import { refreshUfcFights } from "./ufcData.ts";
 import type { DefenseFactors } from "./types.ts";
@@ -10,6 +11,7 @@ interface Snapshot {
 }
 
 const key = (sport: EspnSport) => `defense:${sport}`;
+export const DEFENSE_SPORTS: EspnSport[] = ["NBA", "NFL", "NHL", "CFB", "CBB"];
 /** The daily cron rewrites these; older than this and a request recomputes on its own. */
 const STALE_MS = 36 * 3600_000;
 const inflight = new Map<EspnSport, Promise<DefenseFactors>>();
@@ -21,7 +23,11 @@ export async function refreshDefense(sport: EspnSport, full = false): Promise<De
       ? await computeNbaDefense(full ? 60 : 30)
       : sport === "NHL"
         ? await computeNhlDefense(full ? 45 : 20)
-        : await computeNflDefense(full ? 10 : 3);
+        : sport === "CBB"
+          ? await computeCbbDefense(full ? 30 : 14)
+          : sport === "CFB"
+            ? await computeCfbDefense(full ? 4 : 2)
+            : await computeNflDefense(full ? 10 : 3);
   if (Object.keys(factors).length) {
     await kvSet(key(sport), { updatedAt: new Date().toISOString(), factors } satisfies Snapshot, 3 * 86400);
   }
@@ -30,8 +36,8 @@ export async function refreshDefense(sport: EspnSport, full = false): Promise<De
 
 /** Saved factors when fresh, otherwise a quick recompute (shared between concurrent requests). */
 export async function loadDefense(sport: EspnSport): Promise<DefenseFactors> {
-  // Team defense is modeled for NBA, NFL and NHL so far.
-  if (sport !== "NBA" && sport !== "NFL" && sport !== "NHL") return {};
+  // Team defense is modeled for NBA, NFL, NHL and college so far (college teams are keyed "CBB:DUKE").
+  if (!DEFENSE_SPORTS.includes(sport)) return {};
   const snap = await kvGet<Snapshot>(key(sport)).catch(() => null);
   if (snap && Date.now() - Date.parse(snap.updatedAt) < STALE_MS) return snap.factors;
   if (!inflight.has(sport)) {
@@ -50,19 +56,26 @@ export async function refreshAll() {
   const started = Date.now();
   const sports: EspnSport[] = ["NBA", "NFL", "NHL"];
   const results = await Promise.allSettled(sports.map((s) => refreshDefense(s, true)));
+  // College in a second wave: each walks a lot of scoreboards and box scores.
+  const college = await Promise.allSettled((["CBB", "CFB"] as EspnSport[]).map((s) => refreshDefense(s, true)));
   const injuries = await Promise.allSettled(sports.map(fetchInjuries));
   const nfl = await refreshNflContext().then(
     (c) => (c ? `${Object.keys(c.players).length} players, ${Object.keys(c.defense).length} defenses` : "no data yet"),
     (e) => `failed: ${e}`,
   );
   const ufc = await refreshUfcFights().then((f) => `${f.size} fights`, (e) => `failed: ${e}`);
+  const calibration = await refreshCalibration().then(
+    (c) => `${c.all.n} graded picks, a=${c.all.a.toFixed(2)} b=${c.all.b.toFixed(2)}`,
+    (e) => `failed: ${e}`,
+  );
   return {
     tookMs: Date.now() - started,
     nflverse: nfl,
     ufc,
+    calibration,
     defense: Object.fromEntries(
-      sports.map((s, i) => {
-        const r = results[i];
+      [...sports, "CBB", "CFB"].map((s, i) => {
+        const r = [...results, ...college][i];
         return [s, r.status === "fulfilled" ? `${Object.keys(r.value).length} teams` : `failed: ${r.reason}`];
       }),
     ),

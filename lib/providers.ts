@@ -4,7 +4,7 @@ import { fetchGameLogs, fetchInjuries, fetchNhlStarters, findAthlete, findNextGa
 import { canonTeam } from "./names.ts";
 import { fighterTag } from "./ufc.ts";
 import { findNextFight } from "./ufcData.ts";
-import { loadDefense } from "./refresh.ts";
+import { DEFENSE_SPORTS, loadDefense } from "./refresh.ts";
 
 /** A line as pasted: player, stat and number are known; team and opponent may not be. */
 export interface LineInput {
@@ -100,7 +100,7 @@ export const espnProvider: StatsProvider = {
     return athlete ? fetchGameLogs(athlete.id, sport) : [];
   },
   async defense() {
-    const sports = await Promise.all([loadDefense("NBA"), loadDefense("NFL"), loadDefense("NHL")]);
+    const sports = await Promise.all(DEFENSE_SPORTS.map(loadDefense));
     // Sports share some abbreviations (DEN, MIA, BOS...), so keep each sport's stat keys on the same team entry.
     const out: DefenseFactors = {};
     for (const factors of sports) for (const [team, f] of Object.entries(factors)) out[team] = { ...out[team], ...f };
