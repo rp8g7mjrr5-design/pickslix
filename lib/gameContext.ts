@@ -1,12 +1,15 @@
 // What the board needs to know about each pasted line's game beyond the player's own stats: whether the
-// team is at home, the spread and total, and the sportsbooks' price for that prop.
-import { fetchUpcomingGames, type EspnGame } from "./espn.ts";
+// team is at home, the spread and total, the sportsbooks' price for that prop, and NFL role trends or NBA
+// teammates ruled out.
+import { fetchGameLogs, fetchInjuries, fetchUpcomingGames, findAthlete, type EspnGame } from "./espn.ts";
 import type { MarketInput } from "./model.ts";
 import { loadNflContext } from "./nflData.ts";
 import { nflAdjust, nflSlice, type Adjustment, type NflContext } from "./nflverse.ts";
 import { normName } from "./names.ts";
 import { fetchGameLines, fetchSlate, oddsEnabled, teamEnv, type GameLines, type Slate, type TeamEnv } from "./odds.ts";
-import type { Prop, Sport } from "./types.ts";
+import type { NewsItem, Prop, Sport } from "./types.ts";
+import { usageAdjust, type UsageSlice } from "./usage.ts";
+import { loadUsage } from "./usageData.ts";
 
 export interface PropContext {
   home?: boolean;
@@ -32,6 +35,21 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
     }),
   );
   const nfl: NflContext | null = sports.includes("NFL") ? await loadNflContext().catch(() => null) : null;
+  const injuries: NewsItem[] = sports.includes("NBA") ? await fetchInjuries("NBA").catch(() => []) : [];
+  const usageCache = new Map<string, Promise<UsageSlice>>();
+  const usageFor = (player: string, team: string, teamId?: string) => {
+    const key = `${player}:${team}`;
+    if (!usageCache.has(key)) {
+      const load = async () => {
+        if (!injuries.some((n) => n.team === team && n.kind === "player_out")) return [];
+        const athlete = await findAthlete(player, "NBA", [team]);
+        const logs = athlete ? await fetchGameLogs(athlete.id, "NBA") : [];
+        return loadUsage({ player: athlete?.name ?? player, team, logs, teamId, news: injuries });
+      };
+      usageCache.set(key, load().catch(() => []));
+    }
+    return usageCache.get(key)!;
+  };
   const lineCache = new Map<string, Promise<GameLines>>();
   await Promise.all(
     props.map(async (prop) => {
@@ -56,6 +74,7 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
         const opponent = prop.opponent || (me === home ? away.abbr : home.abbr);
         ctx.adjust = nflAdjust({ ...prop, opponent }, nflSlice(nfl, prop.player, opponent));
       }
+      if (prop.sport === "NBA") ctx.adjust = usageAdjust(prop.stat, await usageFor(prop.player, prop.team, me.id));
       out.set(prop.id, ctx);
     }),
   );

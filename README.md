@@ -145,6 +145,20 @@ If nflverse can't be reached the model runs without these, as before.
   what the opposing goalie's saves depend on), from the last 20 to 45 days of scoreboards, shrunk toward league
   average. Built daily with NBA and NFL defense.
 
+## NBA teammates out (`lib/usage.ts`, `lib/usageData.ts`)
+
+When ESPN's injury report rules out a rotation player (top 8 by minutes, at least two games this season), each
+teammate's projection gets a bump for the shots, rebounds and assists left behind. Two reads, blended:
+
+- **With/without:** the player's own averages this season in games the teammate missed vs games they played.
+- **Share left behind:** the teammate's share of the team's production for that stat, about a third of it picked
+  up by the rest of the team in proportion. This carries the number until there are games without the teammate;
+  with/without counts equally after six of them.
+
+Each teammate's bump is capped at +20% (and −15%), all of them together at +35%. Players who have already been
+out for this player's last five games are skipped, since the recent average already reflects it. The pasted
+board and the game picker both use it; the sportsbooks' price, when there is one, still pulls the final number.
+
 ## Splits (`lib/splits.ts`)
 
 How often the player cleared today's line in games like today's: last 5, this season, against this opponent
