@@ -142,12 +142,12 @@ export default function AdminAccounts() {
                 <span>Seen {ago(u.lastActiveAt)}</span>
               </div>
               <div className="accountactions">
-                {!u.plan && !u.banned && (
+                {(!u.plan || u.plan === "trial") && !u.banned && (
                   <button className="small" disabled={!!busy} onClick={() => act(u, "grant")}>
                     {busy === u.id + "grant" ? "…" : "Give Pro"}
                   </button>
                 )}
-                {u.plan && u.plan === "lifetime" && (
+                {(u.plan === "lifetime" || u.plan === "trial") && (
                   <button className="ghost small" disabled={!!busy} onClick={() => act(u, "revoke")}>
                     {busy === u.id + "revoke" ? "…" : "Remove Pro"}
                   </button>

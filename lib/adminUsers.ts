@@ -97,7 +97,9 @@ export async function actOnUser(userId: string, action: UserAction): Promise<{ u
     await updateAccount(userId, { banned: false });
     await kvDel("leaderboard:cache").catch(() => {});
   } else if (action === "grant") {
-    if (account.proKey && (await checkPass(account.proKey).catch(() => null))) return { error: "They already have Pro." };
+    // A free week from invites can be upgraded; any other working pass already is Pro.
+    const current = account.proKey ? await checkPass(account.proKey).catch(() => null) : null;
+    if (current && current.plan !== "trial") return { error: "They already have Pro." };
     const key = newKey();
     await kvSet(`pro:${key}`, { plan: "lifetime", createdAt: new Date().toISOString(), granted: true } satisfies ProPass);
     await updateAccount(userId, { proKey: key, linkedAt: new Date().toISOString() });
