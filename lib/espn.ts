@@ -574,8 +574,8 @@ export function nhlAllowed(games: EspnGame[]): Allowed[] {
   return out;
 }
 
-/** NFL team totals only come with the per-game summary. */
-export function nflAllowed(summary: any): Allowed[] {
+/** NFL (and college football) team totals only come with the per-game summary. */
+export function nflAllowed(summary: any, sport: EspnSport = "NFL"): Allowed[] {
   const teams: any[] = summary?.boxscore?.teams ?? [];
   if (teams.length !== 2) return [];
   const read = (t: any) => {
@@ -584,7 +584,7 @@ export function nflAllowed(summary: any): Allowed[] {
     const [comp, att] = String(s.completionAttempts ?? "0/0").split("/").map(num);
     return { passYds: num(s.netPassingYards), recYds: num(s.netPassingYards), rec: comp, passAtt: att, rushYds: num(s.rushingYards) };
   };
-  return teams.map((t, i) => ({ team: canonTeam(t?.team?.abbreviation ?? "", "NFL"), allowed: read(teams[1 - i]) }));
+  return teams.map((t, i) => ({ team: canonTeam(t?.team?.abbreviation ?? "", sport), allowed: read(teams[1 - i]) }));
 }
 
 /**
@@ -638,6 +638,33 @@ export async function computeNhlDefense(days = 30): Promise<DefenseFactors> {
     fetchScoreboard("NHL", `dates=${d}`, TTL.finished).then((b) => b.games, () => [] as EspnGame[]),
   );
   return defenseFactors("NHL", nhlAllowed(boards.flat()), 8);
+}
+
+/** College factors are kept under "CBB:DUKE" so they never mix with a pro team's abbreviation. */
+const prefixed = (sport: EspnSport, f: DefenseFactors): DefenseFactors =>
+  Object.fromEntries(Object.entries(f).map(([team, v]) => [`${sport}:${team}`, v]));
+
+/** Men's college basketball: daily scoreboards carry team totals, like the NBA's. Fewer games each, so a bigger prior. */
+export async function computeCbbDefense(days = 30): Promise<DefenseFactors> {
+  const dates = Array.from({ length: days }, (_, i) => espnDate(new Date(Date.now() - (i + 1) * 86400_000)));
+  const boards = await inBatches(dates, 8, (d) =>
+    fetchScoreboard("CBB", `dates=${d}`, TTL.finished).then((b) => b.games, () => [] as EspnGame[]),
+  );
+  return prefixed("CBB", defenseFactors("NBA", nbaAllowed(boards.flat()), 6));
+}
+
+/** College football (FBS): box scores for the last few weeks' finished games. */
+export async function computeCfbDefense(weeks = 4): Promise<DefenseFactors> {
+  const { week } = await fetchScoreboard("CFB");
+  const nums = Array.from({ length: Math.max(0, week) }, (_, i) => week - i).filter((w) => w >= 1).slice(0, weeks);
+  const boards = await inBatches(nums, 4, (w) =>
+    fetchScoreboard("CFB", `seasontype=2&week=${w}`).then((b) => b.games, () => [] as EspnGame[]),
+  );
+  const finished = boards.flat().filter((g) => g.state === "post");
+  const rows = await inBatches(finished, 10, (g) =>
+    espnJson(`${SITE}/${PATHS.CFB}/summary?event=${g.id}`, TTL.finished).then((j) => nflAllowed(j, "CFB"), () => [] as Allowed[]),
+  );
+  return prefixed("CFB", defenseFactors("NFL", rows.flat(), 3));
 }
 
 /** NHL starting goalies for each team's next game, as news the model reads for saves props. */

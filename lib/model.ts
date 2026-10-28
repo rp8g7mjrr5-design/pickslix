@@ -156,6 +156,9 @@ export function impliedMean(market: MarketInput, dispersion: number): number {
   return (lo + hi) / 2;
 }
 
+/** Where a team's defense factors live: pro teams by abbreviation, college ones as "CBB:DUKE" (abbreviations collide). */
+export const defenseKey = (sport: Sport, team: string) => (isCollege(sport) ? `${sport}:${team}` : team);
+
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 
 export function project({ prop, logs, defense, news, market, env, adjust, ufc, calibration }: ModelInput): Projection {
@@ -197,8 +200,7 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   );
 
   // Matchup
-  // Defense factors are pro teams' (college abbreviations can collide with them: MIA, HOU...).
-  const raw = adjust?.replacesDefense || isCollege(prop.sport) ? undefined : defense[prop.opponent]?.[prop.stat];
+  const raw = adjust?.replacesDefense ? undefined : defense[defenseKey(prop.sport, prop.opponent)]?.[prop.stat];
   if (raw && raw !== 1) {
     const factor = 1 + (raw - 1) * DEFENSE_SHRINK;
     mean *= factor;
