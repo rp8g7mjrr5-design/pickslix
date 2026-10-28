@@ -809,3 +809,9 @@ button.danger { color: var(--under); border-color: rgba(255, 93, 115, 0.4); }
   .pro { max-width: 900px; }
   .tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* ---------- Accuracy ---------- */
+.accuracy { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+.accstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.accstats span { display: grid; gap: 2px; padding: 12px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
+.accstats strong { font-size: 22px; }

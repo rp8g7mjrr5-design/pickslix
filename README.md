@@ -135,6 +135,10 @@ hit, miss or push (a player who doesn't play counts as a push). Tap a result to 
 model report card buckets graded picks by the model's chance so you can see whether 60% picks
 really hit about 60% of the time. `/setup` shows which optional keys the deployment has.
 
+**Public report card** (`/accuracy`, `lib/accuracy.ts`): every saved pick across all users, graded from box
+scores, bucketed by the model's chance, with a Brier score and per-sport hit rates. Same counting rules as the
+leaderboard, and a pick many people played counts once. Rebuilt at most hourly; linked from the footer.
+
 ## Accounts (`lib/accounts.ts`, `components/Account.tsx`)
 
 Sign-in is handled by [Clerk](https://clerk.com): Google, Apple or an email code, no passwords to store.
