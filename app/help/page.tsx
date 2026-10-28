@@ -34,8 +34,18 @@ const FAQ: [string, React.ReactNode][] = [
   [
     "Do I have to mark wins and losses?",
     <>
-      No. Tap <em>Save to tracker</em> on your slip. After the games end, the <Link href="/tracker">Tracker</Link> grades each pick from the box score. You can tap a
-      result to fix one.
+      No. Tap <em>Save to tracker</em> on your slip. After the games end, the <Link href="/tracker">Tracker</Link> grades each pick from the box score. While a game is on,
+      it shows how each pick is doing live. If a grade looks wrong, tap <em>Fix a result</em>.
+    </>,
+  ],
+  [
+    "What's the pick of the day?",
+    "Once lines are up, the model picks the one line on today's slate it likes most, with a real sample behind it and no injury flag. It's graded in public after the game, and its record sits right on the card.",
+  ],
+  [
+    "Can I get Pro free?",
+    <>
+      Yes. Share your invite link from your <Link href="/profile">profile</Link>, or share a slip. When a friend signs up from it, you both get a week of Pro.
     </>,
   ],
   [

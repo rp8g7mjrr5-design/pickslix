@@ -91,7 +91,9 @@ export default function Profile() {
                 {beat >= 0 ? "+" : "−"}
                 {Math.abs(beat * 100).toFixed(1)}
               </strong>
-              <small>points over the {pct(s.expected)} expected</small>
+              <small>
+                points {beat >= 0 ? "above" : "below"} the model&apos;s {pct(s.expected)}
+              </small>
             </div>
             <div className="card">
               <small>Slips</small>
@@ -103,9 +105,9 @@ export default function Profile() {
             <div className="card">
               <small>Streak</small>
               <strong className={s.streak.kind === "hit" ? "pos" : s.streak.kind === "miss" ? "neg" : ""}>
-                {s.streak.current ? `${s.streak.current} ${s.streak.kind === "hit" ? "W" : "L"}` : "—"}
+                {s.streak.current ? `${s.streak.current} ${s.streak.kind === "hit" ? (s.streak.current === 1 ? "win" : "wins") : s.streak.current === 1 ? "loss" : "losses"}` : "—"}
               </strong>
-              <small>Best run: {s.streak.best} straight</small>
+              <small>Best run: {s.streak.best} straight hits</small>
             </div>
           </div>
 
