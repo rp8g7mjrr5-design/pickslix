@@ -1108,3 +1108,14 @@ body[data-coach="3"] .slipbar {
 .spots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .spots li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
 .spots small { color: var(--muted); font-weight: 400; }
+
+/* ---------- Bankroll coach ---------- */
+.coachline { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13px; }
+.coachline b { font-weight: 600; }
+.coachbtns { display: flex; align-items: center; gap: 10px; flex: none; }
+.budgetform { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.budgetform label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.budgetform input { width: 120px; }
+.budgetbar { height: 8px; border-radius: 999px; background: var(--panel-3); overflow: hidden; margin: 4px 0 6px; }
+.budgetbar i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.budgetbar i.over { background: var(--under); }

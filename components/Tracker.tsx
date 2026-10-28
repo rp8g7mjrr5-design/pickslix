@@ -5,6 +5,7 @@ import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 import { clvSummary, legClv } from "@/lib/clv.ts";
+import { BudgetCard } from "@/components/Budget";
 import { recapLine, settled } from "@/lib/recap.ts";
 import { shareSlip } from "@/lib/shareClient.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
@@ -264,6 +265,7 @@ export default function Tracker() {
           </small>
         </div>
       )}
+      {slips.length > 0 && <BudgetCard />}
       {settled.length > 0 && <Insights slips={settled} locked={locked} />}
       {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={locked} />}
       {account.enabled && account.loaded && !account.signedIn && (

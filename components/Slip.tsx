@@ -6,6 +6,7 @@ import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type Prop, type PropWithProjection } from "@/lib/types.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
+import { EntryCoach } from "@/components/Budget";
 import { suggestPairs } from "@/lib/pairs.ts";
 import { shareSlip } from "@/lib/shareClient.ts";
 import { countForCrowd, useSlate } from "@/lib/slateClient.ts";
@@ -191,6 +192,7 @@ export default function Slip({
                   : "✗ Not worth it at this payout. Try stronger picks (higher %) or fewer picks."}
               </p>}
               <p className="fine">Each pick needs about {pct(breakEven)} to break even at this payout.</p>
+              <EntryCoach hit={hit} mult={mult} entry={entry} onUse={setEntry} />
             </>
           )}
           {outLegs.length > 0 && (
