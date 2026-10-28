@@ -136,6 +136,15 @@ them down to a ~200 KB summary and saves it. From it the model gets:
 
 If nflverse can't be reached the model runs without these, as before.
 
+## NHL (`lib/espn.ts`)
+
+- **Starting goalies:** ESPN's scoreboard lists each team's probable starting goalie, marked once the team
+  confirms. A saves prop on a goalie who isn't the starter is flagged: low confidence while it's only probable,
+  and treated like a scratch (likely voided) once the other goalie is confirmed. The starter gets a note too.
+- **Team defense:** shots on goal, goals and assists each team allows, and the shots each team takes (which is
+  what the opposing goalie's saves depend on), from the last 20 to 45 days of scoreboards, shrunk toward league
+  average. Built daily with NBA and NFL defense.
+
 ## Splits (`lib/splits.ts`)
 
 How often the player cleared today's line in games like today's: last 5, this season, against this opponent
@@ -198,5 +207,5 @@ Setting it up:
 
 ## Next up
 
-- NHL and MLB team defense (both use recent form only for now)
+- MLB team defense (uses recent form only for now)
 - Accounts instead of sync codes

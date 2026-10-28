@@ -250,6 +250,15 @@ export interface EspnTeam {
   color?: string;
   record?: string;
   home?: boolean;
+  /** NHL: the probable (or confirmed) starting goalie. */
+  goalie?: { name: string; confirmed: boolean };
+}
+
+/** ESPN lists hockey's starting goalie under "probables", marked confirmed once the team says so. */
+function starter(c: any): { goalie?: EspnTeam["goalie"] } {
+  const p = (c?.probables ?? []).find((x: any) => x?.name === "probableStartingGoalie");
+  const name = p?.athlete?.displayName ?? p?.athlete?.fullName;
+  return name ? { goalie: { name: String(name), confirmed: p?.status?.type === "confirmed" } } : {};
 }
 
 export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
@@ -269,6 +278,7 @@ export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
         color: c?.team?.color ? `#${c.team.color}` : undefined,
         record: c?.records?.find((r: any) => r?.type === "total")?.summary,
         home: c?.homeAway === "home",
+        ...starter(c),
       })),
     };
   });
@@ -506,6 +516,28 @@ export function nbaAllowed(games: EspnGame[]): Allowed[] {
   return out;
 }
 
+/**
+ * NHL: shots and goals each team gave up, from the scoreboard (a team's shots on goal are the other goalie's
+ * saves plus its own goals). `saves` is the other way round: the shots this team took, which is what the
+ * goalie facing it has to stop.
+ */
+export function nhlAllowed(games: EspnGame[]): Allowed[] {
+  const out: Allowed[] = [];
+  for (const g of games) {
+    if (g.state !== "post" || g.teams.length !== 2 || g.seasonType < 2) continue;
+    g.teams.forEach((t, i) => {
+      const me = t.stats;
+      const opp = g.teams[1 - i].stats;
+      if (!Number.isFinite(me.saves) || !Number.isFinite(opp.saves) || !(me.saves + opp.saves)) return;
+      out.push({
+        team: t.abbr,
+        allowed: { shots: me.saves + (opp.goals ?? 0), goals: opp.goals ?? 0, assists: opp.assists ?? 0, saves: opp.saves + (me.goals ?? 0) },
+      });
+    });
+  }
+  return out;
+}
+
 /** NFL team totals only come with the per-game summary. */
 export function nflAllowed(summary: any): Allowed[] {
   const teams: any[] = summary?.boxscore?.teams ?? [];
@@ -561,6 +593,39 @@ export async function computeNbaDefense(days = 45): Promise<DefenseFactors> {
     fetchScoreboard("NBA", `dates=${d}`, TTL.finished).then((b) => b.games, () => [] as EspnGame[]),
   );
   return defenseFactors("NBA", nbaAllowed(boards.flat()), 8);
+}
+
+/** NHL: walk back `days` of daily scoreboards. */
+export async function computeNhlDefense(days = 30): Promise<DefenseFactors> {
+  const dates = Array.from({ length: days }, (_, i) => espnDate(new Date(Date.now() - (i + 1) * 86400_000)));
+  const boards = await inBatches(dates, 8, (d) =>
+    fetchScoreboard("NHL", `dates=${d}`, TTL.finished).then((b) => b.games, () => [] as EspnGame[]),
+  );
+  return defenseFactors("NHL", nhlAllowed(boards.flat()), 8);
+}
+
+/** NHL starting goalies for each team's next game, as news the model reads for saves props. */
+export async function fetchNhlStarters(): Promise<NewsItem[]> {
+  const games = await fetchUpcomingGames("NHL");
+  const seen = new Set<string>();
+  const out: NewsItem[] = [];
+  for (const g of games) {
+    if (g.state !== "pre") continue;
+    for (const t of g.teams) {
+      if (seen.has(t.abbr) || !t.goalie) continue;
+      seen.add(t.abbr);
+      out.push({
+        id: `goalie-${g.id}-${t.abbr}`,
+        date: g.date,
+        player: t.goalie.name,
+        team: t.abbr,
+        kind: "starting_goalie",
+        confirmed: t.goalie.confirmed,
+        headline: `${t.goalie.name} is the ${t.goalie.confirmed ? "confirmed" : "probable"} starter`,
+      });
+    }
+  }
+  return out;
 }
 
 /** NFL: box scores for every finished regular-season game in the last `weeks` weeks. */

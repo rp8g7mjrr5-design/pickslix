@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchGameLogs, fetchInjuries } from "@/lib/espn.ts";
+import { fetchGameLogs, fetchInjuries, fetchNhlStarters } from "@/lib/espn.ts";
 import { loadNflContext } from "@/lib/nflData.ts";
 import { nflSlice } from "@/lib/nflverse.ts";
 import { loadDefense } from "@/lib/refresh.ts";
@@ -21,7 +21,8 @@ export async function GET(req: Request) {
   const [logs, defense, news, nfl] = await Promise.all([
     fetchGameLogs(id, sport).catch(() => []),
     loadDefense(sport).catch((): DefenseFactors => ({})),
-    fetchInjuries(sport).catch(() => []),
+    // Hockey adds who's starting in goal.
+    Promise.all([fetchInjuries(sport).catch(() => []), sport === "NHL" ? fetchNhlStarters().catch(() => []) : []]).then((l) => l.flat()),
     sport === "NFL" && name ? loadNflContext().catch(() => null) : null,
   ]);
   return NextResponse.json({

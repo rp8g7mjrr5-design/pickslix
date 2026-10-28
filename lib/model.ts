@@ -214,7 +214,13 @@ export function project({ prop, logs, defense, news, market, env, adjust }: Mode
   // News
   let questionable = false;
   let out = false;
+  let otherGoalie: NewsItem | undefined;
   for (const n of news) {
+    if (n.kind === "starting_goalie" && prop.stat === "SAVES" && n.team === prop.team) {
+      if (sameName(n.player, prop.player)) reasons.push(`${n.confirmed ? "Confirmed" : "Probable"} starting goalie`);
+      else otherGoalie = n;
+      continue;
+    }
     if (sameName(n.player, prop.player)) {
       if (n.kind === "player_out") out = true;
       if (n.kind === "player_questionable") questionable = true;
@@ -279,6 +285,12 @@ export function project({ prop, logs, defense, news, market, env, adjust }: Mode
   else if (base.n >= 12 && thisSeason >= EARLY_GAMES && cv < 0.4 && pickProb > 0.58) confidence = "high";
   if (thisSeason < EARLY_GAMES && base.n > thisSeason) reasons.push("Early in the season: leans partly on last year");
 
+  if (otherGoalie) {
+    // A goalie who doesn't start usually doesn't play: on a confirmed backup the pick will likely be voided.
+    if (otherGoalie.confirmed) out = true;
+    else confidence = "low";
+    reasons.unshift(`${otherGoalie.player} is the ${otherGoalie.confirmed ? "confirmed" : "probable"} starter, not ${prop.player}`);
+  }
   if (out) {
     reasons.unshift("Ruled OUT: this prop will likely be voided");
   }
