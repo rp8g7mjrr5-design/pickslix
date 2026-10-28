@@ -548,7 +548,12 @@ button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 12px 0;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
 }
-.signinprompt button { white-space: nowrap; }
+.signinprompt button, .signinprompt a.button { white-space: nowrap; }
+a.button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+.signinpage { display: grid; justify-items: center; gap: 12px; padding: 32px 16px; max-width: 520px; margin: 0 auto; }
+.signintrouble { display: grid; gap: 6px; }
+.signintrouble p { margin: 0; color: var(--text); }
+.signintrouble a { color: var(--accent); }
 @media (max-width: 400px) { .topright { gap: 6px; } button.signin { padding: 6px 9px; } }
 /* With a sign-in button or avatar beside the tabs, narrow phones show tab icons only. */
 @media (max-width: 400px) {
