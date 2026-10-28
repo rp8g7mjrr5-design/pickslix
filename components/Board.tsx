@@ -7,7 +7,7 @@ import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
-import { slipHitProbability } from "@/lib/model.ts";
+import { correlatedHitProbability } from "@/lib/correlation.ts";
 import { bestSlip } from "@/lib/bestSlip.ts";
 import { proHeaders } from "@/lib/proClient.ts";
 import { MAX_PICKS, pct } from "@/lib/format.ts";
@@ -121,6 +121,18 @@ export default function Board() {
 
   // Picks made from the games list: save the line, put the leg in the slip, then rescore the board.
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Same chance the slip panel shows, same-game links included.
+  const slipChance = useMemo(
+    () =>
+      correlatedHitProbability(
+        slip.map((l) => {
+          const r = rows.find((x) => x.id === l.propId);
+          return { ...l, sport: r?.sport ?? l.sport, team: r?.team || l.team, opponent: r?.opponent || l.opponent };
+        }),
+      ).prob,
+    [slip, rows],
+  );
+
   const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number) => {
     if (!slip.some((l) => l.propId === prop.id) && slip.length >= MAX_PICKS) return flash(`Pick 6 allows up to ${MAX_PICKS} picks`);
     saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
@@ -422,7 +434,7 @@ export default function Board() {
           <span>
             {slip.length} pick{slip.length === 1 ? "" : "s"}
           </span>
-          <strong>{pct(slipHitProbability(slip.map((l) => l.prob)), 1)} to hit</strong>
+          <strong>{pct(slipChance, 1)} to hit</strong>
           <span>View slip ↓</span>
         </a>
       )}

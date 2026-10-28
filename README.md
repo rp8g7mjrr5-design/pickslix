@@ -80,8 +80,11 @@ passing TD defense isn't computed; teammate-out usage bumps still need a manual 
 5. Fit a negative binomial (or Poisson) to that mean and spread and read off
    P(over), P(under), P(push).
 
-The slip multiplies leg probabilities, which assumes legs are independent.
-Picks from the same game are usually correlated, so treat that number as rough.
+The slip's chance allows for picks that move together (`lib/correlation.ts`): a QB and his receiver, one
+player's points and PRA, two skaters on the same team, a pitcher's hits allowed and the hitters facing him.
+Each linked pair gets an estimated correlation (flipped when one leg is an under), and the slip is simulated
+with a Gaussian copula; unrelated legs still just multiply. The slip says which picks are linked and whether
+that helps or hurts. The correlations are rough estimates, not yet fitted to graded picks.
 
 ## Layout
 
