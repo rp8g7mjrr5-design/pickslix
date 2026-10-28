@@ -12,7 +12,7 @@ import { correlatedHitProbability } from "@/lib/correlation.ts";
 import { bestSlip } from "@/lib/bestSlip.ts";
 import { proHeaders } from "@/lib/proClient.ts";
 import { MAX_PICKS, pct } from "@/lib/format.ts";
-import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
+import { loadCustomProps, loadSlips, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
 
 type SportFilter = "ALL" | Sport;
@@ -43,13 +43,19 @@ export default function Board() {
   const [updated, setUpdated] = useState<Date | null>(null);
   const [sport, setSport] = useState<SportFilter>("ALL");
   const [query, setQuery] = useState("");
-  const [minEdge, setMinEdge] = useState(0);
   const [sort, setSort] = useState<SortKey>("edge");
   const [open, setOpen] = useState<string | null>(null);
   const [slip, setSlip] = useState<SlipLeg[]>([]);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
   const [gameOpen, setGameOpen] = useState(false);
+  // Whether there's anything to load, so a first visit doesn't flash an empty table.
+  const [hasLines, setHasLines] = useState(false);
+  const [newHere, setNewHere] = useState(false);
+  useEffect(() => {
+    setHasLines(loadCustomProps().length > 0);
+    setNewHere(!loadCustomProps().length && !loadSlips().length);
+  }, []);
 
   // Keep the slip across reloads.
   useEffect(() => {
@@ -178,7 +184,6 @@ export default function Board() {
     const list = rows.filter(
       (r) =>
         (sport === "ALL" || r.sport === sport) &&
-        r.projection.edge >= minEdge &&
         (!q || `${r.player} ${r.team} ${r.opponent} ${STATS[r.stat].label}`.toLowerCase().includes(q)),
     );
     const byEdge = (a: PropWithProjection, b: PropWithProjection) =>
@@ -190,7 +195,7 @@ export default function Board() {
           ? (a, b) => (a.gameTime ?? "~").localeCompare(b.gameTime ?? "~") || byEdge(a, b)
           : byEdge,
     );
-  }, [rows, sport, query, minEdge, sort]);
+  }, [rows, sport, query, sort]);
 
   const toggleLeg = (r: PropWithProjection, side: "OVER" | "UNDER") => {
     setSlip((s) => {
@@ -214,62 +219,49 @@ export default function Board() {
       {/* Fixed to the screen, so it lives outside the column that hides everything but the open game. */}
       <Welcome gameOpen={gameOpen} picks={slip.length} />
       <section className={`boardcol ${gameOpen ? "gameopen" : ""}`}>
+        {newHere && !slip.length && (
+          <div className="intro">
+            <h1>Find the Pick 6 picks worth playing.</h1>
+            <p>Tap a game, then a player. We give you the odds on More and Less from recent games, the matchup and injury news.</p>
+          </div>
+        )}
         <PickOfDay slip={slip} onPick={pickFromGame} />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
 
-        <div className="hero">
-          <div>
-            <h1>Your board</h1>
-            <p className="muted">
-              {loading && !rows.length
-                ? "Loading…"
-                : rows.length
-                  ? `${rows.length} line${rows.length === 1 ? "" : "s"} · ${strong} with a 10%+ edge${
-                      updated ? ` · updated ${updated.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""
-                    }`
-                  : "Pick players from a game above, or paste your Pick 6 lines."}
+        {rows.length > 0 || importing ? (
+          <div className="hero linesHero">
+            <div>
+              <h1>Your lines</h1>
+              <p className="muted">
+                {rows.length
+                  ? `${rows.length} line${rows.length === 1 ? "" : "s"}${strong ? ` · ${strong} the model likes` : ""}. Tap More or Less to add one to your slip.`
+                  : "Paste the lines you see in Pick 6 and we'll score each one."}
+              </p>
+            </div>
+            {!importing && (
+              <button className="ghost small" onClick={() => setImporting(true)}>
+                Paste lines
+              </button>
+            )}
+          </div>
+        ) : (
+          !loading && (
+            <p className="pastecta">
+              Already have lines from Pick 6?{" "}
+              <button className="linkish" onClick={() => setImporting(true)}>
+                Paste them instead
+              </button>
             </p>
-          </div>
-          <div className="heroactions">
-            {rows.length > 0 && (
-              <button className="ghost icon" onClick={refresh} disabled={loading} aria-label="Refresh">
-                ↻
-              </button>
-            )}
-            {!(importing && !rows.length) && (
-              <button className={rows.length ? "" : "ghost"} onClick={() => setImporting((v) => !v)}>
-                {importing ? "Done" : "Paste lines"}
-              </button>
-            )}
-          </div>
-        </div>
+          )
+        )}
 
         {provider === "sample" && (
           <p className="banner">Showing sample lines and made-up stats (DATA_SOURCE=sample).</p>
         )}
 
-        {importing && (
-          <ImportPanel onImported={onImported} onClose={rows.length ? () => setImporting(false) : undefined} />
-        )}
+        {importing && <ImportPanel onImported={onImported} onClose={() => setImporting(false)} />}
 
-        {!rows.length && !loading && (
-          <ol className="steps">
-            <li>
-              <strong>Pick a game</strong>
-              Tap any upcoming game above and choose a player and stat.
-            </li>
-            <li>
-              <strong>Set the line</strong>
-              Match Pick 6's number. The More/Less odds update as you move it.
-            </li>
-            <li>
-              <strong>Build and track</strong>
-              Pick 2 to {MAX_PICKS}, check the expected value, then grade results in the tracker.
-            </li>
-          </ol>
-        )}
-
-        {rows.length > 0 && (
+        {rows.length > 8 && (
           <div className="toolbar">
             {sports.size > 1 && (
               <div className="tabs" role="tablist">
@@ -282,27 +274,16 @@ export default function Board() {
             )}
             <input
               type="search"
-              placeholder="Search player, team or stat"
+              placeholder="Search players"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
             />
-            <select value={minEdge} onChange={(e) => setMinEdge(Number(e.target.value))} aria-label="Minimum edge">
-              <option value={0}>Any edge</option>
-              <option value={0.05}>5%+ edge</option>
-              <option value={0.1}>10%+ edge</option>
-              <option value={0.15}>15%+ edge</option>
-            </select>
             <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort">
-              <option value="edge">Best edge</option>
+              <option value="edge">Best picks first</option>
               <option value="time">Game time</option>
               <option value="player">Player A–Z</option>
             </select>
-            {hasMine && (
-              <button className="ghost small" onClick={clearLines}>
-                Clear lines
-              </button>
-            )}
           </div>
         )}
 
@@ -315,7 +296,7 @@ export default function Board() {
           </div>
         )}
 
-        {loading && !rows.length ? (
+        {loading && !rows.length && hasLines ? (
           <div className="table">
             {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="rowwrap skeleton">
@@ -422,9 +403,16 @@ export default function Board() {
                 </div>
               );
             })}
-            {!visible.length && <p className="empty">No lines match these filters.</p>}
+            {!visible.length && <p className="empty">No lines match.</p>}
           </div>
         ) : null}
+        {hasMine && !importing && (
+          <p className="pastecta">
+            <button className="linkish" onClick={clearLines}>
+              Clear all my lines
+            </button>
+          </p>
+        )}
         <Pulse />
       </section>
 

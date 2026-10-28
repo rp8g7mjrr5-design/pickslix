@@ -1008,3 +1008,28 @@ body[data-coach="3"] .slipbar {
 .legal ul { padding-left: 20px; display: grid; gap: 6px; }
 .legal strong { color: var(--text); }
 .legal a { color: var(--text); text-decoration: underline; }
+
+/* ---------- Board: lines section ---------- */
+.pastecta { margin: 6px 0 16px; color: var(--muted); font-size: 13px; text-align: center; }
+.pastecta .linkish { color: var(--text); font-size: 13px; }
+.linesHero { align-items: center; }
+.importhead strong { font-size: 15px; }
+@media (max-width: 900px) { .slip.empty { display: none; } }
+.pulse:empty { display: none; }
+.intro { margin: 2px 0 18px; }
+.intro h1 { font-size: 26px; line-height: 1.15; letter-spacing: -0.6px; margin: 0 0 6px; }
+.intro p { margin: 0; color: var(--muted); font-size: 15px; max-width: 520px; }
+.linesHero button { white-space: nowrap; flex: none; }
+
+/* ---------- Tracker slips ---------- */
+.savedtitle { flex: 1; min-width: 0; }
+.savedtitle small { display: block; }
+.legresult { flex: none; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--panel-3); color: var(--muted); white-space: nowrap; }
+.legresult.hit { background: rgba(43, 245, 155, 0.15); color: var(--over); }
+.legresult.miss { background: rgba(255, 93, 115, 0.13); color: var(--under); }
+.legresult.push { background: rgba(255, 194, 75, 0.13); color: var(--warn); }
+.savedfoot { display: flex; align-items: center; gap: 14px; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 2px; }
+.savedfoot .sharebtn { margin-right: auto; }
+.trackcards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trackcards small:last-child { margin-top: 2px; }
+.saved .leg:has(+ .savedfoot) { border-bottom: 0; }

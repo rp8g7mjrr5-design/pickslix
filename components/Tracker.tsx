@@ -161,6 +161,7 @@ export default function Tracker() {
   const clv = clvSummary(slips);
   const shown = slips.filter((s) => filter === "all" || (filter === "open") === (outcome(s).state === "open"));
   const locked = !unlocked(pro);
+  const pushNote = settled.some((x) => x.legs.some((l) => l.result === "push"));
 
   const remove = (s: SavedSlip) => {
     if (!confirm(`Delete this ${s.legs.length}-pick slip? This can't be undone.`)) return;
@@ -175,55 +176,33 @@ export default function Tracker() {
           <p className="muted">
             {grading
               ? "Checking box scores…"
-              : gradedNote || "Picks grade themselves from box scores after each game. Tap a result to fix one."}
+              : gradedNote || "Picks grade themselves from box scores after each game."}
           </p>
         </div>
       </div>
-      <div className="cards">
-        <Card label="Picks graded" value={String(settledLegs.length)} />
-        <Card label="Your hit rate" value={settledLegs.length ? pct(hits / settledLegs.length) : "–"} />
-        <Card label="Model expected" value={settledLegs.length ? pct(expected / settledLegs.length) : "–"} />
-        <Card label="Settled slips P/L" value={money(profit)} tone={profit >= 0 ? "pos" : "neg"} />
-      </div>
       <LiveSweat slips={slips} />
+      {slips.length > 0 && (
+        <div className="cards trackcards">
+          <Card
+            label="Hit rate"
+            value={settledLegs.length ? pct(hits / settledLegs.length) : "–"}
+            sub={settledLegs.length ? `${hits} of ${settledLegs.length} picks · model expected ${pct(expected / settledLegs.length)}` : "Grades as games finish"}
+          />
+          <Card
+            label="Profit"
+            value={settled.length ? money(profit) : "–"}
+            tone={settled.length ? (profit >= 0 ? "pos" : "neg") : undefined}
+            sub={settled.length ? `${settled.filter((x) => outcome(x).state === "won").length} of ${settled.length} slips won` : `${openCount} pick${openCount === 1 ? "" : "s"} waiting`}
+          />
+        </div>
+      )}
       {openCount > 0 && <AlertsToggle />}
-      {clv.n > 0 && (
-        <div className="clvbar">
-          <span>
-            <small>Beat the closing line</small>
-            <strong className={clv.beat >= clv.lost ? "pos" : "neg"}>
-              {clv.beat} of {clv.n}
-            </strong>
-          </span>
-          <span>
-            <small>Average line move</small>
-            <strong className={clv.avg >= 0 ? "pos" : "neg"}>
-              {clv.avg >= 0 ? "+" : "−"}
-              {Math.abs(clv.avg * 100).toFixed(1)} pts
-            </strong>
-          </span>
-          <small className="clvwhy">
-            How far the sportsbooks moved toward your picks between when you saved them and the start. Sharp bettors beat the close
-            more often than not, even through losing streaks.
-          </small>
-        </div>
-      )}
-      <p className="fine">
-        Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout
-        instead.
-      </p>
-      {settled.length > 0 && <Insights slips={settled} locked={locked} />}
-      {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={locked} />}
-      {account.enabled && account.loaded && !account.signedIn && (
-        <div className="signinprompt">
-          <small>Sign in to keep your slips and results on every device.</small>
-          <SignInPrompt>Sign in</SignInPrompt>
-        </div>
-      )}
-      {synced && !onAccount && !account.enabled && <SyncCode onChange={load} />}
       {!slips.length && (
         <div className="emptycard">
-          <p>No saved slips yet. Build one on the board and tap Save to tracker.</p>
+          <p>No saved slips yet. Build one on the Board and tap Save to tracker. Your picks grade themselves after each game.</p>
+          <a href="/" className="button">
+            Go to the Board
+          </a>
         </div>
       )}
       {slips.length > 0 && (
@@ -253,47 +232,44 @@ export default function Tracker() {
         </div>
       )}
       {slips.length > 0 && !shown.length && <p className="muted empty">No {filter} slips.</p>}
-      {shown.map((s) => {
-        const o = outcome(s);
-        const done = s.legs.filter((l) => l.result).length;
-        return (
-          <div key={s.id} className={`saved ${o.state}`}>
-            <div className="savedhead">
-              <strong>
-                {s.legs.length}-pick · ${s.entry} at {s.multiplier}×
-              </strong>
-              <small>{new Date(s.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>
-              <span className={`result ${o.state}`}>
-                {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : "Lost"} ${money(o.pnl)}`}
-              </span>
-              <ShareButton slip={s} />
-              <button className="x" onClick={() => remove(s)} aria-label="Delete slip">
-                ×
-              </button>
-            </div>
-            {s.legs.map((l) => (
-              <div key={l.propId} className="leg">
-                <div>
-                  <strong>{l.player}</strong>
-                  <small>
-                    {l.auto && <b className="autotag" title="Graded from the box score">auto</b>}
-                    <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
-                    {STATS[l.stat].label} · model {pct(l.prob)}
-                    <ClvTag leg={l} />
-                  </small>
-                </div>
-                <div className="grade">
-                  {RESULTS.map((r) => (
-                    <button key={r} className={l.result === r ? `on ${r}` : ""} onClick={() => mark(s.id, l.propId, r)}>
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      })}
+      {shown.map((s) => (
+        <SavedSlipCard key={s.id} slip={s} onMark={mark} onRemove={remove} />
+      ))}
+      {pushNote && (
+        <p className="fine">
+          Payouts on slips with a push are estimated as if the push leg were removed. Pick 6 may reduce the payout instead.
+        </p>
+      )}
+      {clv.n > 0 && (
+        <div className="clvbar">
+          <span>
+            <small>Beat the closing line</small>
+            <strong className={clv.beat >= clv.lost ? "pos" : "neg"}>
+              {clv.beat} of {clv.n}
+            </strong>
+          </span>
+          <span>
+            <small>Average line move</small>
+            <strong className={clv.avg >= 0 ? "pos" : "neg"}>
+              {clv.avg >= 0 ? "+" : "−"}
+              {Math.abs(clv.avg * 100).toFixed(1)} pts
+            </strong>
+          </span>
+          <small className="clvwhy">
+            How far the sportsbooks moved toward your picks between when you saved them and the start. Sharp bettors beat the close
+            more often than not, even through losing streaks.
+          </small>
+        </div>
+      )}
+      {settled.length > 0 && <Insights slips={settled} locked={locked} />}
+      {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={locked} />}
+      {account.enabled && account.loaded && !account.signedIn && (
+        <div className="signinprompt">
+          <small>Sign in to keep your slips and results on every device.</small>
+          <SignInPrompt>Sign in</SignInPrompt>
+        </div>
+      )}
+      {synced && !onAccount && !account.enabled && <SyncCode onChange={load} />}
     </div>
   );
 }
@@ -362,7 +338,7 @@ function ReportCard({ legs, locked }: { legs: SlipLeg[]; locked: boolean }) {
         <small>{total < 30 ? `Only ${total} graded picks so far, so treat this as early.` : `${total} graded picks.`}</small>
       </div>
       <div className="buckets">
-        {rows.map((r) => (
+        {rows.filter((r) => r.n).map((r) => (
           <div key={r.label} className="bucket">
             <small>Model said {r.label}</small>
             <div className="bucketbar" aria-hidden>
@@ -520,11 +496,79 @@ function exportCsv(slips: SavedSlip[]) {
   URL.revokeObjectURL(a.href);
 }
 
-function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Card({ label, value, tone, sub }: { label: string; value: string; tone?: string; sub?: string }) {
   return (
     <div className="card">
       <small>{label}</small>
       <strong className={tone}>{value}</strong>
+      {sub && <small>{sub}</small>}
+    </div>
+  );
+}
+
+const RESULT_LABEL: Record<NonNullable<SlipLeg["result"]>, string> = { hit: "✓ Hit", miss: "✗ Miss", push: "Push" };
+
+/** One saved slip: each pick with its result, and an Edit mode to fix a grade by hand. */
+function SavedSlipCard({
+  slip: s,
+  onMark,
+  onRemove,
+}: {
+  slip: SavedSlip;
+  onMark: (slipId: string, propId: string, result: SlipLeg["result"]) => void;
+  onRemove: (s: SavedSlip) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const o = outcome(s);
+  const done = s.legs.filter((l) => l.result).length;
+  return (
+    <div className={`saved ${o.state}`}>
+      <div className="savedhead">
+        <div className="savedtitle">
+          <strong>
+            {s.legs.length}-pick · ${s.entry} at {s.multiplier}×
+          </strong>
+          <small>{new Date(s.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>
+        </div>
+        <span className={`result ${o.state}`}>
+          {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : "Lost"} ${money(o.pnl)}`}
+        </span>
+      </div>
+      {s.legs.map((l) => (
+        <div key={l.propId} className="leg">
+          <div>
+            <strong>{l.player}</strong>
+            <small>
+              <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
+              {STATS[l.stat].label} · model {pct(l.prob)}
+              <ClvTag leg={l} />
+            </small>
+          </div>
+          {editing ? (
+            <div className="grade">
+              {RESULTS.map((r) => (
+                <button key={r} className={l.result === r ? `on ${r}` : ""} onClick={() => onMark(s.id, l.propId, r)}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className={`legresult ${l.result ?? "open"}`} title={l.auto ? "Graded from the box score" : l.result ? "Marked by hand" : undefined}>
+              {l.result ? RESULT_LABEL[l.result] : "Pending"}
+            </span>
+          )}
+        </div>
+      ))}
+      <div className="savedfoot">
+        <ShareButton slip={s} />
+        <button className="linkish" onClick={() => setEditing((v) => !v)}>
+          {editing ? "Done" : "Fix a result"}
+        </button>
+        <button className="linkish" onClick={() => onRemove(s)}>
+          Delete
+        </button>
+      </div>
+      {editing && <small className="muted">Picks you change by hand don&apos;t count on the leaderboard.</small>}
     </div>
   );
 }

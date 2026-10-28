@@ -94,14 +94,17 @@ export default function Slip({
   };
 
   return (
-    <aside className="slip" id="slip">
+    // Nothing to show yet: on a phone the walkthrough and the games say it better, so this hides there.
+    <aside className={`slip ${!legs.length && !rows.length ? "empty" : ""}`} id="slip">
       <div className="sliphead">
         <h2>Your slip</h2>
         {legs.length > 0 && <span className="count">{legs.length}/{MAX_PICKS}</span>}
       </div>
       {!legs.length && (
         <p className="muted">
-          Tap a game at the top, pick a player, then tap More or Less. Your picks land here. Pick 6 takes 2 to {MAX_PICKS} picks.
+          {rows.length
+            ? `Tap More or Less on a line to add it. Pick 6 takes 2 to ${MAX_PICKS} picks.`
+            : `Tap a game at the top, pick a player, then tap More or Less. Pick 6 takes 2 to ${MAX_PICKS} picks.`}
         </p>
       )}
       {legs.map((l) => (
