@@ -563,14 +563,26 @@ a.button.signin { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
   .topright:has(> :not(.mainnav)) .mainnav .navlabel { display: none; }
 }
 /* Signed in with the Leaders (and Admin) tabs: icons only for tabs that aren't open on phones. */
-@media (max-width: 640px) {
+@media (max-width: 860px) {
   .mainnav:has(> a:nth-child(4)) a:not(.active) .navlabel { display: none; }
 }
-@media (max-width: 400px) {
+/* Phones and small tablets: the logo, up to five tabs and Sign in share one row. The wordmark goes first, then tab labels; if it
+   still doesn't fit (big text settings), the tabs scroll sideways instead of pushing the page wider. */
+@media (max-width: 860px) {
+  .topbar { gap: 8px; }
+  .brand { flex: none; }
+  .topright { flex: 1 1 auto; min-width: 0; justify-content: flex-end; gap: 6px; }
+  .topright > :not(.mainnav) { flex: none; }
+  .mainnav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .mainnav::-webkit-scrollbar { display: none; }
+  .mainnav a { flex: none; }
+}
+@media (max-width: 640px) {
+  .topbar:has(.mainnav > a:nth-child(4)) .wordmark { display: none; }
+}
+@media (max-width: 440px) {
   .mainnav:has(> a:nth-child(4)) .navlabel { display: none; }
-  .mainnav:has(> a:nth-child(5)) a { padding: 7px 8px; }
-  /* With five or more tabs, the top bar keeps the mark and drops the wordmark. */
-  .topbar:has(.mainnav > a:nth-child(5)) .wordmark { display: none; }
+  .mainnav:has(> a:nth-child(4)) a, .mainnav:has(> a:nth-child(4)) a.active { padding-left: 9px; padding-right: 9px; }
 }
 
 /* ---------- Best slip, tracker extras ---------- */
