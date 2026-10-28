@@ -315,6 +315,10 @@ export async function fetchScoreboard(sport: EspnSport, query = "", revalidate =
   return { games: parseScoreboard(json, sport), week: Number(json?.week?.number) || 0 };
 }
 
+/** One game's summary (box score and status). Short cache while it's live. */
+export const fetchSummary = (sport: EspnSport, eventId: string, revalidate = 20) =>
+  espnJson(`${SITE}/${PATHS[sport]}/summary?event=${encodeURIComponent(eventId)}`, revalidate);
+
 /** The team's next (or in-progress) game in the coming few days. */
 export async function findNextGame(sport: EspnSport, team: string): Promise<{ opponent: string; gameTime: string } | null> {
   if (sport === "UFC") {

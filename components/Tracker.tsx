@@ -9,6 +9,7 @@ import { shareSlip } from "@/lib/shareClient.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
 import { AlertsToggle } from "@/components/Alerts";
+import LiveSweat from "@/components/LiveSweat";
 
 const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
@@ -184,6 +185,7 @@ export default function Tracker() {
         <Card label="Model expected" value={settledLegs.length ? pct(expected / settledLegs.length) : "–"} />
         <Card label="Settled slips P/L" value={money(profit)} tone={profit >= 0 ? "pos" : "neg"} />
       </div>
+      <LiveSweat slips={slips} />
       {openCount > 0 && <AlertsToggle />}
       {clv.n > 0 && (
         <div className="clvbar">

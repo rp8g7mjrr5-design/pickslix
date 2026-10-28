@@ -913,3 +913,26 @@ button.linkish { background: none; border: 0; padding: 4px; color: var(--muted);
 .gameview .backbtn { align-self: flex-start; margin: 14px 16px 0; }
 .gamecard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 10px 24px rgba(0, 0, 0, 0.35); }
 .boardcol.gameopen > :not(.games) { display: none; }
+
+/* ---------- Live sweat ---------- */
+.livesweat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; }
+.livesweat h2 { display: flex; align-items: center; gap: 8px; }
+.livedot { width: 8px; height: 8px; border-radius: 50%; background: var(--under); box-shadow: 0 0 0 0 rgba(255, 93, 115, 0.6); animation: livepulse 1.6s infinite; }
+@keyframes livepulse { 70% { box-shadow: 0 0 0 8px rgba(255, 93, 115, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 93, 115, 0); } }
+.livelist { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 10px; }
+.livecard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.livecard.good { border-color: rgba(43, 245, 155, 0.35); }
+.livecard.bad { border-color: rgba(255, 93, 115, 0.3); }
+.livetop { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.livechip { flex: none; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: var(--panel-3); color: var(--muted); }
+.livechip.good { background: rgba(43, 245, 155, 0.14); color: var(--accent); }
+.livechip.bad { background: rgba(255, 93, 115, 0.14); color: var(--under); }
+.livebar { position: relative; height: 10px; background: var(--panel-3); border-radius: 999px; }
+.livebar i { display: block; height: 100%; border-radius: 999px; background: #5b6472; transition: width 0.6s; }
+.livecard.good .livebar i { background: var(--brand); }
+.livecard.bad .livebar i { background: var(--under); }
+.livebar b { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text); border-radius: 1px; }
+.livebar em { position: absolute; top: 1px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; border: 2px solid var(--text); background: var(--panel-2); }
+.livefoot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.livefoot strong { font-size: 18px; }
+@media (prefers-reduced-motion: reduce) { .livedot { animation: none; } .livebar i { transition: none; } }
