@@ -61,7 +61,11 @@ async function gameProps(sport: Sport, g: EspnGame, lines: GameLines): Promise<C
 
 async function score(date: string, now: number): Promise<Potd | null> {
   const provider = getProvider();
-  if (provider.name === "sample") return choosePick(await buildBoard(sampleProps(), provider), date, now);
+  if (provider.name === "sample") {
+    // The demo slate's dates are fixed; treat it as tonight's.
+    const tonight = new Date(now + 6 * 3600_000).toISOString();
+    return choosePick(await buildBoard(sampleProps().map((p) => ({ ...p, gameTime: tonight })), provider), date, now);
+  }
   if (provider.name !== "espn" || !oddsEnabled()) return null;
   const games = await todaysGames(date, now);
   if (!games.length) return null;

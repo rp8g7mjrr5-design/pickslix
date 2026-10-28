@@ -211,8 +211,9 @@ export default function Board() {
 
   return (
     <div className="layout">
+      {/* Fixed to the screen, so it lives outside the column that hides everything but the open game. */}
+      <Welcome gameOpen={gameOpen} picks={slip.length} />
       <section className={`boardcol ${gameOpen ? "gameopen" : ""}`}>
-        <Welcome />
         <PickOfDay slip={slip} onPick={pickFromGame} />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
 

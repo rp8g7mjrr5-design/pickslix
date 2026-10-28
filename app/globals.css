@@ -978,3 +978,38 @@ button.linkish { background: none; border: 0; padding: 4px; color: var(--muted);
   .invitebanner { flex-direction: column; align-items: stretch; text-align: left; }
   .invitebanner.good { flex-direction: row; align-items: center; }
 }
+
+/* ---------- First-visit walkthrough ---------- */
+.coach {
+  position: fixed; z-index: 50; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 440px; margin: 0 auto;
+  padding: 12px 14px; border-radius: 14px; background: var(--panel-3); border: 1px solid rgba(43, 245, 155, 0.45);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55); animation: coachin 0.25s ease-out;
+}
+@keyframes coachin { from { opacity: 0; transform: translateY(10px); } }
+.coach p { margin: 6px 0 8px; font-size: 14px; color: var(--muted); }
+.coach p strong { color: var(--text); }
+.coach p em { color: var(--over); font-style: normal; font-weight: 700; }
+.coachtop { display: flex; align-items: center; gap: 10px; }
+.coachstep { font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--accent); }
+.coachdots { display: flex; gap: 4px; flex: 1; }
+.coachdots i { width: 18px; height: 4px; border-radius: 2px; background: var(--line); }
+.coachdots i.on { background: var(--accent); }
+.coachdots i.done { background: rgba(43, 245, 155, 0.45); }
+.coachactions { display: flex; gap: 10px; align-items: center; }
+.coachactions .linkish { padding: 0; }
+@media (max-width: 900px) {
+  /* Sit above the phone's slip bar once there are picks. */
+  .coach.raised { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 64px); }
+}
+/* What to tap next pulses. */
+@keyframes coachring { 0%, 100% { box-shadow: 0 0 0 0 rgba(43, 245, 155, 0.55); } 60% { box-shadow: 0 0 0 6px rgba(43, 245, 155, 0); } }
+body[data-coach="1"] .gamestrip .gamecard:not(.skeletoncard):nth-child(-n + 3),
+body[data-coach="2"] .playerlist .playerrow:not(.skeletoncard):nth-child(-n + 3),
+body[data-coach="3"] .slip .actions > button:first-child:not(:disabled),
+body[data-coach="3"] .slipbar {
+  animation: coachring 1.6s ease-out infinite; border-color: rgba(43, 245, 155, 0.7);
+}
+@media (prefers-reduced-motion: reduce) {
+  .coach { animation: none; }
+  body[data-coach] * { animation-iteration-count: 1 !important; }
+}
