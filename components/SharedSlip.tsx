@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { rememberRef } from "@/components/Invite";
 import { pct } from "@/lib/format.ts";
+import { recapLine } from "@/lib/recap.ts";
 import type { SharedSlip } from "@/lib/share.ts";
 import { loadCustomProps, saveCustomProps } from "@/lib/storage.ts";
 import { tailLegs } from "@/lib/tail.ts";
@@ -35,13 +36,14 @@ export default function SharedSlipView({ slip }: { slip: SharedSlip }) {
     <div className="sharedslip">
       <div className="hero">
         <div>
-          <h1>{slip.by ? `@${slip.by}'s slip` : "Shared slip"}</h1>
+          <h1>{slip.recap ? (slip.by ? `@${slip.by}'s recap` : "Slip recap") : slip.by ? `@${slip.by}'s slip` : "Shared slip"}</h1>
           <p className="muted">
             {slip.legs.length} picks · shared {new Date(slip.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
           </p>
         </div>
       </div>
       <section className="slip">
+        {slip.recap && <p className="recaphead">{recapLine(slip.legs)}</p>}
         {slip.legs.map((l, i) => (
           <div key={i} className="leg">
             <span className={`pill ${l.side === "OVER" ? "over" : "under"}`}>{l.side === "OVER" ? "More" : "Less"}</span>
@@ -50,10 +52,15 @@ export default function SharedSlipView({ slip }: { slip: SharedSlip }) {
               <small>
                 {l.line} {STATS[l.stat]?.label ?? l.stat}
                 {l.team && l.opponent ? ` · ${l.team} vs ${l.opponent}` : ""}
-                {l.gameTime && Date.parse(l.gameTime) < Date.now() ? " · started" : ""}
+                {!slip.recap && l.gameTime && Date.parse(l.gameTime) < Date.now() ? " · started" : ""}
+                {slip.recap && l.actual !== undefined ? ` · had ${l.actual}` : ""}
               </small>
             </div>
-            <span className="num">{pct(l.prob)}</span>
+            {slip.recap && l.result ? (
+              <span className={`legresult ${l.result}`}>{l.result === "hit" ? "✓ Hit" : l.result === "miss" ? "✗ Miss" : "Push"}</span>
+            ) : (
+              <span className="num">{pct(l.prob)}</span>
+            )}
           </div>
         ))}
         {slip.hit !== undefined && (
@@ -62,6 +69,13 @@ export default function SharedSlipView({ slip }: { slip: SharedSlip }) {
             <strong>{pct(slip.hit, 1)}</strong>
           </div>
         )}
+        {slip.recap ? (
+          <div className="actions">
+            <Link href="/" className="button">
+              Make my own picks
+            </Link>
+          </div>
+        ) : (
         <div className="actions">
           <button onClick={tail} disabled={!open}>
             {open ? `Tail ${open === slip.legs.length ? "this slip" : `the ${open} open picks`}` : "These games have started"}
@@ -70,7 +84,9 @@ export default function SharedSlipView({ slip }: { slip: SharedSlip }) {
             Build my own
           </Link>
         </div>
-        <p className="fine">Tailing copies the picks into your slip with fresh odds from the model. Nothing is placed for you.</p>
+        )}
+        {slip.recap && <p className="fine">Graded from the box scores. LayLock scores every Pick 6 line with a model built on recent games, matchups and injuries.</p>}
+        {!slip.recap && <p className="fine">Tailing copies the picks into your slip with fresh odds from the model. Nothing is placed for you.</p>}
       </section>
     </div>
   );

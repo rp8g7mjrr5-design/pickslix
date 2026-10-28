@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { recapLine } from "@/lib/recap.ts";
 import { loadShare } from "@/lib/share.ts";
 import { STATS } from "@/lib/types.ts";
 
@@ -18,11 +19,12 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             Lay<span style={{ color: "#2bf59b" }}>Lock</span>
           </div>
           <div style={{ display: "flex", fontSize: 30, color: "#8a96a6" }}>
-            {slip?.by ? `@${slip.by}` : "Shared slip"} · {legs.length} picks
+            {slip?.by ? `@${slip.by}` : slip?.recap ? "Recap" : "Shared slip"} · {legs.length} picks
           </div>
         </div>
+        {slip?.recap && <div style={{ display: "flex", fontSize: 46, fontWeight: 900, marginBottom: 20, letterSpacing: -1 }}>{recapLine(legs)}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
-          {legs.slice(0, 6).map((l, i) => (
+          {legs.slice(0, slip?.recap ? 5 : 6).map((l, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 20, padding: "14px 22px", background: "#11171f", borderRadius: 18, border: "2px solid #222b37" }}>
               <div
                 style={{
@@ -35,14 +37,21 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               <div style={{ display: "flex", flex: 1, fontSize: 32, fontWeight: 700 }}>
                 {l.player} · {l.line} {STATS[l.stat]?.label ?? l.stat}
               </div>
-              <div style={{ display: "flex", fontSize: 30, color: "#8a96a6" }}>{Math.round(l.prob * 100)}%</div>
+              {slip?.recap ? (
+                <div style={{ display: "flex", fontSize: 30, fontWeight: 800, color: l.result === "hit" ? "#2bf59b" : l.result === "miss" ? "#ff5d73" : "#8a96a6" }}>
+                  {l.actual !== undefined ? `${l.actual} ` : ""}
+                  {l.result === "hit" ? "✓" : l.result === "miss" ? "✗" : "push"}
+                </div>
+              ) : (
+                <div style={{ display: "flex", fontSize: 30, color: "#8a96a6" }}>{Math.round(l.prob * 100)}%</div>
+              )}
             </div>
           ))}
-          {legs.length > 6 && <div style={{ display: "flex", fontSize: 26, color: "#8a96a6" }}>+{legs.length - 6} more</div>}
+          {legs.length > (slip?.recap ? 5 : 6) && <div style={{ display: "flex", fontSize: 26, color: "#8a96a6" }}>+{legs.length - (slip?.recap ? 5 : 6)} more</div>}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 28, color: "#8a96a6", marginTop: 20 }}>
-          <span>{slip?.hit ? `Model: ${(slip.hit * 100).toFixed(1)}% all hit` : "Tap to see the odds"}</span>
-          <span style={{ color: "#2bf59b" }}>Tail it on LayLock</span>
+          <span>{slip?.recap ? "Graded from the box scores" : slip?.hit ? `Model: ${(slip.hit * 100).toFixed(1)}% all hit` : "Tap to see the odds"}</span>
+          <span style={{ color: "#2bf59b" }}>{slip?.recap ? "Make your picks on LayLock" : "Tail it on LayLock"}</span>
         </div>
       </div>
     ),

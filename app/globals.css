@@ -1091,3 +1091,9 @@ body[data-coach="3"] .slipbar {
   .lockoption { flex-direction: column; align-items: stretch; }
   .locksides .side { flex: 1; }
 }
+
+/* ---------- Recap ---------- */
+.savedfoot .recapbtn { margin-right: auto; }
+.recapline { margin: 6px 0 0; font-weight: 700; }
+.saved .leg:has(+ .recapline) { border-bottom: 0; }
+.recaphead { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; margin: 0 0 6px; }

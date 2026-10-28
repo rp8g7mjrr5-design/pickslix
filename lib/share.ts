@@ -12,6 +12,8 @@ export interface SharedSlip {
   legs: TailLeg[];
   /** Model's chance every leg hits, as shown when shared. */
   hit?: number;
+  /** Shared after the games, with each leg's result: a recap, not a slip to tail. */
+  recap?: boolean;
 }
 
 const TTL = 7 * 86400;
@@ -28,6 +30,7 @@ export function cleanLegs(raw: unknown): TailLeg[] {
     .map((l: any): TailLeg | null => {
       if (typeof l?.player !== "string" || !(l?.stat in STATS) || !Number.isFinite(l?.line) || (l?.side !== "OVER" && l?.side !== "UNDER")) return null;
       const prob = Number(l.prob);
+      const actual = Number(l.actual);
       return {
         player: l.player.slice(0, 60),
         stat: l.stat,
@@ -38,6 +41,8 @@ export function cleanLegs(raw: unknown): TailLeg[] {
         team: str(l.team, 12),
         opponent: str(l.opponent, 12),
         gameTime: str(l.gameTime, 30) && Number.isFinite(Date.parse(l.gameTime)) ? l.gameTime : undefined,
+        ...(l.result === "hit" || l.result === "miss" || l.result === "push" ? { result: l.result } : {}),
+        ...(l.actual !== undefined && l.actual !== null && Number.isFinite(actual) && actual >= 0 && actual < 10000 ? { actual } : {}),
       };
     })
     .filter((l): l is TailLeg => Boolean(l));
@@ -45,8 +50,15 @@ export function cleanLegs(raw: unknown): TailLeg[] {
 
 const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
 
-export async function createShare(legs: TailLeg[], by?: string, hit?: number): Promise<SharedSlip> {
-  const slip: SharedSlip = { id: newId(), createdAt: new Date().toISOString(), legs, ...(by ? { by } : {}), ...(hit && hit > 0 && hit < 1 ? { hit } : {}) };
+export async function createShare(legs: TailLeg[], by?: string, hit?: number, recap = false): Promise<SharedSlip> {
+  const slip: SharedSlip = {
+    id: newId(),
+    createdAt: new Date().toISOString(),
+    legs: recap ? legs : legs.map(({ result: _, actual: __, ...l }) => l),
+    ...(by ? { by } : {}),
+    ...(hit && hit > 0 && hit < 1 ? { hit } : {}),
+    ...(recap && legs.every((l) => l.result) ? { recap: true } : {}),
+  };
   await kvSet(key(slip.id), slip, TTL);
   return slip;
 }

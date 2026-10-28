@@ -16,6 +16,8 @@ export interface SlipLeg {
   /** The model's spread-to-mean ratio for the player, to compare prices at different lines. */
   dispersion?: number;
   result?: "hit" | "miss" | "push";
+  /** What the player actually put up, when graded from the box score. */
+  actual?: number;
   /** Set when the tracker graded this leg from the box score (a manual mark clears it). */
   auto?: boolean;
   sport?: Sport;
