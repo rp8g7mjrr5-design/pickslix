@@ -12,7 +12,7 @@ interface User {
   banned: boolean;
   admin: boolean;
   username: string | null;
-  plan: "monthly" | "yearly" | "lifetime" | null;
+  plan: "monthly" | "yearly" | "lifetime" | "trial" | null;
   granted: boolean;
   picks: number;
   hitRate: number;
@@ -28,7 +28,7 @@ const ago = (ms: number | null) => {
   if (d < 30) return `${d} days ago`;
   return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 };
-const planLabel = (u: User) => (u.plan === "lifetime" ? (u.granted ? "Gifted" : "Lifetime") : u.plan === "yearly" ? "Yearly" : u.plan === "monthly" ? "Monthly" : null);
+const planLabel = (u: User) => (u.plan === "lifetime" ? (u.granted ? "Gifted" : "Lifetime") : u.plan === "yearly" ? "Yearly" : u.plan === "monthly" ? "Monthly" : u.plan === "trial" ? "Free week" : null);
 
 const ASK: Record<Action, (who: string) => string> = {
   ban: (who) => `Ban ${who}? They're signed out everywhere, can't sign back in, and disappear from the leaderboard and crews.`,
@@ -142,12 +142,12 @@ export default function AdminAccounts() {
                 <span>Seen {ago(u.lastActiveAt)}</span>
               </div>
               <div className="accountactions">
-                {!u.plan && !u.banned && (
+                {u.plan !== "lifetime" && !u.banned && (
                   <button className="small" disabled={!!busy} onClick={() => act(u, "grant")}>
-                    {busy === u.id + "grant" ? "…" : "Give Pro"}
+                    {busy === u.id + "grant" ? "…" : u.plan ? "Make lifetime" : "Give Pro"}
                   </button>
                 )}
-                {u.plan && u.plan === "lifetime" && (
+                {(u.plan === "lifetime" || u.plan === "trial") && (
                   <button className="ghost small" disabled={!!busy} onClick={() => act(u, "revoke")}>
                     {busy === u.id + "revoke" ? "…" : "Remove Pro"}
                   </button>

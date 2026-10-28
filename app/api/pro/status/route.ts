@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const { key } = (await req.json().catch(() => ({}))) as { key?: string };
   const pass = await checkPass(key);
-  return NextResponse.json({ required: proRequired(), pro: Boolean(pass), plan: pass?.plan ?? null });
+  return NextResponse.json({ required: proRequired(), pro: Boolean(pass), plan: pass?.plan ?? null, until: pass?.until ?? null });
 }

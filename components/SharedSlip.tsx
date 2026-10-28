@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { rememberRef } from "@/components/Invite";
 import { pct } from "@/lib/format.ts";
 import type { SharedSlip } from "@/lib/share.ts";
 import { loadCustomProps, saveCustomProps } from "@/lib/storage.ts";
@@ -12,6 +14,8 @@ import { STATS } from "@/lib/types.ts";
 export default function SharedSlipView({ slip }: { slip: SharedSlip }) {
   const router = useRouter();
   const open = slip.legs.filter((l) => l.gameTime && Date.parse(l.gameTime) > Date.now()).length;
+  // Someone who signs up after opening a friend's slip joined from that friend's invite.
+  useEffect(() => rememberRef(slip.by), [slip.by]);
 
   const tail = () => {
     const { props, slip: legs, skipped } = tailLegs(slip.legs);

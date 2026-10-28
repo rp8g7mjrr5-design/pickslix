@@ -5,6 +5,7 @@ import { AccountButton, AccountProvider } from "@/components/Account";
 import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
 import { UsernameGate } from "@/components/Username";
+import { InviteBanner } from "@/components/Invite";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -59,11 +60,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AccountButton />
           </div>
         </header>
-        <main>{children}</main>
+        <main>
+          <InviteBanner />
+          {children}
+        </main>
         <footer className="foot">
           Probabilities are model estimates from public stats, not guarantees. Not affiliated with DraftKings. 21+.
           Gambling problem? Call 1-800-GAMBLER. <Link href="/help">How it works</Link> · <Link href="/accuracy">Model accuracy</Link> ·{" "}
-          <Link href="/setup">Setup check</Link>
+          <Link href="/setup">Setup check</Link> · <Link href="/privacy">Privacy</Link> ·{" "}
+          <Link href="/terms">Terms</Link>
           {process.env.NEXT_PUBLIC_TIP_URL && (
             <>
               {" · "}

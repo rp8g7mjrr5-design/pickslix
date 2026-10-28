@@ -25,8 +25,12 @@ export async function GET() {
 
   const passKeys = await kvKeys("pro:").catch(() => [] as string[]);
   const passes = await Promise.all(passKeys.map((k) => kvGet<ProPass>(k).catch(() => null)));
-  const plans = { monthly: 0, yearly: 0, lifetime: 0 };
-  for (const p of passes) if (p && (p.plan === "lifetime" || ["active", "trialing", "past_due"].includes(p.status ?? ""))) plans[p.plan]++;
+  const plans = { monthly: 0, yearly: 0, lifetime: 0, trial: 0 };
+  for (const p of passes) {
+    if (!p) continue;
+    const live = p.plan === "lifetime" || (p.plan === "trial" ? Date.parse(p.until ?? "") > Date.now() : ["active", "trialing", "past_due"].includes(p.status ?? ""));
+    if (live) plans[p.plan]++;
+  }
   const accounts = (await kvKeys("account:").catch(() => [] as string[])).length;
   const odds = await kvGet<{ remaining: number; at: string }>("odds:remaining").catch(() => null);
   const paused = await kvGet<{ status: number; at: string }>("odds:paused").catch(() => null);

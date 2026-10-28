@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 interface Status {
   database: boolean;
   cron: boolean;
-  screenshots: boolean;
   odds: boolean;
   oddsRemaining: number | null;
   defenseUpdatedAt: string | null;
@@ -60,12 +59,6 @@ export default function Setup() {
             ? `Team defense stats last refreshed ${ago(s.defenseUpdatedAt)}.`
             : "The daily job is set up; it hasn't saved a refresh yet.",
           off: "Add CRON_SECRET (any long random string) so the daily refresh job runs securely.",
-        },
-        {
-          ok: s.screenshots,
-          title: "Sharper screenshot reading",
-          on: "Screenshots are read by Claude, which handles busy Pick 6 screens well.",
-          off: "Add ANTHROPIC_API_KEY for much better screenshot reading. Without it, screenshots are read on your phone, which misses more.",
         },
         {
           ok: s.accounts && s.database,

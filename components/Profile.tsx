@@ -13,6 +13,7 @@ import { STATS } from "@/lib/types.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
 import { UsernameField } from "@/components/Username";
 import { AlertsToggle } from "@/components/Alerts";
+import { InviteCard } from "@/components/Invite";
 
 const money = (x: number) => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
 const rate = (s: Split) => (s.n ? s.hits / s.n : 0);
@@ -177,6 +178,7 @@ export default function Profile() {
           </div>
         </>
       )}
+      <InviteCard />
       <AlertsToggle />
       {account.enabled && account.signedIn && <AccountActions />}
     </div>

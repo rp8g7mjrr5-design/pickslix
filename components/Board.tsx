@@ -5,6 +5,7 @@ import GamePicker from "@/components/GamePicker";
 import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
+import PickOfDay from "@/components/PickOfDay";
 import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
 import { correlatedHitProbability } from "@/lib/correlation.ts";
@@ -48,6 +49,7 @@ export default function Board() {
   const [slip, setSlip] = useState<SlipLeg[]>([]);
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
+  const [gameOpen, setGameOpen] = useState(false);
 
   // Keep the slip across reloads.
   useEffect(() => {
@@ -209,9 +211,11 @@ export default function Board() {
 
   return (
     <div className="layout">
-      <section className="boardcol">
-        <Welcome />
-        <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} />
+      {/* Fixed to the screen, so it lives outside the column that hides everything but the open game. */}
+      <Welcome gameOpen={gameOpen} picks={slip.length} />
+      <section className={`boardcol ${gameOpen ? "gameopen" : ""}`}>
+        <PickOfDay slip={slip} onPick={pickFromGame} />
+        <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
 
         <div className="hero">
           <div>
@@ -223,7 +227,7 @@ export default function Board() {
                   ? `${rows.length} line${rows.length === 1 ? "" : "s"} · ${strong} with a 10%+ edge${
                       updated ? ` · updated ${updated.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""
                     }`
-                  : "Pick players above, or import your Pick 6 screenshot."}
+                  : "Pick players from a game above, or paste your Pick 6 lines."}
             </p>
           </div>
           <div className="heroactions">
@@ -234,7 +238,7 @@ export default function Board() {
             )}
             {!(importing && !rows.length) && (
               <button className={rows.length ? "" : "ghost"} onClick={() => setImporting((v) => !v)}>
-                {importing ? "Done" : "Import screenshot"}
+                {importing ? "Done" : "Paste lines"}
               </button>
             )}
           </div>

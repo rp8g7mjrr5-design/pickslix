@@ -25,11 +25,6 @@ demo board with made-up lines instead.
   To save Odds API credits, only the most-played stats are fetched (NBA points, rebounds, assists,
   threes and PRA, for example), only for games that haven't started, and each game's lines are cached
   for everyone for six hours. Fetching pauses before the monthly credits run out.
-- **Screenshot:** upload, drop or paste a screenshot of the Pick 6 board or of an entry you made.
-  Picks with More/Less chosen load straight into the slip. Without a key it's read on the device
-  with Tesseract.js (free; the engine downloads from jsDelivr the first time). Set
-  `ANTHROPIC_API_KEY` to read screenshots with Claude instead, which handles busy screenshots
-  much better.
 - **Paste text:** one prop per line or text copied from the app (`lib/parseLines.ts`).
 - **Type one:** player, stat and line.
 
@@ -107,7 +102,7 @@ first saw it (openers are kept for five days under `odds:open:{eventId}`). This 
 "public vs sharp money": betting splits only exist for game lines, and the sharp books' price is the signal
 that matters for a player prop.
 
-Pasted and screenshot lines get the same market read (`lib/gameContext.ts`): each line is matched to its game,
+Pasted lines get the same market read (`lib/gameContext.ts`): each line is matched to its game,
 and the game's cached prop prices are used. Lines nobody has opened yet are fetched only for Pro, as on the
 game picker.
 
@@ -244,6 +239,18 @@ from the profile or tracker; on iPhone the site has to be added to the Home Scre
 2. On the GitHub repo add the secrets `SITE_URL` (your site's address) and `CRON_SECRET` (same as on Vercel).
    `.github/workflows/alerts.yml` then calls `/api/cron/alerts` every 15 minutes.
 
+**Live sweat** (`lib/live.ts`, `/api/live`): while a game on an open pick is on, the tracker's "Live now" section
+reads ESPN's in-game box score every 30 seconds (only while the page is visible) and shows the stat so far against
+the line, the game clock and score, and a pace projection once 15% of the game is played. Overs past the line show
+as cashed, unders past it as busted. Total bases and UFC aren't tracked live (the box score doesn't add them up).
+
+**Pick of the day** (`lib/potd.ts`, `lib/potdData.ts`): once lines are up for today's games, the model scores them
+and locks in its strongest clean pick for the day (8+ games of sample, no injury flag, not low confidence, and the
+books not leaning the other way). It shows at the top of the Board with an Add to slip button, gets graded from
+the box score after the game, and its record shows on the card. It uses lines already cached from people opening
+games; if nobody has yet, it buys one game's lines once a day (a few Odds API credits). The alerts cron warms it,
+and it's re-tried every 20 minutes until there's a pick.
+
 **Share a slip** (`lib/share.ts`, `/s/{id}`): the slip and each saved slip have a Share button that makes a short
 link (kept a week) with a link-preview image of the picks. Anyone opening it can tail the picks still open.
 
@@ -271,6 +278,15 @@ crew leaderboard (same counting rules as the global one) and each other's slips 
 entry amounts, and can tail a slip: its picks whose games haven't started are copied into their own slip
 (`lib/tail.ts`). Crews need accounts and a username; up to 50 members a crew and 10 crews a person. The owner can
 remove members or reset the invite link; when the owner leaves, the longest-standing member takes over.
+
+**Invite friends** (`lib/referrals.ts`, `/api/referral`): everyone with a username gets an invite link
+(`/?ref=username`) on their profile, and opening someone's shared slip counts as their invite too. When a new
+account (under three days old) signs up from one, both get a free week of Pro: a trial pass that stacks on a running
+week and leaves a paid plan alone. One claim per account and up to 12 rewarded invites per person. Needs accounts and
+Pro set up; trial weeks can still buy a plan.
+
+**First visit:** a three-step walkthrough at the bottom of the Board follows what the person does (tap a game, tap a
+player and pick a side, save the slip) and pulses what to tap next. It doesn't show for anyone with saved slips.
 
 **Admin** (`/admin`, `lib/admin.ts`): accounts whose verified email is in `ADMIN_EMAILS` get an Admin tab.
 It shows every lifetime code and whether it's been used, makes new codes (stored in the database, so they

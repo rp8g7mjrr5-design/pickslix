@@ -4,7 +4,8 @@
 import { kvClaim, kvGet, kvSet } from "./db.ts";
 
 export interface ProPass {
-  plan: "monthly" | "yearly" | "lifetime";
+  /** "trial" is free Pro until `until`, earned by inviting friends. */
+  plan: "monthly" | "yearly" | "lifetime" | "trial";
   createdAt: string;
   /** Stripe ids for subscription passes. */
   customer?: string;
@@ -16,6 +17,8 @@ export interface ProPass {
   code?: string;
   /** Given by an admin from the accounts page. */
   granted?: boolean;
+  /** When a trial pass runs out. */
+  until?: string;
 }
 
 const STRIPE = "https://api.stripe.com/v1";
@@ -73,6 +76,7 @@ export async function checkPass(rawKey: string | null | undefined): Promise<ProP
   const pass = await kvGet<ProPass>(passKey(key)).catch(() => null);
   if (!pass) return null;
   if (pass.plan === "lifetime") return pass;
+  if (pass.plan === "trial") return Date.parse(pass.until ?? "") > Date.now() ? pass : null;
   if (!pass.subscription || !stripeEnabled()) return null;
   if (!pass.checkedAt || Date.now() - Date.parse(pass.checkedAt) > RECHECK_MS) {
     try {
@@ -108,6 +112,30 @@ export async function planPrices(): Promise<{ monthly: PlanPrice | null; yearly:
   const result = { monthly: await one(ids.monthly), yearly: await one(ids.yearly) };
   await kvSet("stripe:prices", result, 3600).catch(() => {});
   return result;
+}
+
+const DAY_MS = 86400_000;
+
+/** A trial that's still running is extended from its end; otherwise it starts now. */
+export function extendUntil(until: string | undefined, days: number, now = Date.now()): string {
+  const from = Math.max(now, Date.parse(until ?? "") || 0);
+  return new Date(from + days * DAY_MS).toISOString();
+}
+
+/**
+ * Add free Pro days to `key`'s trial pass, or start a new trial pass when there isn't one. A paid or lifetime pass
+ * that's working is left alone (it's already Pro). Returns the trial's key, or null when nothing changed.
+ */
+export async function addTrialDays(key: string | undefined, days: number): Promise<string | null> {
+  const current = key ? await kvGet<ProPass>(passKey(normalizeKey(key))).catch(() => null) : null;
+  if (key && current?.plan === "trial") {
+    await kvSet(passKey(normalizeKey(key)), { ...current, until: extendUntil(current.until, days) } satisfies ProPass);
+    return normalizeKey(key);
+  }
+  if (key && (await checkPass(key))) return null;
+  const fresh = newKey();
+  await kvSet(passKey(fresh), { plan: "trial", createdAt: new Date().toISOString(), until: extendUntil(undefined, days) } satisfies ProPass);
+  return fresh;
 }
 
 /** Yearly and lifetime members get the gold badge on the leaderboard and in crews. */

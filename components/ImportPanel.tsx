@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { readTextOnDevice, toDataUrl } from "@/lib/ocr.ts";
+import { useState } from "react";
 import { loadCustomProps, saveCustomProps } from "@/lib/storage.ts";
 import { SPORTS, STATS, statSport, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
@@ -12,7 +11,7 @@ export interface ImportResult {
   unresolved: string[];
 }
 
-type Tab = "photo" | "paste" | "type";
+type Tab = "paste" | "type";
 
 const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
@@ -32,7 +31,7 @@ function commit(body: ImportResult): string {
 }
 
 export default function ImportPanel({
-  initialTab = "photo",
+  initialTab = "paste",
   onImported,
   onClose,
 }: {
@@ -47,7 +46,6 @@ export default function ImportPanel({
         <div className="seg" role="tablist">
           {(
             [
-              ["photo", "Screenshot"],
               ["paste", "Paste text"],
               ["type", "Type one"],
             ] as [Tab, string][]
@@ -63,119 +61,9 @@ export default function ImportPanel({
           </button>
         )}
       </div>
-      {tab === "photo" && <PhotoImport onImported={onImported} />}
       {tab === "paste" && <PasteImport onImported={onImported} />}
       {tab === "type" && <TypeOne onImported={onImported} />}
     </section>
-  );
-}
-
-function PhotoImport({ onImported }: { onImported: (r: ImportResult) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<"server" | "device" | null>(null);
-  const [busy, setBusy] = useState<string>("");
-  const [note, setNote] = useState("");
-  const [preview, setPreview] = useState<string>("");
-  const [drag, setDrag] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/screenshot")
-      .then((r) => r.json())
-      .then((b) => setMode(b.mode))
-      .catch(() => setMode("device"));
-  }, []);
-
-  // Paste an image straight from the clipboard (Ctrl/Cmd+V) while this tab is open.
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
-      if (file) {
-        e.preventDefault();
-        handle(file);
-      }
-    };
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  });
-
-  const handle = async (file: File) => {
-    if (busy) return;
-    if (!file.type.startsWith("image/")) return setNote("That isn't an image.");
-    setNote("");
-    setPreview(URL.createObjectURL(file));
-    try {
-      let body: ImportResult;
-      if (mode === "server") {
-        setBusy("Reading your picks…");
-        const res = await fetch("/api/screenshot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: await toDataUrl(file) }),
-        });
-        body = await res.json();
-        if (!res.ok) throw new Error((body as unknown as { error?: string }).error ?? "Upload failed");
-      } else {
-        setBusy("Loading text reader…");
-        const text = await readTextOnDevice(file, (p) => setBusy(`Reading screenshot… ${Math.round(p * 100)}%`));
-        setBusy("Looking up players…");
-        const res = await fetch("/api/lines", { method: "POST", body: JSON.stringify({ text }) });
-        body = await res.json();
-      }
-      setNote(commit(body));
-      onImported(body);
-    } catch (e) {
-      setNote(e instanceof Error ? e.message : "Couldn't read that screenshot. Try again or paste the lines.");
-    } finally {
-      setBusy("");
-    }
-  };
-
-  return (
-    <div className="photo">
-      <button
-        type="button"
-        className={`drop ${drag ? "drag" : ""}`}
-        onClick={() => input.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDrag(true);
-        }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDrag(false);
-          const f = e.dataTransfer.files[0];
-          if (f) handle(f);
-        }}
-        disabled={!!busy}
-      >
-        {preview ? <img src={preview} alt="Your screenshot" /> : <span className="dropicon" aria-hidden>📸</span>}
-        <span>
-          <strong>{busy || "Upload a Pick 6 screenshot"}</strong>
-          <small>
-            {busy
-              ? "This takes a few seconds."
-              : "The board or your saved entry. Tap to choose, drop it here, or paste it. Picks you made load straight into your slip."}
-          </small>
-        </span>
-      </button>
-      {busy && <div className="bar" aria-hidden><i /></div>}
-      <input
-        ref={input}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) handle(f);
-        }}
-      />
-      {note && <p className="note">{note}</p>}
-      {mode === "device" && !note && (
-        <p className="fine">Read on your device. Crop to the picks for best results, and check the numbers after.</p>
-      )}
-    </div>
   );
 }
 

@@ -9,7 +9,9 @@ export interface ProStatus {
   /** Pro features are locked on this deployment (Stripe or lifetime codes are set up). */
   required: boolean;
   pro: boolean;
-  plan: "monthly" | "yearly" | "lifetime" | null;
+  plan: "monthly" | "yearly" | "lifetime" | "trial" | null;
+  /** When a free trial week runs out. */
+  until?: string | null;
 }
 
 export function getProKey(): string {
