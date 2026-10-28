@@ -102,47 +102,41 @@ export default function Pulse() {
 
   return (
     <section className="pulse" aria-label="Your week and your crews">
-      <div className="pulsecard">
-        <div className="pulsehead">
-          <h2>Your week</h2>
-          <Link href="/tracker">Tracker ›</Link>
-        </div>
-        {mine && mine.picks > 0 ? (
-          <>
-            <div className="pulsestats">
-              <div>
-                <strong>{mine.hits + mine.misses ? pct(mine.hits / (mine.hits + mine.misses)) : "–"}</strong>
-                <small>hit rate</small>
-              </div>
-              <div>
-                <strong>
-                  {mine.hits}-{mine.misses}
-                </strong>
-                <small>record</small>
-              </div>
-              <div>
-                <strong className={mine.streak >= 3 ? "pos" : ""}>{mine.streak}</strong>
-                <small>{mine.streak >= 3 ? "🔥 in a row" : "hit streak"}</small>
-              </div>
+      {mine && mine.picks > 0 && (
+        <div className="pulsecard">
+          <div className="pulsehead">
+            <h2>Your week</h2>
+            <Link href="/tracker">Tracker ›</Link>
+          </div>
+          <div className="pulsestats">
+            <div>
+              <strong>{mine.hits + mine.misses ? pct(mine.hits / (mine.hits + mine.misses)) : "–"}</strong>
+              <small>hit rate</small>
             </div>
-            <small className="muted">
-              {mine.picks} pick{mine.picks === 1 ? "" : "s"} saved this week{mine.open ? ` · ${mine.open} still to grade` : ""}
-            </small>
-          </>
-        ) : (
-          <p className="muted pulseempty">Save a slip and your record, hit rate and streaks show up here.</p>
-        )}
-      </div>
+            <div>
+              <strong>
+                {mine.hits}-{mine.misses}
+              </strong>
+              <small>record</small>
+            </div>
+            <div>
+              <strong className={mine.streak >= 3 ? "pos" : ""}>{mine.streak}</strong>
+              <small>{mine.streak >= 3 ? "🔥 in a row" : "hit streak"}</small>
+            </div>
+          </div>
+          <small className="muted">
+            {mine.picks} pick{mine.picks === 1 ? "" : "s"} saved this week{mine.open ? ` · ${mine.open} still to grade` : ""}
+          </small>
+        </div>
+      )}
 
-      {account.enabled && (
+      {account.enabled && account.signedIn && (
         <div className="pulsecard">
           <div className="pulsehead">
             <h2>From your crews</h2>
             <Link href="/crews">Crews ›</Link>
           </div>
-          {!account.signedIn ? (
-            <p className="muted pulseempty">Sign in and start a crew to see your friends' slips here and tail them in one tap.</p>
-          ) : crewSlips === null ? (
+          {crewSlips === null ? (
             <div className="leader skeletoncard" aria-hidden />
           ) : crewSlips.length ? (
             <ul className="pulseslips">
@@ -175,7 +169,7 @@ export default function Pulse() {
         </div>
       )}
 
-      {account.enabled && (
+      {account.enabled && account.signedIn && (
         <div className="pulsecard">
           <div className="pulsehead">
             <h2>Top players</h2>
