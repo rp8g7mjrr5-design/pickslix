@@ -179,6 +179,9 @@ button.icon { padding: 8px 12px; font-size: 16px; line-height: 1; }
 .games { margin-bottom: 22px; }
 .gameshead { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
 .gameshead h2 { margin: 0; font-size: 18px; letter-spacing: -0.3px; }
+/* Six sports don't fit beside the heading on a phone: the tabs scroll sideways instead of widening the page. */
+.gameshead .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.gameshead .seg button { flex-shrink: 0; }
 .segcount { margin-left: 6px; font-size: 11px; color: var(--muted); font-weight: 700; }
 .seg button.on .segcount { color: var(--accent); }
 .gamestrip {
@@ -461,7 +464,7 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
   .saved .leg { flex-wrap: wrap; }
 }
 @media (max-width: 640px) {
-  .gameshead { align-items: center; }
+  .gameshead { align-items: stretch; flex-direction: column; gap: 8px; }
   .gameshead small { display: none; }
   .gamestrip { grid-auto-columns: 150px; margin: 0 -14px; padding-left: 14px; padding-right: 14px; scroll-padding-left: 14px; }
   .sheetwrap { padding: 0; place-items: end stretch; }

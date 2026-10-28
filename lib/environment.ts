@@ -3,7 +3,7 @@
 // game script tilts toward passing or running (NFL). Weights are deliberately modest: the books' prop prices
 // already carry some of this, and the model still leans on the player's own games first.
 import type { TeamEnv } from "./odds.ts";
-import type { Sport, StatKey } from "./types.ts";
+import { statSport, type Sport, type StatKey } from "./types.ts";
 
 /** How much of the team-total gap (vs the slate average) carries into each stat. */
 const TEAM_WEIGHT: Partial<Record<StatKey, number>> = {
@@ -17,8 +17,10 @@ const PACE_WEIGHT: Partial<Record<StatKey, number>> = { REB: 0.5, RA: 0.5 };
 /** Goalie and pitcher stats move with what the opponent is expected to score. Negative: fewer outs and strikeouts. */
 const OPP_WEIGHT: Partial<Record<StatKey, number>> = { SAVES: 0.4, HITS_ALLOWED: 0.5, OUTS: -0.4, K: -0.2 };
 const NFL_PASSING: StatKey[] = ["PASS_YDS", "PASS_TD", "PASS_ATT", "REC", "REC_YDS"];
-/** NBA starters (this many minutes or more) lose time in blowouts. */
-const STARTER_MINUTES = 28;
+/** NBA starters (this many minutes or more) lose time in blowouts. College games are 40 minutes. */
+const STARTER_MINUTES: Partial<Record<Sport, number>> = { NBA: 28, CBB: 25 };
+/** Spread where blowout minutes start to bite. College spreads run bigger. */
+const BLOWOUT_SPREAD: Partial<Record<Sport, number>> = { NBA: 10, CBB: 15 };
 const MAX_SWING = 0.15;
 
 const signed = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
@@ -49,12 +51,13 @@ export function envFactor(sport: Sport, stat: StatKey, env: TeamEnv, avgPlaying:
   }
 
   const gap = Math.abs(env.spread);
-  if (sport === "NBA" && gap >= 10 && avgPlaying >= STARTER_MINUTES) {
-    const f = 1 - Math.min(0.06, 0.012 * (gap - 9));
+  const blowout = BLOWOUT_SPREAD[sport];
+  if (blowout !== undefined && gap >= blowout && avgPlaying >= (STARTER_MINUTES[sport] ?? 0)) {
+    const f = 1 - Math.min(0.06, 0.012 * (gap - blowout + 1));
     reasons.push(`${fmt(gap)}-point spread: blowout risk, starters may sit late (${signed(f - 1)})`);
     factor *= f;
   }
-  if (sport === "NFL" && gap >= 3) {
+  if (statSport(sport) === "NFL" && gap >= 3) {
     // Trailing teams throw; leading teams run out the clock. env.spread is positive for the underdog.
     const lean = Math.max(-0.06, Math.min(0.06, 0.006 * env.spread));
     const f = NFL_PASSING.includes(stat) ? 1 + lean : stat === "RUSH_YDS" ? 1 - lean : 1;

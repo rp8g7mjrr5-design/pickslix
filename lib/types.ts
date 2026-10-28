@@ -1,10 +1,17 @@
-export type Sport = "NBA" | "NFL" | "MLB" | "NHL";
+/** CFB is FBS college football and CBB Division I men's college basketball. */
+export type Sport = "NBA" | "NFL" | "MLB" | "NHL" | "CFB" | "CBB";
 
-export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB"];
+export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CFB", "CBB"];
+
+/** College lines use the pro stat menu and box score: CFB takes NFL's stats, CBB takes NBA's. */
+const STAT_SPORT: Record<Sport, Sport> = { NBA: "NBA", NFL: "NFL", NHL: "NHL", MLB: "MLB", CFB: "NFL", CBB: "NBA" };
+export const statSport = (s: Sport): Sport => STAT_SPORT[s];
+export const isCollege = (s: Sport) => STAT_SPORT[s] !== s;
 export const toSport = (v: unknown): Sport => (SPORTS.includes(v as Sport) ? (v as Sport) : "NBA");
 
 export interface StatDef {
   label: string;
+  /** The pro sport; college sports share it (see statSport). */
   sport: Sport;
   /** Box-score fields summed to get this stat, e.g. PRA = pts + reb + ast. */
   parts: string[];

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { readTextOnDevice, toDataUrl } from "@/lib/ocr.ts";
 import { loadCustomProps, saveCustomProps } from "@/lib/storage.ts";
-import { SPORTS, STATS, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
+import { SPORTS, STATS, statSport, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
 export interface ImportResult {
   props: Prop[];
@@ -223,11 +223,11 @@ function TypeOne({ onImported }: { onImported: (r: ImportResult) => void }) {
   const [form, setForm] = useState({ sport: "NBA" as Sport, player: "", stat: "PTS" as StatKey, line: "" });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const stats = (Object.keys(STATS) as StatKey[]).filter((k) => STATS[k].sport === form.sport);
+  const stats = (Object.keys(STATS) as StatKey[]).filter((k) => STATS[k].sport === statSport(form.sport));
   const set = (k: keyof typeof form, v: string) =>
     setForm((f) => {
       const next = { ...f, [k]: v };
-      if (k === "sport") next.stat = (Object.keys(STATS) as StatKey[]).find((s) => STATS[s].sport === v)!;
+      if (k === "sport") next.stat = (Object.keys(STATS) as StatKey[]).find((s) => STATS[s].sport === statSport(v as Sport))!;
       return next;
     });
 

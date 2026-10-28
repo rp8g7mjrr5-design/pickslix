@@ -3,7 +3,7 @@
 // game script (overs with overs) and overcounts slips that fight themselves (an over and an under on linked stats).
 // Each pair of legs gets an estimated correlation; the slip's chance is then simulated with a Gaussian copula.
 // The correlations are rough, published-research-sized estimates, not fitted to our own data yet.
-import type { Sport, StatKey } from "./types.ts";
+import { statSport, type Sport, type StatKey } from "./types.ts";
 
 export interface CorrLeg {
   player: string;
@@ -41,7 +41,7 @@ export function statCorrelation(a: CorrLeg, b: CorrLeg): number {
     return pa.some((f) => pb.includes(f)) ? 0.75 : 0.25;
   }
   if (!a.team || !b.team) return 0;
-  const sport = a.sport ?? b.sport;
+  const sport = statSport(a.sport ?? b.sport ?? "NBA");
   if (a.team === b.team) {
     if (sport === "NFL") {
       if (both(a.stat, b.stat, PASSING, RECEIVING)) return 0.45;
