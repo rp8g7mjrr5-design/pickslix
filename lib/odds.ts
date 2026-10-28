@@ -150,7 +150,7 @@ export const sameTeam = (full: string, short: string) => {
 };
 
 /** The listed event for these teams nearest the given start time. Teams are ESPN short names. */
-export function matchEvent(events: OddsEvent[], home: string, away: string, date: string): OddsEvent | undefined {
+export function matchEvent<E extends OddsEvent>(events: E[], home: string, away: string, date: string): E | undefined {
   const t = Date.parse(date);
   return events
     .filter((e) => sameTeam(e.home_team, home) && sameTeam(e.away_team, away))
@@ -263,8 +263,11 @@ async function canSpend(cost: number): Promise<boolean> {
   return !left || left.remaining - cost >= CREDIT_RESERVE;
 }
 
-/** Lines for one game, found by team names and start time. Empty when the game isn't listed yet. */
-export async function fetchGameLines(sport: Sport, home: string, away: string, date: string): Promise<GameLines> {
+/**
+ * Lines for one game, found by team names and start time. Empty when the game isn't listed yet.
+ * With `spend: false` only cached lines come back, so no credits are used.
+ */
+export async function fetchGameLines(sport: Sport, home: string, away: string, date: string, opts: { spend?: boolean } = {}): Promise<GameLines> {
   // Once a game starts, Pick 6 has closed it: don't spend credits on it.
   if (Date.parse(date) < Date.now()) return {};
   const key = SPORT_KEYS[sport];
@@ -282,6 +285,7 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
   const cacheKey = `odds:lines:${event.id}`;
   const cached = await kvGet<GameLines>(cacheKey).catch(() => null);
   if (cached) return cached;
+  if (opts.spend === false) return {};
   const markets = FETCH_MARKETS[sport];
   if (!(await canSpend(markets.length))) return {};
   const json = await oddsJson(
@@ -298,4 +302,97 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
     kvSet(openKey, moved.openers, OPENERS_TTL).catch(() => {}),
   ]);
   return lines;
+}
+
+// ---------- Game environment ----------
+
+/** One game's spread and total, the median across books. */
+export interface GameOdds {
+  id: string;
+  home_team: string;
+  away_team: string;
+  commence_time: string;
+  total: number;
+  /** The home team's spread: negative when the home team is favored. */
+  spread: number;
+}
+
+/** The slate's spreads and totals, plus the average game total to measure each game against. */
+export interface Slate {
+  games: GameOdds[];
+  avgTotal: number;
+}
+
+/** Typical game totals, used when the slate is too small to average (a two-game NBA night says little). */
+const TYPICAL_TOTAL: Record<Sport, number> = { NBA: 228, NFL: 44, NHL: 6.1, MLB: 8.6 };
+const SLATE_MIN_GAMES = 4;
+/** Spreads and totals for every game in a sport cost two credits (one per market), so a slate is cached for hours. */
+const SLATE_TTL = 6 * 3600;
+
+export function parseSlate(json: any, sport: Sport): Slate {
+  const games: GameOdds[] = [];
+  for (const ev of Array.isArray(json) ? json : []) {
+    const totals: number[] = [];
+    const spreads: number[] = [];
+    for (const bm of ev?.bookmakers ?? []) {
+      for (const m of bm?.markets ?? []) {
+        if (m?.key === "totals") {
+          const over = (m.outcomes ?? []).find((o: any) => String(o?.name).toLowerCase() === "over");
+          if (Number.isFinite(Number(over?.point))) totals.push(Number(over.point));
+        }
+        if (m?.key === "spreads") {
+          const home = (m.outcomes ?? []).find((o: any) => o?.name === ev.home_team);
+          if (Number.isFinite(Number(home?.point))) spreads.push(Number(home.point));
+        }
+      }
+    }
+    if (!totals.length) continue;
+    games.push({
+      id: String(ev.id),
+      home_team: String(ev.home_team),
+      away_team: String(ev.away_team),
+      commence_time: String(ev.commence_time),
+      total: median(totals),
+      spread: spreads.length ? median(spreads) : 0,
+    });
+  }
+  const avgTotal =
+    games.length >= SLATE_MIN_GAMES ? games.reduce((s, g) => s + g.total, 0) / games.length : TYPICAL_TOTAL[sport];
+  return { games, avgTotal };
+}
+
+/** Spreads and totals for a sport's upcoming games. Shared by everyone and cheap, so it isn't a Pro feature. */
+export async function fetchSlate(sport: Sport): Promise<Slate | null> {
+  if (!oddsEnabled()) return null;
+  const cacheKey = `odds:slate:${sport}`;
+  const cached = await kvGet<Slate>(cacheKey).catch(() => null);
+  if (cached) return cached;
+  if (!(await canSpend(2))) return null;
+  const json = await oddsJson(
+    `/sports/${SPORT_KEYS[sport]}/odds?bookmakers=${BOOKS.filter((b) => !NO_PRICE_BOOKS.has(b)).join(",")}&markets=spreads,totals&oddsFormat=american`,
+    SLATE_TTL,
+  );
+  const slate = parseSlate(json, sport);
+  await kvSet(cacheKey, slate, SLATE_TTL).catch(() => {});
+  return slate;
+}
+
+/** One team's side of a game: its implied points and the opponent's, measured against the slate. */
+export interface TeamEnv {
+  total: number;
+  avgTotal: number;
+  /** This team's spread: negative when favored. */
+  spread: number;
+  teamTotal: number;
+  oppTotal: number;
+}
+
+/** The environment for a team in the game between these ESPN short names, or undefined when the game isn't priced. */
+export function teamEnv(slate: Slate | null, home: string, away: string, date: string, isHome: boolean): TeamEnv | undefined {
+  const game = slate ? matchEvent(slate.games, home, away, date) : undefined;
+  if (!slate || !game) return undefined;
+  const spread = isHome ? game.spread : -game.spread;
+  // Favored by 6 with a total of 220: 113 to 107.
+  const teamTotal = (game.total - spread) / 2;
+  return { total: game.total, avgTotal: slate.avgTotal, spread, teamTotal, oppTotal: game.total - teamTotal };
 }

@@ -71,7 +71,7 @@ passing TD defense isn't computed; teammate-out usage bumps still need a manual 
    6 games in NBA, 4 in NFL).
 2. Adjust for the opponent: how much they allow of that stat vs league average,
    shrunk 40% toward average so one noisy number can't swing it.
-3. Apply news: teammate out (usage bump), minutes limit (scale down), key
+3. Apply the game environment (spread and total, below), then news: teammate out (usage bump), minutes limit (scale down), key
    defender out, questionable (lower confidence), ruled out (flag as void).
 4. Pull the projection toward the market. When sportsbooks have priced the prop (both sides, with odds),
    their prices are de-vigged into a no-vig chance, Pinnacle and BetOnline counting double, and turned into
@@ -103,6 +103,20 @@ The pick card shows the books' no-vig chance next to the model's, says when Pick
 first saw it (openers are kept for five days under `odds:open:{eventId}`). This is the props version of
 "public vs sharp money": betting splits only exist for game lines, and the sharp books' price is the signal
 that matters for a player prop.
+
+Pasted and screenshot lines get the same market read (`lib/gameContext.ts`): each line is matched to its game,
+and the game's cached prop prices are used. Lines nobody has opened yet are fetched only for Pro, as on the
+game picker.
+
+## Game environment (`lib/environment.ts`)
+
+Spreads and totals for a sport's whole slate come from one Odds API call (two credits, cached six hours and
+shared by everyone, so it isn't a Pro feature). From them each team gets an implied total, measured against the
+slate's average game total (or a typical total when fewer than four games are priced). The model scales each
+stat by that, with modest weights: scoring stats follow the team's implied total, rebounds follow the game total,
+and goalie saves and pitcher stats follow what the opponent is expected to score. NBA starters lose up to 6% when
+the spread is 10 or more (blowout risk), and in the NFL underdogs lean toward passing and favorites toward running,
+up to 6%. The total swing is capped at 15%.
 
 ## Splits (`lib/splits.ts`)
 

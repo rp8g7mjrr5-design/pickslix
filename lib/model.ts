@@ -1,4 +1,6 @@
+import { envFactor } from "./environment.ts";
 import { sameName } from "./names.ts";
+import type { TeamEnv } from "./odds.ts";
 import { STATS } from "./types.ts";
 import type {
   DefenseFactors,
@@ -119,6 +121,8 @@ export interface ModelInput {
   defense: DefenseFactors;
   news: NewsItem[];
   market?: MarketInput;
+  /** The game's spread and total from this team's side. */
+  env?: TeamEnv;
 }
 
 /** P(over) with pushes left out, the way a de-vigged book price reads. */
@@ -145,7 +149,7 @@ export function impliedMean(market: MarketInput, dispersion: number): number {
 
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 
-export function project({ prop, logs, defense, news, market }: ModelInput): Projection {
+export function project({ prop, logs, defense, news, market, env }: ModelInput): Projection {
   const reasons: string[] = [];
   const recentLogs = logs.slice(0, MAX_GAMES).filter((g) => g.playing > 0);
   const values = recentLogs.map((g) => statValue(g, prop.stat));
@@ -187,9 +191,18 @@ export function project({ prop, logs, defense, news, market }: ModelInput): Proj
     reasons.push(`${prop.opponent} is a ${rank} matchup for ${STATS[prop.stat].label.toLowerCase()} (${pct(raw - 1)} vs league avg)`);
   }
 
-  // News
   const avgPlaying =
     recentLogs.reduce((s, g) => s + g.playing, 0) / Math.max(recentLogs.length, 1);
+
+  // Game environment
+  if (env) {
+    const e = envFactor(prop.sport, prop.stat, env, avgPlaying);
+    mean *= e.factor;
+    variance *= e.factor * e.factor;
+    reasons.push(...e.reasons);
+  }
+
+  // News
   let questionable = false;
   let out = false;
   for (const n of news) {

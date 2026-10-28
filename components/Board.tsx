@@ -9,6 +9,7 @@ import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
 import { slipHitProbability } from "@/lib/model.ts";
 import { bestSlip } from "@/lib/bestSlip.ts";
+import { proHeaders } from "@/lib/proClient.ts";
 import { MAX_PICKS, pct } from "@/lib/format.ts";
 import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
@@ -72,7 +73,7 @@ export default function Board() {
       const [base, mine] = await Promise.all([
         fetch("/api/props").then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
         custom.length
-          ? fetch("/api/props", { method: "POST", body: JSON.stringify({ props: custom }) }).then((r) =>
+          ? fetch("/api/props", { method: "POST", headers: proHeaders(), body: JSON.stringify({ props: custom }) }).then((r) =>
               r.ok ? r.json() : Promise.reject(r.status),
             )
           : Promise.resolve({ board: [] }),
@@ -379,7 +380,8 @@ export default function Board() {
                       <div className="detailhead">
                         <span className={`conf ${p.confidence}`}>{p.confidence} confidence</span>
                         <span className="muted">
-                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)} · hits {pct(p.hitRateLast10)} lately ·{" "}
+                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)}
+                          {p.marketProb !== undefined ? ` · books ${pct(p.marketProb)}` : ""} · hits {pct(p.hitRateLast10)} lately ·{" "}
                           {p.thisSeason !== undefined && p.thisSeason < p.sampleSize
                             ? `${p.thisSeason} games this season + ${p.sampleSize - p.thisSeason} last season`
                             : `${p.sampleSize} games`}

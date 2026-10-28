@@ -1,6 +1,7 @@
 "use client";
 
 import { pct } from "@/lib/format.ts";
+import type { TeamEnv } from "@/lib/odds.ts";
 import type { Projection, Split } from "@/lib/types.ts";
 
 interface Market {
@@ -87,5 +88,18 @@ export function MarketNote({
         </small>
       )}
     </div>
+  );
+}
+
+const one = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
+
+/** The game's total and spread, and what they leave this team to score. */
+export function EnvNote({ env, team }: { env?: TeamEnv; team: string }) {
+  if (!env) return null;
+  const spread = env.spread === 0 ? "pick'em" : `${env.spread > 0 ? "+" : ""}${one(env.spread)}`;
+  return (
+    <small className="hint">
+      Game total {one(env.total)} · {team} {spread} · implied {one(env.teamTotal)} for {team}, {one(env.oppTotal)} against
+    </small>
   );
 }
