@@ -1,5 +1,6 @@
 import { envFactor } from "./environment.ts";
 import { sameName } from "./names.ts";
+import type { Adjustment } from "./nflverse.ts";
 import type { TeamEnv } from "./odds.ts";
 import { STATS } from "./types.ts";
 import type {
@@ -123,6 +124,8 @@ export interface ModelInput {
   market?: MarketInput;
   /** The game's spread and total from this team's side. */
   env?: TeamEnv;
+  /** Sport-specific extras (NFL role trends and position matchups from nflverse). */
+  adjust?: Adjustment;
 }
 
 /** P(over) with pushes left out, the way a de-vigged book price reads. */
@@ -149,7 +152,7 @@ export function impliedMean(market: MarketInput, dispersion: number): number {
 
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 
-export function project({ prop, logs, defense, news, market, env }: ModelInput): Projection {
+export function project({ prop, logs, defense, news, market, env, adjust }: ModelInput): Projection {
   const reasons: string[] = [];
   const recentLogs = logs.slice(0, MAX_GAMES).filter((g) => g.playing > 0);
   const values = recentLogs.map((g) => statValue(g, prop.stat));
@@ -182,7 +185,7 @@ export function project({ prop, logs, defense, news, market, env }: ModelInput):
   );
 
   // Matchup
-  const raw = defense[prop.opponent]?.[prop.stat];
+  const raw = adjust?.replacesDefense ? undefined : defense[prop.opponent]?.[prop.stat];
   if (raw && raw !== 1) {
     const factor = 1 + (raw - 1) * DEFENSE_SHRINK;
     mean *= factor;
@@ -193,6 +196,12 @@ export function project({ prop, logs, defense, news, market, env }: ModelInput):
 
   const avgPlaying =
     recentLogs.reduce((s, g) => s + g.playing, 0) / Math.max(recentLogs.length, 1);
+
+  if (adjust) {
+    mean *= adjust.factor;
+    variance *= adjust.factor * adjust.factor;
+    reasons.push(...adjust.reasons);
+  }
 
   // Game environment
   if (env) {

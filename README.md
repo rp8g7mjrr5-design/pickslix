@@ -62,8 +62,8 @@ Redis the app still works: it computes a lighter version on the first request an
 These feeds are unofficial and can change without notice; parsers skip fields they don't find
 rather than crash, and `npm test` checks them against saved real responses in `lib/fixtures/`.
 
-Known gaps: NFL logs have no snap counts, so minutes-limit news doesn't apply there; NFL
-passing TD defense isn't computed; teammate-out usage bumps still need a manual news item.
+Known gaps: minutes-limit news doesn't apply to NFL (snap counts come from nflverse, not the game logs);
+teammate-out usage bumps still need a manual news item.
 
 ## How the probability works (`lib/model.ts`)
 
@@ -120,6 +120,21 @@ stat by that, with modest weights: scoring stats follow the team's implied total
 and goalie saves and pitcher stats follow what the opponent is expected to score. NBA starters lose up to 6% when
 the spread is 10 or more (blowout risk), and in the NFL underdogs lean toward passing and favorites toward running,
 up to 6%. The total swing is capped at 15%.
+
+## NFL depth (`lib/nflverse.ts`, `lib/nflData.ts`)
+
+[nflverse](https://github.com/nflverse/nflverse-data) publishes free weekly player stats and snap counts as CSVs
+on GitHub. The daily cron (or the first request after 36 hours) downloads this season's files (about 4 MB), boils
+them down to a ~200 KB summary and saves it. From it the model gets:
+
+- **Role trends:** target share (catches, receiving yards) and carry share (rushing) over the last 3 games vs
+  the season; 40% of the change carries into the projection. Snap-share swings of 10 points or more are noted.
+- **Matchups by position:** receptions and receiving yards each defense allows to WRs, TEs and RBs, which
+  replaces the team-wide number for those stats.
+- **EPA allowed:** per dropback and per carry, ranked across the league. It drives passing TDs (which had no
+  defense number before) and is shown as context for the other passing and rushing props.
+
+If nflverse can't be reached the model runs without these, as before.
 
 ## Splits (`lib/splits.ts`)
 
