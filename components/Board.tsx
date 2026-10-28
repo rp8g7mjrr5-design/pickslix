@@ -227,7 +227,7 @@ export default function Board() {
                   ? `${rows.length} line${rows.length === 1 ? "" : "s"} · ${strong} with a 10%+ edge${
                       updated ? ` · updated ${updated.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""
                     }`
-                  : "Pick players above, or import your Pick 6 screenshot."}
+                  : "Pick players from a game above, or paste your Pick 6 lines."}
             </p>
           </div>
           <div className="heroactions">
@@ -238,7 +238,7 @@ export default function Board() {
             )}
             {!(importing && !rows.length) && (
               <button className={rows.length ? "" : "ghost"} onClick={() => setImporting((v) => !v)}>
-                {importing ? "Done" : "Import screenshot"}
+                {importing ? "Done" : "Paste lines"}
               </button>
             )}
           </div>

@@ -3,7 +3,6 @@ import { dbEnabled, kvGet } from "@/lib/db.ts";
 import { oddsEnabled } from "@/lib/odds.ts";
 import { accountsEnabled } from "@/lib/accounts.ts";
 import { lifetimeCodes, prices, stripeEnabled } from "@/lib/pro.ts";
-import { visionEnabled } from "@/lib/vision.ts";
 import { alertsEnabled } from "@/lib/alertsData.ts";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,6 @@ export async function GET() {
   return NextResponse.json({
     database: dbEnabled(),
     cron: Boolean(process.env.CRON_SECRET),
-    screenshots: visionEnabled(),
     odds: oddsEnabled(),
     oddsRemaining: odds?.remaining ?? null,
     defenseUpdatedAt: nba?.updatedAt ?? null,

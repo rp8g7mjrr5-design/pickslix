@@ -25,11 +25,6 @@ demo board with made-up lines instead.
   To save Odds API credits, only the most-played stats are fetched (NBA points, rebounds, assists,
   threes and PRA, for example), only for games that haven't started, and each game's lines are cached
   for everyone for six hours. Fetching pauses before the monthly credits run out.
-- **Screenshot:** upload, drop or paste a screenshot of the Pick 6 board or of an entry you made.
-  Picks with More/Less chosen load straight into the slip. Without a key it's read on the device
-  with Tesseract.js (free; the engine downloads from jsDelivr the first time). Set
-  `ANTHROPIC_API_KEY` to read screenshots with Claude instead, which handles busy screenshots
-  much better.
 - **Paste text:** one prop per line or text copied from the app (`lib/parseLines.ts`).
 - **Type one:** player, stat and line.
 
@@ -107,7 +102,7 @@ first saw it (openers are kept for five days under `odds:open:{eventId}`). This 
 "public vs sharp money": betting splits only exist for game lines, and the sharp books' price is the signal
 that matters for a player prop.
 
-Pasted and screenshot lines get the same market read (`lib/gameContext.ts`): each line is matched to its game,
+Pasted lines get the same market read (`lib/gameContext.ts`): each line is matched to its game,
 and the game's cached prop prices are used. Lines nobody has opened yet are fetched only for Pro, as on the
 game picker.
 

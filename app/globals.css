@@ -322,19 +322,6 @@ div.playerrow { height: 56px; margin-bottom: 4px; }
 .seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
 .seg button { background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 8px; font-weight: 600; }
 .seg button.on { background: var(--panel-3); color: var(--text); }
-.drop {
-  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
-  background: var(--bg); color: var(--text); border: 1.5px dashed #3a4656; border-radius: 12px; padding: 18px;
-  font-weight: 400;
-}
-.drop:hover:not(:disabled), .drop.drag { border-color: var(--accent); background: #0f1a12; filter: none; }
-.drop:disabled { opacity: 1; cursor: progress; }
-.drop img { width: 56px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex: none; }
-.drop strong { display: block; font-size: 15px; margin-bottom: 2px; }
-.dropicon { font-size: 30px; flex: none; }
-.bar { height: 3px; background: var(--panel-2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
-.bar i { display: block; height: 100%; width: 40%; background: var(--accent); animation: slide 1.1s infinite ease-in-out; }
-@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 .paste { display: grid; gap: 8px; }
 .paste label { color: var(--muted); font-size: 13px; }
 .paste textarea { width: 100%; resize: vertical; min-height: 110px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }

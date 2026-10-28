@@ -12,7 +12,7 @@ const FAQ: [string, React.ReactNode][] = [
     "How do I make a pick?",
     <>
       On the <Link href="/">Board</Link>, tap a game, then a player. Pick the stat, set the line to the number Pick 6 shows, and tap More or Less.
-      You can also tap <em>Import screenshot</em> and upload a screenshot of your Pick 6 entry.
+      You can also tap <em>Paste lines</em> and paste them in as text.
     </>,
   ],
   [

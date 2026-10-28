@@ -28,7 +28,7 @@ const money = (p: Price, perMonth = false) =>
 // What each plan gets, top to bottom. true = included, false = not, a string = included with a note.
 const TIERS: { name: string; free: boolean | string; monthly: boolean | string; yearly: boolean | string }[] = [
   { name: "Model odds on every prop", free: true, monthly: true, yearly: true },
-  { name: "Game picker and screenshot import", free: true, monthly: true, yearly: true },
+  { name: "Game picker", free: true, monthly: true, yearly: true },
   { name: "Tracker with auto-grading", free: true, monthly: true, yearly: true },
   { name: "Crews and the leaderboard", free: true, monthly: true, yearly: true },
   { name: "Pick 6 lines filled in", free: false, monthly: true, yearly: true },
