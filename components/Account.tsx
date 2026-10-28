@@ -18,12 +18,20 @@ interface AccountState {
   signedIn: boolean;
   /** Listed in ADMIN_EMAILS. */
   admin: boolean;
-  /** Leaderboard name, if they picked one. */
+  /** The account's details have come back from the server (so a missing username really is missing). */
+  synced: boolean;
+  /** Public name on the leaderboard and in crews; picked right after signing up. */
   username: string | null;
+  /** Off the public leaderboard by choice. */
+  hidden: boolean;
   setUsername: (name: string | null) => void;
+  setHidden: (hidden: boolean) => void;
 }
 
-const Ctx = createContext<AccountState>({ enabled: false, loaded: true, failed: false, signedIn: false, admin: false, username: null, setUsername: () => {} });
+const Ctx = createContext<AccountState>({
+  enabled: false, loaded: true, failed: false, signedIn: false, admin: false, synced: false, username: null, hidden: false,
+  setUsername: () => {}, setHidden: () => {},
+});
 export const useAccount = () => useContext(Ctx);
 
 /** How long to wait for Clerk before telling people sign-in isn't loading. */
@@ -33,10 +41,18 @@ const LOAD_TIMEOUT_MS = 8000;
 const FROM_ACCOUNT = "pickslix.proFromAccount";
 
 /** Keep the device in step with the account: pick up its Pro key on sign-in, link a device key it lacks. */
-async function syncAccount(): Promise<{ admin: boolean; username: string | null }> {
+interface Profile {
+  admin: boolean;
+  synced: boolean;
+  username: string | null;
+  hidden: boolean;
+}
+const NO_PROFILE: Profile = { admin: false, synced: false, username: null, hidden: false };
+
+async function syncAccount(): Promise<Profile> {
   const res = await fetch("/api/account", { cache: "no-store" });
-  const a = (await res.json()) as { signedIn?: boolean; proKey?: string | null; pro?: boolean; admin?: boolean; username?: string | null };
-  const profile = { admin: Boolean(a.admin), username: a.username ?? null };
+  const a = (await res.json()) as { signedIn?: boolean; proKey?: string | null; pro?: boolean; admin?: boolean; username?: string | null; hidden?: boolean };
+  const profile = { admin: Boolean(a.admin), synced: true, username: a.username ?? null, hidden: Boolean(a.hidden) };
   if (!a.signedIn) return profile;
   const local = getProKey();
   if (a.pro && a.proKey) {
@@ -67,13 +83,13 @@ function ClerkBridge({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [isLoaded]);
   const prev = useRef<boolean | null>(null);
-  const [profile, setProfile] = useState<{ admin: boolean; username: string | null }>({ admin: false, username: null });
+  const [profile, setProfile] = useState<Profile>(NO_PROFILE);
   useEffect(() => {
     if (!isLoaded) return;
     const was = prev.current;
     prev.current = signedIn;
     if (signedIn) syncAccount().then(setProfile).catch(() => {});
-    else setProfile({ admin: false, username: null });
+    else setProfile(NO_PROFILE);
     if (!signedIn && was) {
       // Signed out: what came from the account leaves with it.
       try {
@@ -93,6 +109,7 @@ function ClerkBridge({ children }: { children: React.ReactNode }) {
     signedIn,
     ...profile,
     setUsername: (username: string | null) => setProfile((p) => ({ ...p, username })),
+    setHidden: (hidden: boolean) => setProfile((p) => ({ ...p, hidden })),
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -110,7 +127,16 @@ export function AccountButton() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!enabled || !mounted) return null;
-  if (signedIn) return <UserButton appearance={{ elements: { avatarBox: { width: 32, height: 32 } } }} />;
+  if (signedIn)
+    return (
+      <UserButton appearance={{ elements: { avatarBox: { width: 32, height: 32 } } }}>
+        <UserButton.MenuItems>
+          <UserButton.Link label="My profile" labelIcon={<PersonIcon />} href="/profile" />
+          <UserButton.Action label="manageAccount" />
+        </UserButton.MenuItems>
+        <UserButton.UserProfileLink label="LayLock profile" labelIcon={<PersonIcon />} url="/profile" />
+      </UserButton>
+    );
   if (!loaded)
     return (
       <Link href="/sign-in" className="button signin">
@@ -121,6 +147,15 @@ export function AccountButton() {
     <SignInButton mode="modal">
       <button className="signin">Sign in</button>
     </SignInButton>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" />
+    </svg>
   );
 }
 

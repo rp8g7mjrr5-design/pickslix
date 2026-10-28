@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { pct } from "@/lib/format.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
+import { UsernameField } from "@/components/Username";
 
 interface Row {
   username: string;
@@ -50,7 +51,7 @@ export default function Leaderboard() {
       )}
       {account.signedIn && <UsernameForm />}
       {account.signedIn && account.username && data && (
-        <p className="fine">{myRank >= 0 ? `You're #${myRank + 1}.` : `Get ${data.minPicks} graded picks to show up here.`}</p>
+        <p className="fine">{account.hidden ? "You're hidden from the standings." : myRank >= 0 ? `You're #${myRank + 1}.` : `Get ${data.minPicks} graded picks to show up here.`}</p>
       )}
 
       {error && <p className="error">{error}</p>}
@@ -89,64 +90,46 @@ export default function Leaderboard() {
   );
 }
 
-/** Pick, change or remove the name shown on the leaderboard. */
+/** The name shown on the leaderboard: change it, or hide from the standings. */
 export function UsernameForm() {
   const account = useAccount();
-  const [value, setValue] = useState("");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
 
-  const save = async (name: string) => {
+  const setHidden = async (hidden: boolean) => {
     setBusy(true);
-    setNote("");
     const r = await fetch("/api/account/username", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: name }),
-    })
-      .then((x) => x.json() as Promise<{ username?: string | null; error?: string }>)
-      .catch(() => ({ error: "Try again." }) as { username?: string | null; error?: string });
+      body: JSON.stringify({ hidden }),
+    }).catch(() => null);
     setBusy(false);
-    if (r.error) return setNote(r.error);
-    account.setUsername(r.username ?? null);
-    setEditing(false);
-    setNote(r.username ? "Saved. Your spot updates within 10 minutes." : "You're off the leaderboard.");
+    if (!r?.ok) return setNote("Couldn't save. Try again.");
+    account.setHidden(hidden);
+    setNote(hidden ? "You're off the leaderboard. Your picks still count if you come back." : "You're back on. Your spot updates within 10 minutes.");
   };
 
-  if (account.username && !editing) {
+  if (!account.username || editing)
     return (
-      <div className="sync">
-        <small>Your username</small>
-        <code>{account.username}</code>
-        <button className="ghost small" onClick={() => (setValue(account.username ?? ""), setEditing(true))}>
-          Change
-        </button>
-        <button className="ghost small" onClick={() => confirm("Take yourself off the leaderboard?") && save("")} disabled={busy}>
-          Leave leaderboard
-        </button>
-        {note && <small className="muted">{note}</small>}
-      </div>
+      <UsernameField
+        initial={account.username ?? ""}
+        submitLabel={account.username ? "Save" : "Join leaderboard"}
+        onSaved={() => (setEditing(false), setNote("Saved. Your spot updates within 10 minutes."))}
+        onCancel={account.username ? () => setEditing(false) : undefined}
+      />
     );
-  }
   return (
-    <form
-      className="sync"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save(value);
-      }}
-    >
-      <input placeholder="Pick a username" value={value} onChange={(e) => setValue(e.target.value)} maxLength={20} autoCapitalize="none" autoCorrect="off" aria-label="Username" />
-      <button type="submit" disabled={busy || !value.trim()}>
-        {busy ? "Saving…" : account.username ? "Save" : "Join leaderboard"}
+    <div className="sync">
+      <small>Your username</small>
+      <code>@{account.username}</code>
+      <button className="ghost small" onClick={() => setEditing(true)}>
+        Change
       </button>
-      {editing && (
-        <button type="button" className="ghost" onClick={() => setEditing(false)}>
-          Cancel
-        </button>
-      )}
-      {note && <small className="neg">{note}</small>}
-    </form>
+      <button className="ghost small" onClick={() => setHidden(!account.hidden)} disabled={busy}>
+        {account.hidden ? "Show me on the leaderboard" : "Hide me from the leaderboard"}
+      </button>
+      {note && <small className="muted">{note}</small>}
+    </div>
   );
 }

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ enabled: accountsEnabled(), signedIn: false });
-  const { proKey, username } = await getAccount(userId).catch(() => ({ proKey: undefined, username: undefined }));
+  const { proKey, username, hidden } = await getAccount(userId).catch(() => ({ proKey: undefined, username: undefined, hidden: undefined }));
   const pass = proKey ? await checkPass(proKey) : null;
   return NextResponse.json({
     enabled: true,
@@ -19,5 +19,6 @@ export async function GET() {
     plan: pass?.plan ?? null,
     admin: await isAdmin(),
     username: username ?? null,
+    hidden: Boolean(hidden),
   });
 }
