@@ -1,7 +1,7 @@
 // Fetching and caching for UFC (server only; `lib/ufc.ts` holds the pure parts the browser uses too).
 import { kvGet, kvSet } from "./db.ts";
 import { espnJson, type EspnGame, type TeamPlayer } from "./espn.ts";
-import { fightLogs, fighterTag, parseFighterStats, parseFights, type FightMeta, type UfcInput } from "./ufc.ts";
+import { fightLogs, fighterTag, parseFighterStats, parseFights, withAbsorbed, type FightMeta, type FightStats, type UfcInput } from "./ufc.ts";
 import type { GameLog } from "./types.ts";
 
 const SITE = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc";
@@ -74,11 +74,28 @@ export async function findNextFight(athleteId: string) {
   return g && me && opp ? { game: g, me, opp, rounds: g.teams[0].stats.rounds || 3 } : null;
 }
 
-/** Rounds and the opponent's fight history for this fighter's next fight. */
+/** Fights of the opponent's to look at for what they give up. */
+const DEFENSE_FIGHTS = 6;
+
+/** A fighter's fights with what they absorbed in each, from their recent opponents' stats pages. */
+export async function fetchDefenseLogs(athleteId: string): Promise<GameLog[]> {
+  const logs = await fetchFightLogs(athleteId);
+  const ids = [...new Set(logs.slice(0, DEFENSE_FIGHTS).map((g) => String(g.stats.oppId)).filter((id) => id && id !== "NaN"))];
+  const theirs = new Map<string, Map<string, FightStats>>();
+  await Promise.all(
+    ids.map(async (id) => {
+      const json = await espnJson(`${WEB}/athletes/${id}/stats`, 86400).catch(() => null);
+      if (json) theirs.set(id, parseFighterStats(json));
+    }),
+  );
+  return withAbsorbed(logs, theirs);
+}
+
+/** Rounds and the opponent's fight history (with what they absorbed) for this fighter's next fight. */
 export async function loadUfcInput(athleteId: string): Promise<UfcInput | undefined> {
   const next = await findNextFight(athleteId);
   if (!next?.opp.id) return undefined;
-  return { rounds: next.rounds, opponent: await fetchFightLogs(next.opp.id).catch(() => []) };
+  return { rounds: next.rounds, opponent: await fetchDefenseLogs(next.opp.id).catch(() => []) };
 }
 
 /** The game picker lists a "team's" players; in the UFC that's the one fighter, with per-fight averages. */
