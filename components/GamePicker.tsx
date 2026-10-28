@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { Calibration } from "@/lib/calibration.ts";
 import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
 import { nflAdjust, type NflSlice } from "@/lib/nflverse.ts";
@@ -61,6 +62,7 @@ interface PlayerData {
   usage?: UsageSlice;
   ufc?: UfcInput | null;
   mlb?: MlbSlice | null;
+  calibration?: Calibration | null;
 }
 
 const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -518,7 +520,7 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : data.mlb ? mlbAdjust(prop.stat, data.mlb) : usageAdjust(prop.stat, data.usage), ufc: data.ufc ?? undefined }) : null;
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : data.mlb ? mlbAdjust(prop.stat, data.mlb) : usageAdjust(prop.stat, data.usage), ufc: data.ufc ?? undefined, calibration: data.calibration }) : null;
   const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;

@@ -121,6 +121,9 @@ export interface Projection {
   pPush: number;
   pick: "OVER" | "UNDER";
   pickProb: number;
+  /** pOver and pUnder before tuning on graded results; what tuning learns from. */
+  rawPOver?: number;
+  rawPUnder?: number;
   /** pickProb - 0.5, the edge over a coin flip. */
   edge: number;
   confidence: "low" | "medium" | "high";

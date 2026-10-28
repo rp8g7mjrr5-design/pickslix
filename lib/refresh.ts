@@ -1,4 +1,5 @@
 import { kvGet, kvSet } from "./db.ts";
+import { refreshCalibration } from "./calibrationData.ts";
 import { computeNbaDefense, computeNflDefense, computeNhlDefense, fetchInjuries, type EspnSport } from "./espn.ts";
 import { refreshNflContext } from "./nflData.ts";
 import { refreshUfcFights } from "./ufcData.ts";
@@ -56,10 +57,15 @@ export async function refreshAll() {
     (e) => `failed: ${e}`,
   );
   const ufc = await refreshUfcFights().then((f) => `${f.size} fights`, (e) => `failed: ${e}`);
+  const calibration = await refreshCalibration().then(
+    (c) => `${c.all.n} graded picks, a=${c.all.a.toFixed(2)} b=${c.all.b.toFixed(2)}`,
+    (e) => `failed: ${e}`,
+  );
   return {
     tookMs: Date.now() - started,
     nflverse: nfl,
     ufc,
+    calibration,
     defense: Object.fromEntries(
       sports.map((s, i) => {
         const r = results[i];

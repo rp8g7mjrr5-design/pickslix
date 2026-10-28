@@ -1,3 +1,4 @@
+import { applyTune, tuneFor, tuneReason, type Calibration } from "./calibration.ts";
 import { envFactor } from "./environment.ts";
 import { sameName } from "./names.ts";
 import type { Adjustment } from "./nflverse.ts";
@@ -129,6 +130,8 @@ export interface ModelInput {
   adjust?: Adjustment;
   /** UFC: scheduled rounds and the opponent's fights, for the fight's expected length. */
   ufc?: UfcInput;
+  /** What the model has learned from its own graded picks. */
+  calibration?: Calibration | null;
 }
 
 /** P(over) with pushes left out, the way a de-vigged book price reads. */
@@ -155,7 +158,7 @@ export function impliedMean(market: MarketInput, dispersion: number): number {
 
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 
-export function project({ prop, logs, defense, news, market, env, adjust, ufc }: ModelInput): Projection {
+export function project({ prop, logs, defense, news, market, env, adjust, ufc, calibration }: ModelInput): Projection {
   const reasons: string[] = [];
   const recentLogs = logs.slice(0, MAX_GAMES).filter((g) => g.playing > 0);
   const values = recentLogs.map((g) => statValue(g, prop.stat));
@@ -266,7 +269,18 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc }:
   }
   variance *= mean / Math.max(modelMean, 0.1);
 
-  const { pOver, pPush, pUnder } = overUnder(mean, variance, prop.line);
+  let { pOver, pPush, pUnder } = overUnder(mean, variance, prop.line);
+  const rawPOver = pOver;
+  const rawPUnder = pUnder;
+  const tune = tuneFor(calibration, prop.sport);
+  let tuned: string | undefined;
+  if (tune) {
+    const share = pOver / Math.max(pOver + pUnder, 1e-9);
+    const next = applyTune(share, tune);
+    tuned = tuneReason(share, next, tune, next >= 0.5 ? "OVER" : "UNDER");
+    pOver = next * (1 - pPush);
+    pUnder = (1 - next) * (1 - pPush);
+  }
   const pick = pOver >= pUnder ? "OVER" : "UNDER";
   const pickProb = Math.max(pOver, pUnder);
 
@@ -282,6 +296,8 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc }:
         : `Sportsbooks deal ${market.line} (${who}), ${Math.abs(gap)} ${gap > 0 ? "above" : "below"} Pick 6: that puts the ${pick.toLowerCase()} at ${(marketProb * 100).toFixed(0)}% here`,
     );
   }
+
+  if (tuned) reasons.push(tuned);
 
   // Hit rate from this season's games once there are enough of them.
   const last10 = (thisSeason >= EARLY_GAMES ? values.filter((_, i) => !recentLogs[i].prior) : values).slice(0, 10);
@@ -313,6 +329,8 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc }:
     pPush,
     pick,
     pickProb,
+    rawPOver,
+    rawPUnder,
     edge: pickProb - 0.5,
     confidence: out ? "low" : confidence,
     sampleSize: base.n,

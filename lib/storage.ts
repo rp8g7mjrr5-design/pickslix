@@ -8,6 +8,8 @@ export interface SlipLeg {
   line: number;
   side: "OVER" | "UNDER";
   prob: number;
+  /** The model's chance before tuning on graded picks (absent on older picks, which weren't tuned). */
+  rawProb?: number;
   result?: "hit" | "miss" | "push";
   /** Set when the tracker graded this leg from the box score (a manual mark clears it). */
   auto?: boolean;

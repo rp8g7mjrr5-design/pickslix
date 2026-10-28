@@ -29,6 +29,7 @@ const legFor = (r: PropWithProjection, side: "OVER" | "UNDER"): SlipLeg => ({
   line: r.line,
   side,
   prob: side === "OVER" ? r.projection.pOver : r.projection.pUnder,
+  rawProb: side === "OVER" ? r.projection.rawPOver : r.projection.rawPUnder,
 });
 
 export default function Board() {
