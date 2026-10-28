@@ -3,6 +3,7 @@
 import { useClerk, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { clvSummary } from "@/lib/clv.ts";
 import { pct } from "@/lib/format.ts";
 import { leaderStats, MIN_PICKS } from "@/lib/leaderboard.ts";
 import { usePro } from "@/lib/proClient.ts";
@@ -44,6 +45,7 @@ export default function Profile() {
   const s = useMemo(() => profileStats(slips), [slips]);
   const counted = useMemo(() => leaderStats(slips), [slips]);
   const beat = s.picks ? s.hitRate - s.expected : 0;
+  const clv = useMemo(() => clvSummary(slips), [slips]);
 
   return (
     <div className="profile">
@@ -144,6 +146,21 @@ export default function Profile() {
                 ].filter((r) => r.n)}
               />
             </section>
+            {clv.n > 0 && (
+              <section className="report">
+                <div className="reporthead">
+                  <h2>Closing line</h2>
+                  <small>Did the books move your way?</small>
+                </div>
+                <strong className={clv.beat >= clv.lost ? "pos" : "neg"}>
+                  Beat the close on {clv.beat} of {clv.n} picks
+                </strong>
+                <small>
+                  Average move {clv.avg >= 0 ? "+" : "−"}
+                  {Math.abs(clv.avg * 100).toFixed(1)} points toward your side.
+                </small>
+              </section>
+            )}
             {s.bestCall && (
               <section className="report bestcall">
                 <div className="reporthead">

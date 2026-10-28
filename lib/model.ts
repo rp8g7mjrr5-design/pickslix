@@ -342,6 +342,8 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
     modelMean,
     marketMean,
     marketProb,
+    market: market && marketMean !== undefined ? { line: market.line, pOver: market.pOver } : undefined,
+    dispersion,
   };
 }
 

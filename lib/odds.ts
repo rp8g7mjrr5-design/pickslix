@@ -5,6 +5,7 @@
 // that game, and the result is cached in the database for everyone for hours. Fetching also stops before the
 // monthly credits run out, so the last few are never wasted on errors.
 import { kvGet, kvSet } from "./db.ts";
+import { closeField, closeKey, type Price } from "./clv.ts";
 import { normName } from "./names.ts";
 import type { Sport, StatKey } from "./types.ts";
 
@@ -316,8 +317,35 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
   await Promise.all([
     kvSet(cacheKey, lines, LINES_TTL).catch(() => {}),
     kvSet(openKey, moved.openers, OPENERS_TTL).catch(() => {}),
+    recordCloses(sport, event.commence_time, lines).catch(() => {}),
   ]);
   return lines;
+}
+
+const CLOSE_TTL = 5 * 86400;
+
+/** Keep the latest prices seen for each prop before its game starts: the closing line, as near as we saw it. */
+async function recordCloses(sport: Sport, start: string, lines: GameLines) {
+  const key = closeKey(sport, start);
+  const day = (await kvGet<Record<string, Price & { at: string }>>(key)) ?? {};
+  const at = new Date().toISOString();
+  for (const [player, stats] of Object.entries(lines))
+    for (const [stat, l] of Object.entries(stats)) if (l?.market) day[closeField(player, stat)] = { line: l.market.line, pOver: l.market.pOver, at };
+  await kvSet(key, day, CLOSE_TTL);
+}
+
+/** The last price seen before the start for each requested prop (null where none was seen). */
+export async function loadCloses(props: { sport: Sport; player: string; stat: string; gameTime: string }[]): Promise<(Price | null)[]> {
+  const days = new Map<string, Promise<Record<string, Price & { at: string }> | null>>();
+  return Promise.all(
+    props.map(async (p) => {
+      const key = closeKey(p.sport, p.gameTime);
+      if (!days.has(key)) days.set(key, kvGet<Record<string, Price & { at: string }>>(key).catch(() => null));
+      const hit = (await days.get(key)!)?.[closeField(normName(p.player), p.stat)];
+      // Only prices from before the game count as a close.
+      return hit && Date.parse(hit.at) <= Date.parse(p.gameTime) ? { line: hit.line, pOver: hit.pOver } : null;
+    }),
+  );
 }
 
 // ---------- Game environment ----------

@@ -141,6 +141,10 @@ export interface Projection {
   marketMean?: number;
   /** The books' chance for `pick` at the Pick 6 line, when they've priced this prop. */
   marketProb?: number;
+  /** The books' price itself (no-vig over at their line), saved with picks for the closing-line check. */
+  market?: { line: number; pOver: number };
+  /** Variance over mean of the projection, to restate a price at another line. */
+  dispersion?: number;
 }
 
 /** How often a player cleared the line in games like this one (`lib/splits.ts`). */

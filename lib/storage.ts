@@ -10,6 +10,11 @@ export interface SlipLeg {
   prob: number;
   /** The model's chance before tuning on graded picks (absent on older picks, which weren't tuned). */
   rawProb?: number;
+  /** The sportsbooks' price for this prop when it was picked, and the last one seen before the game. */
+  openPrice?: { line: number; pOver: number };
+  closePrice?: { line: number; pOver: number };
+  /** The model's spread-to-mean ratio for the player, to compare prices at different lines. */
+  dispersion?: number;
   result?: "hit" | "miss" | "push";
   /** Set when the tracker graded this leg from the box score (a manual mark clears it). */
   auto?: boolean;
