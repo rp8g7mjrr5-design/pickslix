@@ -125,18 +125,6 @@ export default function Crews() {
           {note && <p className="note">{note}</p>}
         </>
       )}
-      {account.enabled && (
-        <Link href="/leaderboard" className="crewcard globalboard">
-          <span className="crewavatar" aria-hidden>
-            🏆
-          </span>
-          <span>
-            <strong>Global leaderboard</strong>
-            <small>See how you stack up against everyone</small>
-          </span>
-          <span aria-hidden>›</span>
-        </Link>
-      )}
     </div>
   );
 }

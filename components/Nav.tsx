@@ -80,7 +80,13 @@ export default function Nav() {
   const showPro = Boolean(pro?.required);
   const account = useAccount();
   const extra = [
-    ...(account.enabled ? [{ href: "/crews", label: "Crews", icon: icons.crews }] : []),
+    // The site-wide leaderboard and Crews are separate tabs; each crew keeps its own standings inside Crews.
+    ...(account.enabled
+      ? [
+          { href: "/crews", label: "Crews", icon: icons.crews },
+          { href: "/leaderboard", label: "Leaders", icon: icons.leaders },
+        ]
+      : []),
     ...(account.admin ? [{ href: "/admin", label: "Admin", icon: icons.admin }] : []),
   ];
   return (

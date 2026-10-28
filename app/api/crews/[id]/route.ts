@@ -3,7 +3,7 @@ import { currentUserId } from "@/lib/accounts.ts";
 import { accountOf, getCrew, removeMember, resetInvite } from "@/lib/crews.ts";
 import { kvGet } from "@/lib/db.ts";
 import { leaderStats } from "@/lib/leaderboard.ts";
-import { checkPass } from "@/lib/pro.ts";
+import { checkPass, isGold } from "@/lib/pro.ts";
 import type { SavedSlip } from "@/lib/storage.ts";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +23,12 @@ export async function GET(_req: Request, { params }: Params) {
   const members = await Promise.all(
     crew.members.map(async (memberId) => {
       const account = await accountOf(memberId);
+      // Banned accounts drop out of every crew's view.
+      if (account.banned && memberId !== userId) return null;
       const slips = (await kvGet<SavedSlip[]>(`slips:user:${memberId}`).catch(() => null)) ?? [];
-      const pro = account.proKey ? Boolean(await checkPass(account.proKey).catch(() => null)) : false;
+      const pass = account.proKey ? await checkPass(account.proKey).catch(() => null) : null;
+      const pro = Boolean(pass);
+      const gold = isGold(pass);
       const recent = slips
         .filter((s) => Date.parse(s.createdAt) > since)
         .slice(0, SLIPS_PER_MEMBER)
@@ -36,15 +40,17 @@ export async function GET(_req: Request, { params }: Params) {
         you: memberId === userId,
         owner: memberId === crew.ownerId,
         pro,
+        gold,
         stats: leaderStats(slips),
         recent,
       };
     }),
   );
-  members.sort((a, b) => b.stats.hitRate - a.stats.hitRate || b.stats.picks - a.stats.picks);
+  const shown = members.filter((m) => m !== null);
+  shown.sort((a, b) => b.stats.hitRate - a.stats.hitRate || b.stats.picks - a.stats.picks);
   return NextResponse.json({
     crew: { id: crew.id, name: crew.name, invite: crew.invite, owner: crew.ownerId === userId, createdAt: crew.createdAt },
-    members,
+    members: shown,
   });
 }
 
