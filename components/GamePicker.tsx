@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
 import { nflAdjust, type NflSlice } from "@/lib/nflverse.ts";
+import { usageAdjust, type UsageSlice } from "@/lib/usage.ts";
 import { splits } from "@/lib/splits.ts";
 import { pct } from "@/lib/format.ts";
 import { normName } from "@/lib/names.ts";
@@ -55,6 +56,7 @@ interface PlayerData {
   defense: DefenseFactors;
   news: NewsItem[];
   nfl?: NflSlice | null;
+  usage?: UsageSlice;
 }
 
 const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -505,7 +507,7 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : undefined }) : null;
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : usageAdjust(prop.stat, data.usage) }) : null;
   const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;
