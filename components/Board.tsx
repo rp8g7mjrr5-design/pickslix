@@ -5,6 +5,7 @@ import GamePicker from "@/components/GamePicker";
 import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
+import Edges from "@/components/Edges";
 import PickOfDay from "@/components/PickOfDay";
 import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
@@ -226,6 +227,7 @@ export default function Board() {
           </div>
         )}
         <PickOfDay slip={slip} onPick={pickFromGame} />
+        <Edges slip={slip} onPick={pickFromGame} />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
 
         {rows.length > 0 || importing ? (

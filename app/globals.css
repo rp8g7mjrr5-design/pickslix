@@ -1033,3 +1033,19 @@ body[data-coach="3"] .slipbar {
 .trackcards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .trackcards small:last-child { margin-top: 2px; }
 .saved .leg:has(+ .savedfoot) { border-bottom: 0; }
+
+/* ---------- Where Pick 6 is behind ---------- */
+.edges { margin: 0 0 14px; padding: 14px 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); display: grid; gap: 10px; }
+.edgeshead h2 { margin: 0; font-size: 16px; }
+.edgeshead small { display: block; margin-top: 2px; }
+.edge { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.edge > div { min-width: 0; display: grid; gap: 2px; }
+.edge strong { font-size: 15px; }
+.edgeline { font-size: 14px; }
+.edge button, .edge .button { flex: none; }
+.edgetag { justify-self: start; font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+.edgetag.soft { background: rgba(122, 107, 255, 0.18); color: #b3a9ff; }
+.edgetag.ripple { background: rgba(255, 194, 75, 0.16); color: var(--warn); }
+.edge.locked { opacity: 0.95; }
+.alertopt { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.alertopt input { margin-top: 2px; accent-color: var(--accent); }

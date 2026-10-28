@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addSubscription, alertsEnabled, removeSubscription, type PushSub } from "@/lib/alertsData.ts";
+import { addSubscription, alertsEnabled, getPrefs, removeSubscription, setPrefs, type PushSub } from "@/lib/alertsData.ts";
 import { dbEnabled } from "@/lib/db.ts";
 import { ownerFrom } from "./owner.ts";
 
@@ -25,4 +25,20 @@ export async function DELETE(req: Request) {
   if (!owner || typeof endpoint !== "string") return NextResponse.json({ error: "bad request" }, { status: 400 });
   await removeSubscription(owner, endpoint);
   return NextResponse.json({ ok: true });
+}
+
+/** This owner's alert settings. ?code= */
+export async function GET(req: Request) {
+  const owner = await ownerFrom(new URL(req.url).searchParams.get("code"));
+  if (!owner || !dbEnabled()) return NextResponse.json({ edges: true });
+  return NextResponse.json(await getPrefs(owner));
+}
+
+/** Change alert settings. Body: { edges, code? } */
+export async function PUT(req: Request) {
+  const { edges, code } = (await req.json().catch(() => ({}))) as { edges?: unknown; code?: unknown };
+  const owner = await ownerFrom(code);
+  if (!owner || typeof edges !== "boolean" || !dbEnabled()) return NextResponse.json({ error: "bad request" }, { status: 400 });
+  await setPrefs(owner, { edges });
+  return NextResponse.json({ edges });
 }
