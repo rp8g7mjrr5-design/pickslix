@@ -1097,3 +1097,14 @@ body[data-coach="3"] .slipbar {
 .recapline { margin: 6px 0 0; font-weight: 700; }
 .saved .leg:has(+ .recapline) { border-bottom: 0; }
 .recaphead { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; margin: 0 0 6px; }
+
+/* ---------- Pairs, hot spots ---------- */
+.pairs { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); margin: 4px 0; }
+.pairs > small { font-size: 12px; }
+.pair { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 14px; }
+.pair > span { min-width: 0; display: grid; }
+.pair small { color: var(--muted); font-size: 12px; }
+.angles .edgeshead:not(:first-child) { margin-top: 6px; }
+.spots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.spots li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.spots small { color: var(--muted); font-weight: 400; }

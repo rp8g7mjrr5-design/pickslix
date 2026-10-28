@@ -5,6 +5,7 @@ import GamePicker from "@/components/GamePicker";
 import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
+import Angles from "@/components/Angles";
 import { LockTeaser } from "@/components/DailyLock";
 import Edges from "@/components/Edges";
 import PickOfDay from "@/components/PickOfDay";
@@ -231,6 +232,7 @@ export default function Board() {
         <Edges slip={slip} onPick={pickFromGame} />
         <LockTeaser />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
+        <Angles slip={slip} onPick={pickFromGame} />
 
         {rows.length > 0 || importing ? (
           <div className="hero linesHero">
@@ -426,6 +428,7 @@ export default function Board() {
         onRemove={(id) => setSlip((s) => s.filter((l) => l.propId !== id))}
         onClear={() => setSlip([])}
         onBest={buildBest}
+        onAdd={pickFromGame}
       />
 
       {slip.length > 0 && (
