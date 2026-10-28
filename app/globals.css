@@ -511,7 +511,8 @@ button.plan.best {
   font: 700 18px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; text-align: center;
   padding: 12px; border-radius: 10px; background: var(--bg); border: 1px dashed var(--line); user-select: all;
 }
-.prokeyactions { display: flex; flex-wrap: wrap; gap: 8px; }
+.prokeyactions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.prokeyactions small { flex-basis: 100%; }
 .proforms { display: grid; gap: 12px; }
 .proforms form { display: grid; gap: 6px; padding: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .proforms label { font-weight: 650; }

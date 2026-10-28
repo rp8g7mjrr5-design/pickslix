@@ -61,6 +61,7 @@ export default function Pro() {
   const [config, setConfig] = useState<Config | null>(null);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState("");
+  const [billingNote, setBillingNote] = useState("");
   const [code, setCode] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [key, setKey] = useState("");
@@ -140,10 +141,12 @@ export default function Pro() {
 
   const billing = async () => {
     setBusy("portal");
+    setBillingNote("");
     const r = await post<{ url?: string }>("/api/pro/portal", { key: getProKey() || key }).catch(() => ({ error: "Try again." }) as { url?: string; error?: string });
     if (r.url) window.location.href = r.url;
     else {
-      setNote(r.error ?? "Couldn't open billing.");
+      // Shown next to the button: the page-top note is easy to miss down here.
+      setBillingNote(r.error ?? "Couldn't open billing.");
       setBusy("");
     }
   };
@@ -209,8 +212,9 @@ export default function Pro() {
           {status?.plan !== "lifetime" && (
             <div className="prokeyactions">
               <button className="ghost small" onClick={billing} disabled={!!busy}>
-                Manage billing
+                {busy === "portal" ? "Opening…" : "Manage billing"}
               </button>
+              {billingNote && <small className="neg">{billingNote}</small>}
             </div>
           )}
         </section>
@@ -236,9 +240,10 @@ export default function Pro() {
             </button>
             {status?.plan !== "lifetime" && (
               <button className="ghost small" onClick={billing} disabled={!!busy}>
-                Manage billing
+                {busy === "portal" ? "Opening…" : "Manage billing"}
               </button>
             )}
+            {billingNote && <small className="neg">{billingNote}</small>}
             <button
               className="ghost small"
               onClick={() => {
