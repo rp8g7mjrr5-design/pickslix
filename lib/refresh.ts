@@ -1,6 +1,7 @@
 import { kvGet, kvSet } from "./db.ts";
 import { computeNbaDefense, computeNflDefense, computeNhlDefense, fetchInjuries, type EspnSport } from "./espn.ts";
 import { refreshNflContext } from "./nflData.ts";
+import { refreshUfcFights } from "./ufcData.ts";
 import type { DefenseFactors } from "./types.ts";
 
 interface Snapshot {
@@ -54,9 +55,11 @@ export async function refreshAll() {
     (c) => (c ? `${Object.keys(c.players).length} players, ${Object.keys(c.defense).length} defenses` : "no data yet"),
     (e) => `failed: ${e}`,
   );
+  const ufc = await refreshUfcFights().then((f) => `${f.size} fights`, (e) => `failed: ${e}`);
   return {
     tookMs: Date.now() - started,
     nflverse: nfl,
+    ufc,
     defense: Object.fromEntries(
       sports.map((s, i) => {
         const r = results[i];

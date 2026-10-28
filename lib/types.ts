@@ -1,10 +1,10 @@
 /** CFB is FBS college football and CBB Division I men's college basketball. */
-export type Sport = "NBA" | "NFL" | "MLB" | "NHL" | "CFB" | "CBB";
+export type Sport = "NBA" | "NFL" | "MLB" | "NHL" | "CFB" | "CBB" | "UFC";
 
-export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CFB", "CBB"];
+export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CFB", "CBB", "UFC"];
 
 /** College lines use the pro stat menu and box score: CFB takes NFL's stats, CBB takes NBA's. */
-const STAT_SPORT: Record<Sport, Sport> = { NBA: "NBA", NFL: "NFL", NHL: "NHL", MLB: "MLB", CFB: "NFL", CBB: "NBA" };
+const STAT_SPORT: Record<Sport, Sport> = { NBA: "NBA", NFL: "NFL", NHL: "NHL", MLB: "MLB", CFB: "NFL", CBB: "NBA", UFC: "UFC" };
 export const statSport = (s: Sport): Sport => STAT_SPORT[s];
 export const isCollege = (s: Sport) => STAT_SPORT[s] !== s;
 export const toSport = (v: unknown): Sport => (SPORTS.includes(v as Sport) ? (v as Sport) : "NBA");
@@ -50,6 +50,9 @@ export const STATS = {
   K: { label: "Pitcher Strikeouts", sport: "MLB", parts: ["k"] },
   HITS_ALLOWED: { label: "Hits Allowed", sport: "MLB", parts: ["hitsAllowed"] },
   OUTS: { label: "Pitching Outs", sport: "MLB", parts: ["outs"] },
+  // UFC (lib/ufc.ts)
+  SIG_STR: { label: "Significant Strikes", sport: "UFC", parts: ["sigStr"] },
+  TD: { label: "Takedowns", sport: "UFC", parts: ["td"] },
 } satisfies Record<string, StatDef>;
 
 export type StatKey = keyof typeof STATS;
@@ -69,7 +72,7 @@ export interface Prop {
 export interface GameLog {
   date: string;
   opponent: string;
-  /** Minutes (NBA) or offensive snap share 0-100 (NFL). 0 means did not play. */
+  /** Minutes (NBA, NHL, UFC) or offensive snap share 0-100 (NFL). 0 means did not play. */
   playing: number;
   stats: Record<string, number>;
   /** From last season, filled in early in the year. Counts for less in the model. */

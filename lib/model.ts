@@ -2,6 +2,7 @@ import { envFactor } from "./environment.ts";
 import { sameName } from "./names.ts";
 import type { Adjustment } from "./nflverse.ts";
 import type { TeamEnv } from "./odds.ts";
+import { ufcBase, type UfcInput } from "./ufc.ts";
 import { STATS, isCollege } from "./types.ts";
 import type {
   DefenseFactors,
@@ -14,7 +15,7 @@ import type {
 } from "./types.ts";
 
 /** Half-life in games for recency weighting: in NBA a game 6 back counts half as much as last night. */
-const HALF_LIFE_GAMES: Record<Sport, number> = { NBA: 6, NFL: 4, MLB: 10, NHL: 8, CFB: 4, CBB: 6 };
+const HALF_LIFE_GAMES: Record<Sport, number> = { NBA: 6, NFL: 4, MLB: 10, NHL: 8, CFB: 4, CBB: 6, UFC: 4 };
 /** How far we trust a defense factor (0 = ignore, 1 = take it at face value). */
 const DEFENSE_SHRINK = 0.6;
 const MAX_GAMES = 25;
@@ -126,6 +127,8 @@ export interface ModelInput {
   env?: TeamEnv;
   /** Sport-specific extras (NFL role trends and position matchups from nflverse). */
   adjust?: Adjustment;
+  /** UFC: scheduled rounds and the opponent's fights, for the fight's expected length. */
+  ufc?: UfcInput;
 }
 
 /** P(over) with pushes left out, the way a de-vigged book price reads. */
@@ -152,7 +155,7 @@ export function impliedMean(market: MarketInput, dispersion: number): number {
 
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 
-export function project({ prop, logs, defense, news, market, env, adjust }: ModelInput): Projection {
+export function project({ prop, logs, defense, news, market, env, adjust, ufc }: ModelInput): Projection {
   const reasons: string[] = [];
   const recentLogs = logs.slice(0, MAX_GAMES).filter((g) => g.playing > 0);
   const values = recentLogs.map((g) => statValue(g, prop.stat));
@@ -178,7 +181,13 @@ export function project({ prop, logs, defense, news, market, env, adjust }: Mode
   const base = weightedStats(values, HALF_LIFE_GAMES[prop.sport], scale);
   let mean = base.mean;
   let variance = base.variance;
-  reasons.push(
+  if (prop.sport === "UFC") {
+    // Landing rate times the fight's expected length, not an average of fights that ran different lengths.
+    const fight = ufcBase(STATS[prop.stat].parts[0], recentLogs, ufc);
+    mean = fight.mean;
+    variance = fight.variance;
+    reasons.push(...fight.reasons);
+  } else reasons.push(
     thisSeason === base.n
       ? `Recency-weighted average ${base.mean.toFixed(1)} over last ${base.n} games vs line ${prop.line}`
       : `Recency-weighted average ${base.mean.toFixed(1)} vs line ${prop.line}: ${thisSeason} game${thisSeason === 1 ? "" : "s"} this season, plus ${base.n - thisSeason} from last season counted for less`,

@@ -18,6 +18,7 @@ const SPORT_KEYS: Record<Sport, string> = {
   MLB: "baseball_mlb",
   CFB: "americanfootball_ncaaf",
   CBB: "basketball_ncaab",
+  UFC: "mma_mixed_martial_arts",
 };
 /**
  * Pick 6 first; the rest fill gaps and price the market. Up to 10 bookmakers cost the same as one region, so
@@ -79,6 +80,7 @@ export const MARKETS: Record<Sport, Partial<Record<string, StatKey>>> = {
   },
   CFB: {},
   CBB: {},
+  UFC: {},
 };
 MARKETS.CFB = MARKETS.NFL;
 MARKETS.CBB = MARKETS.NBA;
@@ -96,6 +98,8 @@ export const FETCH_MARKETS: Record<Sport, string[]> = {
   // Books post far fewer college props, mostly the big yardage and scoring lines.
   CFB: ["player_pass_yds", "player_rush_yds", "player_reception_yds"],
   CBB: ["player_points", "player_rebounds", "player_assists"],
+  // The API carries no UFC fighter props.
+  UFC: [],
 };
 
 /** Lines barely move before a game, so one fetch serves everyone for this long. */
@@ -280,8 +284,8 @@ async function canSpend(cost: number): Promise<boolean> {
  * With `spend: false` only cached lines come back, so no credits are used.
  */
 export async function fetchGameLines(sport: Sport, home: string, away: string, date: string, opts: { spend?: boolean } = {}): Promise<GameLines> {
-  // Once a game starts, Pick 6 has closed it: don't spend credits on it.
-  if (Date.parse(date) < Date.now()) return {};
+  // Once a game starts, Pick 6 has closed it: don't spend credits on it. No markets (UFC), nothing to fetch.
+  if (Date.parse(date) < Date.now() || !FETCH_MARKETS[sport].length) return {};
   const key = SPORT_KEYS[sport];
   // The events list is free, but cache it anyway to keep calls down.
   const eventsKey = `odds:events:${sport}`;
@@ -336,7 +340,7 @@ export interface Slate {
 }
 
 /** Typical game totals, used when the slate is too small to average (a two-game NBA night says little). */
-const TYPICAL_TOTAL: Record<Sport, number> = { NBA: 228, NFL: 44, NHL: 6.1, MLB: 8.6, CFB: 54, CBB: 145 };
+const TYPICAL_TOTAL: Record<Sport, number> = { NBA: 228, NFL: 44, NHL: 6.1, MLB: 8.6, CFB: 54, CBB: 145, UFC: 2.5 };
 const SLATE_MIN_GAMES = 4;
 /** Spreads and totals for every game in a sport cost two credits (one per market), so a slate is cached for hours. */
 const SLATE_TTL = 6 * 3600;
@@ -375,7 +379,8 @@ export function parseSlate(json: any, sport: Sport): Slate {
 
 /** Spreads and totals for a sport's upcoming games. Shared by everyone and cheap, so it isn't a Pro feature. */
 export async function fetchSlate(sport: Sport): Promise<Slate | null> {
-  if (!oddsEnabled()) return null;
+  // A fight has no spread or game total in the sense the environment model uses.
+  if (!oddsEnabled() || sport === "UFC") return null;
   const cacheKey = `odds:slate:${sport}`;
   const cached = await kvGet<Slate>(cacheKey).catch(() => null);
   if (cached) return cached;
