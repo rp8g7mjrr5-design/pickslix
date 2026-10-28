@@ -97,9 +97,10 @@ export async function actOnUser(userId: string, action: UserAction): Promise<{ u
     await updateAccount(userId, { banned: false });
     await kvDel("leaderboard:cache").catch(() => {});
   } else if (action === "grant") {
-    // A free week from invites can be upgraded; any other working pass already is Pro.
+    // A free week or a subscription can be upgraded to gifted lifetime (a real subscription keeps billing until
+    // it's cancelled in Stripe). Lifetime is as far as it goes.
     const current = account.proKey ? await checkPass(account.proKey).catch(() => null) : null;
-    if (current && current.plan !== "trial") return { error: "They already have Pro." };
+    if (current?.plan === "lifetime") return { error: "They already have lifetime Pro." };
     const key = newKey();
     await kvSet(`pro:${key}`, { plan: "lifetime", createdAt: new Date().toISOString(), granted: true } satisfies ProPass);
     await updateAccount(userId, { proKey: key, linkedAt: new Date().toISOString() });
