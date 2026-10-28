@@ -105,17 +105,23 @@ export const espnProvider: StatsProvider = {
     return out;
   },
   async news() {
-    const lists = await Promise.allSettled([...(["NBA", "NFL", "NHL", "MLB"] as const).map((s) => fetchInjuries(s)), fetchNhlStarters()]);
+    const lists = await Promise.allSettled([...(["NBA", "NFL", "NHL", "MLB", "CFB", "CBB"] as const).map((s) => fetchInjuries(s)), fetchNhlStarters()]);
     return lists.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   },
   async resolve(input) {
     const hints = (input.teams ?? []).map((t) => canonTeam(t, input.sport));
     const athlete = await findAthlete(input.player, input.sport, hints).catch(() => undefined);
     if (!athlete) {
-      // "Points" and "Assists" read as NBA; a hockey player's line ends up here.
+      // A pasted line's sport comes from its stat, so "Passing Yards" reads as NFL and "Points" as NBA. Not
+      // found there, try college, and for points and assists, hockey.
       const hockey: Partial<Record<StatKey, StatKey>> = { PTS: "NHL_PTS", AST: "NHL_AST" };
-      const alt = input.sport === "NBA" ? hockey[input.stat] : undefined;
-      return alt ? espnProvider.resolve({ ...input, sport: "NHL", stat: alt }) : null;
+      if (input.sport === "NFL") return espnProvider.resolve({ ...input, sport: "CFB" });
+      if (input.sport === "NBA") {
+        const alt = hockey[input.stat];
+        const nhl = alt ? await espnProvider.resolve({ ...input, sport: "NHL", stat: alt }) : null;
+        return nhl ?? espnProvider.resolve({ ...input, sport: "CBB" });
+      }
+      return null;
     }
     const prop = await resolveFromPaste({ ...input, player: athlete.name }, athlete.team);
     const game = athlete.team ? await findNextGame(input.sport, athlete.team).catch(() => null) : null;

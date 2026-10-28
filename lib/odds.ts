@@ -16,6 +16,8 @@ const SPORT_KEYS: Record<Sport, string> = {
   NFL: "americanfootball_nfl",
   NHL: "icehockey_nhl",
   MLB: "baseball_mlb",
+  CFB: "americanfootball_ncaaf",
+  CBB: "basketball_ncaab",
 };
 /**
  * Pick 6 first; the rest fill gaps and price the market. Up to 10 bookmakers cost the same as one region, so
@@ -75,7 +77,11 @@ export const MARKETS: Record<Sport, Partial<Record<string, StatKey>>> = {
     pitcher_hits_allowed: "HITS_ALLOWED",
     pitcher_outs: "OUTS",
   },
+  CFB: {},
+  CBB: {},
 };
+MARKETS.CFB = MARKETS.NFL;
+MARKETS.CBB = MARKETS.NBA;
 
 /**
  * The markets actually requested: the stats people play most. Each costs a credit per game, so the rest
@@ -87,6 +93,9 @@ export const FETCH_MARKETS: Record<Sport, string[]> = {
   NFL: ["player_pass_yds", "player_rush_yds", "player_receptions", "player_reception_yds"],
   NHL: ["player_points", "player_shots_on_goal", "player_total_saves"],
   MLB: ["batter_hits", "batter_total_bases", "batter_hits_runs_rbis", "pitcher_strikeouts"],
+  // Books post far fewer college props, mostly the big yardage and scoring lines.
+  CFB: ["player_pass_yds", "player_rush_yds", "player_reception_yds"],
+  CBB: ["player_points", "player_rebounds", "player_assists"],
 };
 
 /** Lines barely move before a game, so one fetch serves everyone for this long. */
@@ -143,10 +152,13 @@ async function oddsJson(path: string, revalidate: number): Promise<any> {
   return res.json();
 }
 
-/** "Boston Red Sox" is the team ESPN calls "Red Sox"; "Los Angeles Clippers" is "Clippers". */
+/**
+ * "Boston Red Sox" is the team ESPN calls "Red Sox"; "Los Angeles Clippers" is "Clippers". Colleges go the other
+ * way: ESPN's "Texas" is "Texas Longhorns".
+ */
 export const sameTeam = (full: string, short: string) => {
   const [f, t] = [normName(full), normName(short)];
-  return Boolean(t) && (f === t || f.endsWith(` ${t}`));
+  return Boolean(t) && (f === t || f.endsWith(` ${t}`) || f.startsWith(`${t} `));
 };
 
 /** The listed event for these teams nearest the given start time. Teams are ESPN short names. */
@@ -324,7 +336,7 @@ export interface Slate {
 }
 
 /** Typical game totals, used when the slate is too small to average (a two-game NBA night says little). */
-const TYPICAL_TOTAL: Record<Sport, number> = { NBA: 228, NFL: 44, NHL: 6.1, MLB: 8.6 };
+const TYPICAL_TOTAL: Record<Sport, number> = { NBA: 228, NFL: 44, NHL: 6.1, MLB: 8.6, CFB: 54, CBB: 145 };
 const SLATE_MIN_GAMES = 4;
 /** Spreads and totals for every game in a sport cost two credits (one per market), so a slate is cached for hours. */
 const SLATE_TTL = 6 * 3600;

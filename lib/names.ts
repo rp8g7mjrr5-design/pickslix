@@ -33,6 +33,9 @@ export const TEAMS: Record<Sport, string[]> = {
     "ARI", "ATH", "ATL", "BAL", "BOS", "CHC", "CHW", "CIN", "CLE", "COL", "DET", "HOU", "KC", "LAA", "LAD", "MIA",
     "MIL", "MIN", "NYM", "NYY", "PHI", "PIT", "SD", "SEA", "SF", "STL", "TB", "TEX", "TOR", "WSH",
   ],
+  // Hundreds of schools: college teams come from ESPN's search and schedule rather than this list.
+  CFB: [],
+  CBB: [],
 };
 
 const ALIASES: Record<Sport, Record<string, string>> = {
@@ -52,6 +55,8 @@ const ALIASES: Record<Sport, Record<string, string>> = {
     CWS: "CHW", OAK: "ATH", AZ: "ARI", WAS: "WSH", TBR: "TB", SDP: "SD", SFG: "SF", KCR: "KC", LA: "LAD",
     ANA: "LAA", WSN: "WSH", CHA: "CHW", CHN: "CHC", NYA: "NYY", NYN: "NYM",
   },
+  CFB: {},
+  CBB: {},
 };
 
 export function canonTeam(abbr: string, sport: Sport): string {

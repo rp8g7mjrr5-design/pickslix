@@ -1,7 +1,7 @@
 // ESPN's public JSON feeds (no key). These are undocumented, so every parser here is defensive:
 // a missing field turns into 0 or gets skipped instead of throwing.
 import { canonTeam, normName } from "./names.ts";
-import { STATS, type DefenseFactors, type GameLog, type NewsItem, type Sport, type StatKey } from "./types.ts";
+import { STATS, statSport, type DefenseFactors, type GameLog, type NewsItem, type Sport, type StatKey } from "./types.ts";
 
 export type EspnSport = Sport;
 
@@ -10,7 +10,13 @@ const PATHS: Record<EspnSport, string> = {
   NFL: "football/nfl",
   NHL: "hockey/nhl",
   MLB: "baseball/mlb",
+  CFB: "football/college-football",
+  CBB: "basketball/mens-college-basketball",
 };
+/** College scoreboards list only ranked teams unless asked for a division: FBS, and all of Division I. */
+const GROUPS: Partial<Record<EspnSport, string>> = { CFB: "groups=80&limit=300", CBB: "groups=50&limit=400" };
+/** Football plays by the week; the rest by the day. */
+const weekly = (sport: EspnSport) => statSport(sport) === "NFL";
 const SITE = "https://site.api.espn.com/apis/site/v2/sports";
 const WEB = "https://site.web.api.espn.com/apis/common/v3";
 
@@ -43,7 +49,7 @@ export interface EspnAthlete {
 }
 
 export function parseSearch(json: any, sport: EspnSport): EspnAthlete[] {
-  const league = sport.toLowerCase();
+  const league = PATHS[sport].split("/")[1];
   return (json?.items ?? [])
     .filter((i: any) => i?.type === "player" && i?.league === league)
     .map((i: any) => ({
@@ -119,7 +125,11 @@ const COLUMNS: Record<EspnSport, Record<string, string>> = {
     doubles: "doubles",
     triples: "triples",
   },
+  CFB: {},
+  CBB: {},
 };
+COLUMNS.CFB = COLUMNS.NFL;
+COLUMNS.CBB = COLUMNS.NBA;
 
 /** A pitcher's log reuses "hits" and "strikeouts" for what he allowed and threw. */
 const MLB_PITCHING: Record<string, string> = { k: "strikeouts", hitsAllowed: "hits", outs: "innings" };
@@ -285,7 +295,8 @@ export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
 }
 
 export async function fetchScoreboard(sport: EspnSport, query = "", revalidate = TTL.scoreboard) {
-  const json = await espnJson(`${SITE}/${PATHS[sport]}/scoreboard${query ? `?${query}` : ""}`, revalidate);
+  const params = [query, GROUPS[sport]].filter(Boolean).join("&");
+  const json = await espnJson(`${SITE}/${PATHS[sport]}/scoreboard${params ? `?${params}` : ""}`, revalidate);
   return { games: parseScoreboard(json, sport), week: Number(json?.week?.number) || 0 };
 }
 
@@ -293,7 +304,7 @@ export async function fetchScoreboard(sport: EspnSport, query = "", revalidate =
 export async function findNextGame(sport: EspnSport, team: string): Promise<{ opponent: string; gameTime: string } | null> {
   // NFL: this week's slate, then next week's (by Tuesday the current week is usually all final).
   const queries =
-    sport === "NFL" ? ["", "next"] : [0, 1, 2].map((d) => `dates=${espnDate(new Date(Date.now() + d * 86400_000))}`);
+    weekly(sport) ? ["", "next"] : [0, 1, 2].map((d) => `dates=${espnDate(new Date(Date.now() + d * 86400_000))}`);
   let week = 0;
   for (const q of queries) {
     const query = q === "next" ? (week ? `seasontype=2&week=${week + 1}` : null) : q;
@@ -314,7 +325,7 @@ export async function fetchUpcomingGames(sport: EspnSport): Promise<EspnGame[]> 
     gs
       .filter((g) => g.state !== "post" && g.teams.length === 2)
       .sort((a, b) => Number(a.state === "in") - Number(b.state === "in") || a.date.localeCompare(b.date));
-  if (sport === "NFL") {
+  if (weekly(sport)) {
     const now = await fetchScoreboard(sport);
     if (!now.week) return live(now.games);
     const next = await fetchScoreboard(sport, `seasontype=2&week=${now.week + 1}`).catch(() => ({ games: [] as EspnGame[] }));
@@ -357,6 +368,7 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 /** Players with stats this season, from ESPN's team athlete statistics, most-used first. */
 export function parseTeamPlayers(json: any, sport: EspnSport): TeamPlayer[] {
   const results: any[] = json?.results ?? [];
+  sport = statSport(sport);
   if (sport === "NBA") {
     const leaders = results.find((r) => r?.name === "game")?.leaders ?? results[0]?.leaders ?? [];
     return leaders
@@ -475,6 +487,7 @@ function mlbPlayers(results: any[]): TeamPlayer[] {
 /** Fallback before anyone has stats (season openers): the roster, with no averages. */
 export function parseRoster(json: any, sport: EspnSport): TeamPlayer[] {
   const groups: any[] = json?.athletes ?? [];
+  sport = statSport(sport);
   const athletes =
     sport === "NBA"
       ? groups

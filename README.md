@@ -18,7 +18,7 @@ demo board with made-up lines instead.
 
 ## Adding lines
 
-- **Pick from games (easiest):** the top of the board lists upcoming NBA, NFL, NHL and MLB games.
+- **Pick from games (easiest):** the top of the board lists upcoming NBA, NFL, NHL, MLB, college football (CFB) and men's college basketball (CBB) games.
   Tap one, choose a player and stat, and tap More or Less. With `ODDS_API_KEY` set the line starts at
   Pick 6's posted line (or the sportsbook median when Pick 6 hasn't posted it); otherwise at the
   season average. Odds update live as the line moves.
@@ -158,6 +158,19 @@ teammate's projection gets a bump for the shots, rebounds and assists left behin
 Each teammate's bump is capped at +20% (and −15%), all of them together at +35%. Players who have already been
 out for this player's last five games are skipped, since the recent average already reflects it. The pasted
 board and the game picker both use it; the sportsbooks' price, when there is one, still pulls the final number.
+
+## College (CFB and CBB)
+
+FBS football and Division I men's basketball come from the same ESPN feeds as the pros (game logs, schedules,
+team stats, injuries) and use the NFL and NBA stat menus. A pasted line reads as NFL or NBA from its stat; a
+player ESPN doesn't find there is looked up in college next. What's different:
+
+- No team defense factors yet, and pro factors are never applied (abbreviations like MIA and HOU collide).
+- Spreads, totals and prop prices come from The Odds API's NCAAF and NCAAB feeds when the key is set; books post
+  fewer college props, so only passing, rushing and receiving yards and points, rebounds and assists are fetched.
+- College basketball blowouts need a bigger spread (15) before starters' minutes are trimmed; football's
+  game-script lean is the NFL's.
+- No teammate-out bumps or nflverse depth, which are pro-only.
 
 ## Splits (`lib/splits.ts`)
 

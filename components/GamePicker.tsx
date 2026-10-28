@@ -11,7 +11,7 @@ import { normName } from "@/lib/names.ts";
 import { proHeaders } from "@/lib/proClient.ts";
 import type { TeamEnv } from "@/lib/odds.ts";
 import type { SlipLeg } from "@/lib/storage.ts";
-import { SPORTS, STATS, type DefenseFactors, type GameLog, type NewsItem, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
+import { SPORTS, STATS, statSport, type DefenseFactors, type GameLog, type NewsItem, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
 type GameSport = Sport;
 
@@ -62,7 +62,8 @@ interface PlayerData {
 const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 /** Stats offered for a player with no season averages yet. */
-function statsFor(sport: GameSport, pos: string): StatKey[] {
+function statsFor(game: GameSport, pos: string): StatKey[] {
+  const sport = statSport(game);
   if (sport === "NBA") return ["PTS", "REB", "AST", "3PM", "PRA", "PR", "PA", "RA"];
   if (sport === "NHL") return pos === "G" ? ["SAVES"] : ["SOG", "NHL_PTS", "GOALS", "NHL_AST"];
   if (sport === "MLB") return /^(SP|RP|P)$/.test(pos) ? ["K", "OUTS", "HITS_ALLOWED"] : ["HITS", "TB", "HRR", "RUNS", "RBI"];
@@ -513,7 +514,7 @@ function PickCard({
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;
 
   const setLine = (v: number) => setLines((l) => ({ ...l, [stat]: Math.max(0.5, Math.round(v * 2) / 2) }));
-  const step = sport === "NFL" && (stat.includes("YDS") || stat === "PASS_ATT") ? 5 : 1;
+  const step = statSport(sport) === "NFL" && (stat.includes("YDS") || stat === "PASS_ATT") ? 5 : 1;
 
   return (
     <div className="pickcard">

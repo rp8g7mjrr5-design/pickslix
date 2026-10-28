@@ -2,7 +2,7 @@ import { envFactor } from "./environment.ts";
 import { sameName } from "./names.ts";
 import type { Adjustment } from "./nflverse.ts";
 import type { TeamEnv } from "./odds.ts";
-import { STATS } from "./types.ts";
+import { STATS, isCollege } from "./types.ts";
 import type {
   DefenseFactors,
   GameLog,
@@ -14,7 +14,7 @@ import type {
 } from "./types.ts";
 
 /** Half-life in games for recency weighting: in NBA a game 6 back counts half as much as last night. */
-const HALF_LIFE_GAMES: Record<Sport, number> = { NBA: 6, NFL: 4, MLB: 10, NHL: 8 };
+const HALF_LIFE_GAMES: Record<Sport, number> = { NBA: 6, NFL: 4, MLB: 10, NHL: 8, CFB: 4, CBB: 6 };
 /** How far we trust a defense factor (0 = ignore, 1 = take it at face value). */
 const DEFENSE_SHRINK = 0.6;
 const MAX_GAMES = 25;
@@ -185,7 +185,8 @@ export function project({ prop, logs, defense, news, market, env, adjust }: Mode
   );
 
   // Matchup
-  const raw = adjust?.replacesDefense ? undefined : defense[prop.opponent]?.[prop.stat];
+  // Defense factors are pro teams' (college abbreviations can collide with them: MIA, HOU...).
+  const raw = adjust?.replacesDefense || isCollege(prop.sport) ? undefined : defense[prop.opponent]?.[prop.stat];
   if (raw && raw !== 1) {
     const factor = 1 + (raw - 1) * DEFENSE_SHRINK;
     mean *= factor;
