@@ -13,6 +13,8 @@ export interface Account {
   hidden?: boolean;
   /** Banned by an admin: signed out by Clerk and hidden from the leaderboard and crews. */
   banned?: boolean;
+  /** The account whose invite this one joined from. */
+  referredBy?: string;
 }
 
 /** The signed-in user's id, or null when signed out or accounts are off. */

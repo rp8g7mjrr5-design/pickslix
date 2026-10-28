@@ -152,25 +152,31 @@ export default function Pro() {
   };
 
   const isPro = Boolean(status?.pro);
+  // A free week from inviting friends: Pro now, but still free to buy a plan.
+  const trial = isPro && status?.plan === "trial";
+  const paid = isPro && !trial;
+  const trialEnds = status?.until ? new Date(status.until).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
   // Back from signing in to buy a plan: go straight on to checkout.
   const buy = params.get("buy");
   const started = useRef(false);
   useEffect(() => {
-    if (started.current || !account.signedIn || isPro || !config?.checkout || (buy !== "monthly" && buy !== "yearly")) return;
+    if (started.current || !account.signedIn || paid || !config?.checkout || (buy !== "monthly" && buy !== "yearly")) return;
     started.current = true;
     router.replace("/pro");
     checkout(buy);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buy, account.signedIn, isPro, config?.checkout]);
+  }, [buy, account.signedIn, paid, config?.checkout]);
 
   return (
     <div className="pro">
       <section className="prohero">
         <span className="probadge">PRO</span>
-        <h1>{isPro ? "You're Pro" : "LayLock Pro"}</h1>
+        <h1>{trial ? "Your free week of Pro" : isPro ? "You're Pro" : "LayLock Pro"}</h1>
         <p className="muted">
-          {isPro
+          {trial
+            ? `Everything is unlocked until ${trialEnds}. Invite more friends for more free weeks, or pick a plan to keep it.`
+            : isPro
             ? `Thanks for supporting LayLock${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
             : "Lines filled in for every game, one-tap best slips, and insights on how you really do."}
         </p>
@@ -185,8 +191,8 @@ export default function Pro() {
 
       <Tiers
         config={config}
-        current={isPro ? (status?.plan ?? "monthly") : "free"}
-        canBuy={!isPro && Boolean(config?.checkout)}
+        current={paid ? (status?.plan ?? "monthly") : "free"}
+        canBuy={!paid && Boolean(config?.checkout)}
         busy={busy}
         onBuy={checkout}
       />
@@ -209,7 +215,7 @@ export default function Pro() {
             <strong>Pro is saved to your account</strong>
             <small>Sign in on your phone or any browser and Pro turns on there too.</small>
           </div>
-          {status?.plan !== "lifetime" && (
+          {status?.plan !== "lifetime" && !trial && (
             <div className="prokeyactions">
               <button className="ghost small" onClick={billing} disabled={!!busy}>
                 {busy === "portal" ? "Opening…" : "Manage billing"}
@@ -238,7 +244,7 @@ export default function Pro() {
             >
               {copied ? "Copied" : "Copy"}
             </button>
-            {status?.plan !== "lifetime" && (
+            {status?.plan !== "lifetime" && !trial && (
               <button className="ghost small" onClick={billing} disabled={!!busy}>
                 {busy === "portal" ? "Opening…" : "Manage billing"}
               </button>
