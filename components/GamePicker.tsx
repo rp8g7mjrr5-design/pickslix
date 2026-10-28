@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
+import { nflAdjust, type NflSlice } from "@/lib/nflverse.ts";
 import { splits } from "@/lib/splits.ts";
 import { pct } from "@/lib/format.ts";
 import { normName } from "@/lib/names.ts";
@@ -53,6 +54,7 @@ interface PlayerData {
   logs: GameLog[];
   defense: DefenseFactors;
   news: NewsItem[];
+  nfl?: NflSlice | null;
 }
 
 const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -366,10 +368,11 @@ function slipTeam(l: SlipLeg): string {
 
 const dataCache = new Map<string, Promise<PlayerData>>();
 
-function loadPlayer(sport: GameSport, id: string, team: string, opp: string): Promise<PlayerData> {
+function loadPlayer(sport: GameSport, id: string, name: string, team: string, opp: string): Promise<PlayerData> {
   const key = `${sport}:${id}:${opp}`;
   if (!dataCache.has(key)) {
-    const p = fetch(`/api/player?sport=${sport}&id=${id}&team=${encodeURIComponent(team)}&opp=${encodeURIComponent(opp)}`).then(
+    const q = new URLSearchParams({ sport, id, name, team, opp });
+    const p = fetch(`/api/player?${q}`).then(
       (r) => (r.ok ? r.json() : Promise.reject(r.status)),
     );
     p.catch(() => dataCache.delete(key));
@@ -479,10 +482,10 @@ function PickCard({
   const [lines, setLines] = useState<Partial<Record<StatKey, number>>>({});
 
   useEffect(() => {
-    loadPlayer(sport, player.id, team.abbr, opp.abbr)
+    loadPlayer(sport, player.id, player.name, team.abbr, opp.abbr)
       .then(setData)
       .catch(() => setFailed(true));
-  }, [sport, player.id, team.abbr, opp.abbr]);
+  }, [sport, player.id, player.name, team.abbr, opp.abbr]);
 
   const id = propId(player.name, stat);
   const leg = slip.find((l) => l.propId === id);
@@ -502,7 +505,7 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env }) : null;
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : undefined }) : null;
   const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;

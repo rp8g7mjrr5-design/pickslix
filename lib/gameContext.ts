@@ -2,6 +2,8 @@
 // team is at home, the spread and total, and the sportsbooks' price for that prop.
 import { fetchUpcomingGames, type EspnGame } from "./espn.ts";
 import type { MarketInput } from "./model.ts";
+import { loadNflContext } from "./nflData.ts";
+import { nflAdjust, nflSlice, type Adjustment, type NflContext } from "./nflverse.ts";
 import { normName } from "./names.ts";
 import { fetchGameLines, fetchSlate, oddsEnabled, teamEnv, type GameLines, type Slate, type TeamEnv } from "./odds.ts";
 import type { Prop, Sport } from "./types.ts";
@@ -11,6 +13,7 @@ export interface PropContext {
   env?: TeamEnv;
   market?: MarketInput;
   gameTime?: string;
+  adjust?: Adjustment;
 }
 
 /**
@@ -28,6 +31,7 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
       slates.set(s, oddsEnabled() ? await fetchSlate(s).catch(() => null) : null);
     }),
   );
+  const nfl: NflContext | null = sports.includes("NFL") ? await loadNflContext().catch(() => null) : null;
   const lineCache = new Map<string, Promise<GameLines>>();
   await Promise.all(
     props.map(async (prop) => {
@@ -47,6 +51,10 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
         }
         const m = (await lineCache.get(game.id)!)[normName(prop.player)]?.[prop.stat]?.market;
         if (m) ctx.market = m;
+      }
+      if (nfl && prop.sport === "NFL") {
+        const opponent = prop.opponent || (me === home ? away.abbr : home.abbr);
+        ctx.adjust = nflAdjust({ ...prop, opponent }, nflSlice(nfl, prop.player, opponent));
       }
       out.set(prop.id, ctx);
     }),
