@@ -24,6 +24,8 @@ const UNDER_WORDS = /\b(less|under|lower|u)\b|[↓▼]/i;
 
 /** Longest phrases first so "Pts + Reb + Ast" isn't read as plain points. */
 const STAT_PATTERNS: [RegExp, StatKey][] = [
+  [/\b(significant|sig\.?)\s*(strikes?|str)(\s*landed)?\b/i, "SIG_STR"],
+  [/\btakedowns?(\s*landed)?\b/i, "TD"],
   // MLB and NHL first: their phrases contain words ("hits", "points") the basketball patterns would grab.
   [/\bh\s*\+\s*r\s*\+\s*rbis?\b|\bhits\s*\+\s*runs\s*\+\s*rbis?\b|\bhrr\b/i, "HRR"],
   [/\btotal\s*bases\b|\btb\b/i, "TB"],

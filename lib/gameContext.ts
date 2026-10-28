@@ -8,6 +8,7 @@ import { nflAdjust, nflSlice, type Adjustment, type NflContext } from "./nflvers
 import { normName } from "./names.ts";
 import { fetchGameLines, fetchSlate, oddsEnabled, teamEnv, type GameLines, type Slate, type TeamEnv } from "./odds.ts";
 import type { NewsItem, Prop, Sport } from "./types.ts";
+import type { UfcInput } from "./ufc.ts";
 import { usageAdjust, type UsageSlice } from "./usage.ts";
 import { loadUsage } from "./usageData.ts";
 
@@ -17,6 +18,7 @@ export interface PropContext {
   market?: MarketInput;
   gameTime?: string;
   adjust?: Adjustment;
+  ufc?: UfcInput;
 }
 
 /**
@@ -73,6 +75,11 @@ export async function propContexts(props: Prop[], opts: { spend: boolean }): Pro
       if (nfl && prop.sport === "NFL") {
         const opponent = prop.opponent || (me === home ? away.abbr : home.abbr);
         ctx.adjust = nflAdjust({ ...prop, opponent }, nflSlice(nfl, prop.player, opponent));
+      }
+      if (prop.sport === "UFC") {
+        const opp = game.teams.find((t) => t !== me);
+        const rounds = game.teams[0].stats.rounds || 3;
+        ctx.ufc = { rounds, opponent: opp?.id ? await fetchGameLogs(opp.id, "UFC").catch(() => []) : [] };
       }
       if (prop.sport === "NBA") ctx.adjust = usageAdjust(prop.stat, await usageFor(prop.player, prop.team, me.id));
       out.set(prop.id, ctx);

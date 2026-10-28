@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
 import { nflAdjust, type NflSlice } from "@/lib/nflverse.ts";
+import type { UfcInput } from "@/lib/ufc.ts";
 import { usageAdjust, type UsageSlice } from "@/lib/usage.ts";
 import { splits } from "@/lib/splits.ts";
 import { pct } from "@/lib/format.ts";
@@ -57,6 +58,7 @@ interface PlayerData {
   news: NewsItem[];
   nfl?: NflSlice | null;
   usage?: UsageSlice;
+  ufc?: UfcInput | null;
 }
 
 const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -64,6 +66,7 @@ const propId = (player: string, stat: string) => `custom-${player}-${stat}`.toLo
 /** Stats offered for a player with no season averages yet. */
 function statsFor(game: GameSport, pos: string): StatKey[] {
   const sport = statSport(game);
+  if (sport === "UFC") return ["SIG_STR", "TD"];
   if (sport === "NBA") return ["PTS", "REB", "AST", "3PM", "PRA", "PR", "PA", "RA"];
   if (sport === "NHL") return pos === "G" ? ["SAVES"] : ["SOG", "NHL_PTS", "GOALS", "NHL_AST"];
   if (sport === "MLB") return /^(SP|RP|P)$/.test(pos) ? ["K", "OUTS", "HITS_ALLOWED"] : ["HITS", "TB", "HRR", "RUNS", "RBI"];
@@ -81,6 +84,7 @@ const SHORT: Partial<Record<StatKey, string>> = {
   REC_YDS: "Rec yds", RUSH_REC_YDS: "Rush+Rec",
   SOG: "SOG", GOALS: "Goals", NHL_AST: "AST", NHL_PTS: "PTS", SAVES: "Saves",
   HITS: "Hits", TB: "TB", HRR: "H+R+RBI", RUNS: "Runs", RBI: "RBI", K: "K", HITS_ALLOWED: "Hits allowed", OUTS: "Outs",
+  SIG_STR: "Sig. strikes", TD: "Takedowns",
 };
 
 const timeLabel = (g: Game) => {
@@ -232,7 +236,7 @@ function GameSheet({
   useEffect(() => {
     for (const t of [away, home]) {
       if (!t?.id) continue;
-      fetch(`/api/games/players?sport=${sport}&team=${t.id}&abbr=${encodeURIComponent(t.abbr)}`)
+      fetch(`/api/games/players?sport=${sport}&team=${t.id}&abbr=${encodeURIComponent(t.abbr)}&name=${encodeURIComponent(t.name ?? "")}`)
         .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then((b: { players: Player[] }) => setPlayers((p) => ({ ...p, [t.abbr]: b.players })))
         .catch(() => setPlayers((p) => ({ ...p, [t.abbr]: "error" })));
@@ -272,16 +276,18 @@ function GameSheet({
         .sort((a, b) => Number(hasLine(b)) - Number(hasLine(a)))
     : [];
   const inGame = slip.filter((l) => [away.abbr, home.abbr].includes(slipTeam(l))).length;
+  // Fighters meet; teams visit.
+  const at = sport === "UFC" ? "vs" : "at";
 
   return (
-    <div className="sheetwrap" role="dialog" aria-modal="true" aria-label={`${away.abbr} at ${home.abbr}`} onClick={onClose}>
+    <div className="sheetwrap" role="dialog" aria-modal="true" aria-label={`${away.abbr} ${at} ${home.abbr}`} onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()} style={teamGlow(away, home)}>
         <div className="sheethead">
           <div className="matchup">
             <Logo team={away} size={40} />
             <div>
               <strong>
-                {away.name || away.abbr} <span className="muted">at</span> {home.name || home.abbr}
+                {away.name || away.abbr} <span className="muted">{at}</span> {home.name || home.abbr}
               </strong>
               <small>
                 {sport} · {timeLabel(game)}
@@ -508,7 +514,7 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : usageAdjust(prop.stat, data.usage) }) : null;
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : usageAdjust(prop.stat, data.usage), ufc: data.ufc ?? undefined }) : null;
   const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;

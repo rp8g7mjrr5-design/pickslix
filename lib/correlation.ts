@@ -40,6 +40,13 @@ export function statCorrelation(a: CorrLeg, b: CorrLeg): number {
     const pb = PARTS[b.stat] ?? [];
     return pa.some((f) => pb.includes(f)) ? 0.75 : 0.25;
   }
+  if ((a.sport ?? b.sport) === "UFC") {
+    // Same fight (each one's team is the other's opponent): a longer fight lifts both fighters' strikes; a
+    // fighter taking the other down means less striking at range for both.
+    if (!a.team || a.opponent !== b.team || b.opponent !== a.team) return 0;
+    if (a.stat === "SIG_STR" && b.stat === "SIG_STR") return 0.3;
+    return a.stat === "TD" && b.stat === "TD" ? -0.1 : -0.15;
+  }
   if (!a.team || !b.team) return 0;
   const sport = statSport(a.sport ?? b.sport ?? "NBA");
   if (a.team === b.team) {

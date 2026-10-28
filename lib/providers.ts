@@ -2,6 +2,8 @@ import type { DefenseFactors, GameLog, NewsItem, Prop, Sport, StatKey } from "./
 import { SAMPLE_DEFENSE, SAMPLE_NEWS, sampleLogs, teamForPlayer } from "./sampleData.ts";
 import { fetchGameLogs, fetchInjuries, fetchNhlStarters, findAthlete, findNextGame } from "./espn.ts";
 import { canonTeam } from "./names.ts";
+import { fighterTag } from "./ufc.ts";
+import { findNextFight } from "./ufcData.ts";
 import { loadDefense } from "./refresh.ts";
 
 /** A line as pasted: player, stat and number are known; team and opponent may not be. */
@@ -122,6 +124,13 @@ export const espnProvider: StatsProvider = {
         return nhl ?? espnProvider.resolve({ ...input, sport: "CBB" });
       }
       return null;
+    }
+    if (input.sport === "UFC") {
+      // Fighters stand in for teams: the prop's team is the fighter, its opponent the one across the cage.
+      const prop = await resolveFromPaste({ ...input, player: athlete.name, teams: [] }, fighterTag(athlete.name));
+      const next = await findNextFight(athlete.id).catch(() => null);
+      if (next) Object.assign(prop, { team: next.me.abbr, opponent: next.opp.abbr, gameTime: next.game.date });
+      return prop;
     }
     const prop = await resolveFromPaste({ ...input, player: athlete.name }, athlete.team);
     const game = athlete.team ? await findNextGame(input.sport, athlete.team).catch(() => null) : null;

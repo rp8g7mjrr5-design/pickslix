@@ -1,6 +1,7 @@
 // ESPN's public JSON feeds (no key). These are undocumented, so every parser here is defensive:
 // a missing field turns into 0 or gets skipped instead of throwing.
 import { canonTeam, normName } from "./names.ts";
+import { fetchFighter, fetchFightLogs, fetchUfcCard } from "./ufcData.ts";
 import { STATS, statSport, type DefenseFactors, type GameLog, type NewsItem, type Sport, type StatKey } from "./types.ts";
 
 export type EspnSport = Sport;
@@ -12,6 +13,7 @@ const PATHS: Record<EspnSport, string> = {
   MLB: "baseball/mlb",
   CFB: "football/college-football",
   CBB: "basketball/mens-college-basketball",
+  UFC: "mma/ufc",
 };
 /** College scoreboards list only ranked teams unless asked for a division: FBS, and all of Division I. */
 const GROUPS: Partial<Record<EspnSport, string>> = { CFB: "groups=80&limit=300", CBB: "groups=50&limit=400" };
@@ -49,9 +51,10 @@ export interface EspnAthlete {
 }
 
 export function parseSearch(json: any, sport: EspnSport): EspnAthlete[] {
-  const league = PATHS[sport].split("/")[1];
+  const [sportPath, league] = PATHS[sport].split("/");
   return (json?.items ?? [])
-    .filter((i: any) => i?.type === "player" && i?.league === league)
+    // Fighters carry a sport but no league.
+    .filter((i: any) => i?.type === "player" && (sport === "UFC" ? i?.sport === sportPath : i?.league === league))
     .map((i: any) => ({
       id: String(i.id),
       name: String(i.displayName ?? ""),
@@ -85,7 +88,8 @@ export async function findAthlete(player: string, sport: EspnSport, teamHints: s
   const [sportPath, league] = PATHS[sport].split("/");
   // ESPN's search doesn't match initials, so look short names up by last name.
   const q = encodeURIComponent(shortName(player)?.last ?? player.replace(/\./g, "").trim());
-  const json = await espnJson(`${WEB}/search?query=${q}&type=player&sport=${sportPath}&league=${league}&limit=10`, TTL.search);
+  const scope = sport === "UFC" ? `sport=${sportPath}` : `sport=${sportPath}&league=${league}`;
+  const json = await espnJson(`${WEB}/search?query=${q}&type=player&${scope}&limit=10`, TTL.search);
   return pickAthlete(parseSearch(json, sport), player, teamHints);
 }
 
@@ -127,6 +131,7 @@ const COLUMNS: Record<EspnSport, Record<string, string>> = {
   },
   CFB: {},
   CBB: {},
+  UFC: {},
 };
 COLUMNS.CFB = COLUMNS.NFL;
 COLUMNS.CBB = COLUMNS.NBA;
@@ -198,6 +203,8 @@ export function markPrior(logs: GameLog[], now = Date.now()): GameLog[] {
  * so they count for less and never crowd out this season's.
  */
 export async function fetchGameLogs(athleteId: string, sport: EspnSport, minGames = 15): Promise<GameLog[]> {
+  // Fighters have no gamelog; their fights come from the UFC scoreboards (lib/ufcData.ts).
+  if (sport === "UFC") return fetchFightLogs(athleteId);
   const base = `${WEB}/sports/${PATHS[sport]}/athletes/${athleteId}/gamelog`;
   const current = await espnJson(base, TTL.gamelog);
   const logs = markPrior(parseGameLog(current, sport));
@@ -238,6 +245,7 @@ export function parseInjuries(json: any, sport: EspnSport): NewsItem[] {
 }
 
 export async function fetchInjuries(sport: EspnSport): Promise<NewsItem[]> {
+  if (sport === "UFC") return [];
   return parseInjuries(await espnJson(`${SITE}/${PATHS[sport]}/injuries`, TTL.injuries), sport);
 }
 
@@ -302,6 +310,11 @@ export async function fetchScoreboard(sport: EspnSport, query = "", revalidate =
 
 /** The team's next (or in-progress) game in the coming few days. */
 export async function findNextGame(sport: EspnSport, team: string): Promise<{ opponent: string; gameTime: string } | null> {
+  if (sport === "UFC") {
+    const g = (await fetchUfcCard()).find((c) => c.teams.some((t) => t.abbr === team));
+    const opp = g?.teams.find((t) => t.abbr !== team);
+    return g && opp ? { opponent: opp.abbr, gameTime: g.date } : null;
+  }
   // NFL: this week's slate, then next week's (by Tuesday the current week is usually all final).
   const queries =
     weekly(sport) ? ["", "next"] : [0, 1, 2].map((d) => `dates=${espnDate(new Date(Date.now() + d * 86400_000))}`);
@@ -320,6 +333,7 @@ export async function findNextGame(sport: EspnSport, team: string): Promise<{ op
 
 /** Games that haven't finished yet: the next three days for NBA; what's left of this week plus next week for NFL. */
 export async function fetchUpcomingGames(sport: EspnSport): Promise<EspnGame[]> {
+  if (sport === "UFC") return fetchUfcCard();
   // Games not yet started come first; ones already under way go to the end.
   const live = (gs: EspnGame[]) =>
     gs
@@ -497,7 +511,9 @@ export function parseRoster(json: any, sport: EspnSport): TeamPlayer[] {
     .map((a) => ({ ...athleteOf(a, a?.position?.abbreviation ?? ""), games: 0, avg: {} }));
 }
 
-export async function fetchTeamPlayers(sport: EspnSport, teamId: string): Promise<TeamPlayer[]> {
+export async function fetchTeamPlayers(sport: EspnSport, teamId: string, name = ""): Promise<TeamPlayer[]> {
+  // A UFC "team" is one fighter.
+  if (sport === "UFC") return fetchFighter(teamId, name);
   const base = `${SITE}/${PATHS[sport]}/teams/${encodeURIComponent(teamId)}`;
   const withStats = parseTeamPlayers(await espnJson(`${base}/athletes/statistics`, TTL.players).catch(() => null), sport);
   if (withStats.length) return withStats;

@@ -36,6 +36,8 @@ export const TEAMS: Record<Sport, string[]> = {
   // Hundreds of schools: college teams come from ESPN's search and schedule rather than this list.
   CFB: [],
   CBB: [],
+  // Fighters stand in for teams, by last name.
+  UFC: [],
 };
 
 const ALIASES: Record<Sport, Record<string, string>> = {
@@ -57,6 +59,7 @@ const ALIASES: Record<Sport, Record<string, string>> = {
   },
   CFB: {},
   CBB: {},
+  UFC: {},
 };
 
 export function canonTeam(abbr: string, sport: Sport): string {

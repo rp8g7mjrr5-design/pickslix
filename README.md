@@ -18,7 +18,7 @@ demo board with made-up lines instead.
 
 ## Adding lines
 
-- **Pick from games (easiest):** the top of the board lists upcoming NBA, NFL, NHL, MLB, college football (CFB) and men's college basketball (CBB) games.
+- **Pick from games (easiest):** the top of the board lists upcoming NBA, NFL, NHL, MLB, college football (CFB) and men's college basketball (CBB) games, plus the next UFC card.
   Tap one, choose a player and stat, and tap More or Less. With `ODDS_API_KEY` set the line starts at
   Pick 6's posted line (or the sportsbook median when Pick 6 hasn't posted it); otherwise at the
   season average. Odds update live as the line moves.
@@ -171,6 +171,21 @@ player ESPN doesn't find there is looked up in college next. What's different:
 - College basketball blowouts need a bigger spread (15) before starters' minutes are trimmed; football's
   game-script lean is the NFL's.
 - No teammate-out bumps or nflverse depth, which are pro-only.
+
+## UFC (`lib/ufc.ts`, `lib/ufcData.ts`)
+
+Significant strikes and takedowns. A fighter's count is how fast they land times how long the fight lasts, so
+the projection is built that way instead of averaging fights that ran different lengths:
+
+- **Landing rate:** strikes or takedowns per minute over their last ten UFC fights, recent ones weighted more.
+- **Fight length:** 3 or 5 scheduled rounds. The chance it ends early comes from how often both fighters' recent
+  fights ended before the final bell, shrunk toward the UFC-wide rate (about 45%). An early finish is taken to
+  land anywhere in the fight, which lowers the expected minutes and widens the spread.
+- **Data:** ESPN's UFC scoreboards (a whole year per request: dates, scheduled rounds, the round and clock each
+  fight ended) are boiled down to a fight index saved daily by the cron (`ufc:fights`); each fighter's stats page
+  gives per-fight strikes and takedowns. The picker lists the next card, one fighter per side.
+- **Not yet:** opponent striking defense (how much each opponent absorbs), and sportsbook prices (The Odds API
+  has no fighter props).
 
 ## Splits (`lib/splits.ts`)
 
