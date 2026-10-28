@@ -903,3 +903,9 @@ button.linkish { background: none; border: 0; padding: 4px; color: var(--muted);
 .clvbar strong { font-size: 18px; }
 .clvbar .clvwhy { flex: 1 1 260px; }
 .clvtag { white-space: nowrap; }
+.alerts {
+  display: flex; align-items: center; gap: 14px; margin-top: 14px; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.alerts > div { flex: 1; min-width: 0; }
+.alerts button { flex: none; }

@@ -12,6 +12,7 @@ import { loadSlips, pullSlips, type SavedSlip } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
 import { UsernameField } from "@/components/Username";
+import { AlertsToggle } from "@/components/Alerts";
 
 const money = (x: number) => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
 const rate = (s: Split) => (s.n ? s.hits / s.n : 0);
@@ -176,6 +177,7 @@ export default function Profile() {
           </div>
         </>
       )}
+      <AlertsToggle />
       {account.enabled && account.signedIn && <AccountActions />}
     </div>
   );
