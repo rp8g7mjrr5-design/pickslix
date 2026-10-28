@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildBoard } from "@/lib/board.ts";
+import { propContexts } from "@/lib/gameContext.ts";
+import { checkPass, proRequired } from "@/lib/pro.ts";
 import { canonTeam } from "@/lib/names.ts";
 import { getProvider } from "@/lib/providers.ts";
 import { sampleProps } from "@/lib/sampleData.ts";
@@ -23,6 +25,9 @@ export async function POST(req: Request) {
     .slice(0, 200)
     .map((p) => ({ ...p, team: canonTeam(p.team ?? "", p.sport), opponent: canonTeam(p.opponent ?? "", p.sport) }));
   const provider = getProvider();
-  const board = await buildBoard(props, provider);
+  // Prop prices cost credits, so uncached ones are fetched for Pro only (as on the game picker).
+  const spend = !proRequired() || Boolean(await checkPass(req.headers.get("x-pro-key")));
+  const contexts = provider.name === "espn" ? await propContexts(props, { spend }).catch(() => new Map()) : new Map();
+  const board = await buildBoard(props, provider, contexts);
   return NextResponse.json({ provider: provider.name, board });
 }

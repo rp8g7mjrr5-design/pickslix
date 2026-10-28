@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { slipHitProbability } from "@/lib/model.ts";
+import { useEffect, useMemo, useState } from "react";
+import { correlatedHitProbability } from "@/lib/correlation.ts";
 import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type PropWithProjection } from "@/lib/types.ts";
@@ -28,19 +28,27 @@ export default function Slip({
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const mult = multiplier ?? DEFAULT_MULTIPLIERS[legs.length] ?? 0;
-  const hit = slipHitProbability(legs.map((l) => l.prob));
+  // Same-game picks move together, so the slip's chance is simulated rather than multiplied.
+  const corr = useMemo(
+    () =>
+      correlatedHitProbability(
+        legs.map((l) => {
+          const r = rows.find((x) => x.id === l.propId);
+          return { ...l, sport: r?.sport ?? l.sport, team: r?.team || l.team, opponent: r?.opponent || l.opponent };
+        }),
+      ),
+    [legs, rows],
+  );
+  const hit = corr.prob;
   const ev = legs.length >= 2 && entry > 0 && mult > 0 ? hit * mult * entry - entry : 0;
   const breakEven = mult > 0 ? Math.pow(1 / mult, 1 / Math.max(legs.length, 1)) : 0;
 
-  // Legs from the same game tend to move together, so the multiplied chance overstates (or understates) it.
-  const games = new Map<string, number>();
-  for (const l of legs) {
-    const r = rows.find((x) => x.id === l.propId);
-    if (!r?.team || !r.opponent) continue;
-    const key = [r.team, r.opponent].sort().join("-");
-    games.set(key, (games.get(key) ?? 0) + 1);
-  }
-  const sameGame = [...games.values()].some((n) => n > 1);
+  const linkedNote = corr.linked.length
+    ? `${corr.linked
+        .slice(0, 2)
+        .map(([i, j]) => `${legs[i].player.split(" ").slice(-1)[0]} and ${legs[j].player.split(" ").slice(-1)[0]}`)
+        .join(", ")}${corr.linked.length > 2 ? ` and ${corr.linked.length - 2} more` : ""}`
+    : "";
   const outLegs = legs.filter((l) => rows.find((r) => r.id === l.propId)?.projection.status === "out");
 
   useEffect(() => {
@@ -159,7 +167,12 @@ export default function Slip({
           {outLegs.length > 0 && (
             <p className="warn">{outLegs.map((l) => l.player).join(", ")} is listed out. That pick will likely be voided.</p>
           )}
-          {sameGame && <p className="warn">Some picks are from the same game, so they're not independent. Treat the chance as rough.</p>}
+          {corr.linked.length > 0 && (
+            <p className={hit >= corr.independent ? "note" : "warn"}>
+              {linkedNote} move together, so the chance is {pct(hit, 1)} rather than {pct(corr.independent, 1)} if they were unrelated.{" "}
+              {hit >= corr.independent ? "Picks that rise and fall together help a slip." : "These picks pull against each other: one hitting makes the other less likely."}
+            </p>
+          )}
           <p className="fine">Check the payout in the DraftKings app; it changes with the picks you choose.</p>
           <div className="actions">
             {saved ? (

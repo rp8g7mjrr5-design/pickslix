@@ -1,4 +1,6 @@
+import { envFactor } from "./environment.ts";
 import { sameName } from "./names.ts";
+import type { TeamEnv } from "./odds.ts";
 import { STATS } from "./types.ts";
 import type {
   DefenseFactors,
@@ -24,6 +26,11 @@ const EARLY_GAMES = 5;
  * pulled this far toward the line. 0 trusts the model fully.
  */
 const LINE_WEIGHT = 0.3;
+/**
+ * When sportsbooks have priced the prop, the projection is pulled this far toward the mean their price implies
+ * instead. Books carry real money and injury news the model can't see, so they get more say than a bare line.
+ */
+const MARKET_WEIGHT = 0.5;
 
 export function statValue(g: GameLog, stat: StatKey): number {
   return STATS[stat].parts.reduce((sum, f) => sum + (g.stats[f] ?? 0), 0);
@@ -100,16 +107,49 @@ export function overUnder(mean: number, variance: number, line: number) {
   return { pOver: over, pPush: push, pUnder: below };
 }
 
+/** Sportsbook no-vig price for the over at `line` (which may differ from the Pick 6 line). */
+export interface MarketInput {
+  line: number;
+  pOver: number;
+  books?: number;
+  sharp?: boolean;
+}
+
 export interface ModelInput {
   prop: Prop;
   logs: GameLog[];
   defense: DefenseFactors;
   news: NewsItem[];
+  market?: MarketInput;
+  /** The game's spread and total from this team's side. */
+  env?: TeamEnv;
+}
+
+/** P(over) with pushes left out, the way a de-vigged book price reads. */
+const overShare = (mean: number, variance: number, line: number) => {
+  const { pOver, pUnder } = overUnder(mean, variance, line);
+  return pOver / Math.max(pOver + pUnder, 1e-9);
+};
+
+/**
+ * The mean the books' price implies: the mean at which our distribution (same spread-to-mean ratio as the
+ * player's) gives their no-vig P(over) at their line. Found by bisection; P(over) rises with the mean.
+ */
+export function impliedMean(market: MarketInput, dispersion: number): number {
+  const p = Math.min(0.97, Math.max(0.03, market.pOver));
+  let lo = 0.01;
+  let hi = Math.max(1, market.line) * 4 + 10;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (overShare(mid, mid * dispersion, market.line) < p) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 
-export function project({ prop, logs, defense, news }: ModelInput): Projection {
+export function project({ prop, logs, defense, news, market, env }: ModelInput): Projection {
   const reasons: string[] = [];
   const recentLogs = logs.slice(0, MAX_GAMES).filter((g) => g.playing > 0);
   const values = recentLogs.map((g) => statValue(g, prop.stat));
@@ -151,9 +191,18 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
     reasons.push(`${prop.opponent} is a ${rank} matchup for ${STATS[prop.stat].label.toLowerCase()} (${pct(raw - 1)} vs league avg)`);
   }
 
-  // News
   const avgPlaying =
     recentLogs.reduce((s, g) => s + g.playing, 0) / Math.max(recentLogs.length, 1);
+
+  // Game environment
+  if (env) {
+    const e = envFactor(prop.sport, prop.stat, env, avgPlaying);
+    mean *= e.factor;
+    variance *= e.factor * e.factor;
+    reasons.push(...e.reasons);
+  }
+
+  // News
   let questionable = false;
   let out = false;
   for (const n of news) {
@@ -182,12 +231,32 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
   if (questionable) reasons.push("Player is questionable; probability is less reliable");
 
   const modelMean = mean;
-  mean = (1 - LINE_WEIGHT) * modelMean + LINE_WEIGHT * prop.line;
+  const dispersion = variance / Math.max(modelMean, 0.1);
+  let marketMean: number | undefined;
+  if (market && market.pOver > 0 && market.pOver < 1 && market.line > 0) {
+    marketMean = impliedMean(market, dispersion);
+    mean = (1 - MARKET_WEIGHT) * modelMean + MARKET_WEIGHT * marketMean;
+  } else {
+    mean = (1 - LINE_WEIGHT) * modelMean + LINE_WEIGHT * prop.line;
+  }
   variance *= mean / Math.max(modelMean, 0.1);
 
   const { pOver, pPush, pUnder } = overUnder(mean, variance, prop.line);
   const pick = pOver >= pUnder ? "OVER" : "UNDER";
   const pickProb = Math.max(pOver, pUnder);
+
+  let marketProb: number | undefined;
+  if (market && marketMean !== undefined) {
+    const at = overUnder(marketMean, marketMean * dispersion, prop.line);
+    marketProb = pick === "OVER" ? at.pOver : at.pUnder;
+    const who = `${market.books ?? 1} book${market.books === 1 ? "" : "s"}${market.sharp ? " incl. a sharp book" : ""}`;
+    const gap = market.line - prop.line;
+    reasons.push(
+      gap === 0
+        ? `Sportsbooks (${who}) price the ${pick.toLowerCase()} at ${(marketProb * 100).toFixed(0)}% at the same line`
+        : `Sportsbooks deal ${market.line} (${who}), ${Math.abs(gap)} ${gap > 0 ? "above" : "below"} Pick 6: that puts the ${pick.toLowerCase()} at ${(marketProb * 100).toFixed(0)}% here`,
+    );
+  }
 
   // Hit rate from this season's games once there are enough of them.
   const last10 = (thisSeason >= EARLY_GAMES ? values.filter((_, i) => !recentLogs[i].prior) : values).slice(0, 10);
@@ -221,6 +290,9 @@ export function project({ prop, logs, defense, news }: ModelInput): Projection {
     reasons,
     status: out ? "out" : "ok",
     injury: out ? "out" : questionable ? "questionable" : undefined,
+    modelMean,
+    marketMean,
+    marketProb,
   };
 }
 

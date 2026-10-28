@@ -71,15 +71,20 @@ passing TD defense isn't computed; teammate-out usage bumps still need a manual 
    6 games in NBA, 4 in NFL).
 2. Adjust for the opponent: how much they allow of that stat vs league average,
    shrunk 40% toward average so one noisy number can't swing it.
-3. Apply news: teammate out (usage bump), minutes limit (scale down), key
+3. Apply the game environment (spread and total, below), then news: teammate out (usage bump), minutes limit (scale down), key
    defender out, questionable (lower confidence), ruled out (flag as void).
-4. Pull the projection 30% toward the posted line, since the line already
-   prices in information the model doesn't see.
+4. Pull the projection toward the market. When sportsbooks have priced the prop (both sides, with odds),
+   their prices are de-vigged into a no-vig chance, Pinnacle and BetOnline counting double, and turned into
+   the mean that price implies; the projection goes halfway there. Without a priced market it's pulled 30%
+   toward the posted line instead, since the line already prices in information the model doesn't see.
 5. Fit a negative binomial (or Poisson) to that mean and spread and read off
    P(over), P(under), P(push).
 
-The slip multiplies leg probabilities, which assumes legs are independent.
-Picks from the same game are usually correlated, so treat that number as rough.
+The slip's chance allows for picks that move together (`lib/correlation.ts`): a QB and his receiver, one
+player's points and PRA, two skaters on the same team, a pitcher's hits allowed and the hitters facing him.
+Each linked pair gets an estimated correlation (flipped when one leg is an under), and the slip is simulated
+with a Gaussian copula; unrelated legs still just multiply. The slip says which picks are linked and whether
+that helps or hurts. The correlations are rough estimates, not yet fitted to graded picks.
 
 ## Layout
 
@@ -91,6 +96,37 @@ Picks from the same game are usually correlated, so treat that number as rough.
   `lib/refresh.ts` defense snapshot + cron job, `lib/db.ts` Redis client
 - Pasted lines live in the browser. Saved slips live in the browser and, when Redis is
   connected, sync under a code shown on the Tracker page (enter it on another device).
+
+## Market check and line movement (`lib/odds.ts`)
+
+The same Odds API call that finds Pick 6's line also returns the sportsbooks' prices, so the market read costs
+no extra credits (Pinnacle and BetOnline are in the bookmaker list; up to 10 books cost the same as one region).
+The pick card shows the books' no-vig chance next to the model's, says when Pick 6's line sits off the books'
+(books at 27.5 and Pick 6 at 25.5 makes More the easier side), and shows how far the line has moved since we
+first saw it (openers are kept for five days under `odds:open:{eventId}`). This is the props version of
+"public vs sharp money": betting splits only exist for game lines, and the sharp books' price is the signal
+that matters for a player prop.
+
+Pasted and screenshot lines get the same market read (`lib/gameContext.ts`): each line is matched to its game,
+and the game's cached prop prices are used. Lines nobody has opened yet are fetched only for Pro, as on the
+game picker.
+
+## Game environment (`lib/environment.ts`)
+
+Spreads and totals for a sport's whole slate come from one Odds API call (two credits, cached six hours and
+shared by everyone, so it isn't a Pro feature). From them each team gets an implied total, measured against the
+slate's average game total (or a typical total when fewer than four games are priced). The model scales each
+stat by that, with modest weights: scoring stats follow the team's implied total, rebounds follow the game total,
+and goalie saves and pitcher stats follow what the opponent is expected to score. NBA starters lose up to 6% when
+the spread is 10 or more (blowout risk), and in the NFL underdogs lean toward passing and favorites toward running,
+up to 6%. The total swing is capped at 15%.
+
+## Splits (`lib/splits.ts`)
+
+How often the player cleared today's line in games like today's: last 5, this season, against this opponent
+(last season included), home or road, and the second night of a back-to-back (NBA and NHL). A split that goes
+the same way at least 75% of the time over 4+ games is ringed as a pattern. Splits are shown, not fed to the
+model: the samples are small and the model already weights recent form.
 
 ## Tracker
 

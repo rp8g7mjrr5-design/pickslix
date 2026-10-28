@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import GamePicker from "@/components/GamePicker";
+import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
 import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
-import { slipHitProbability } from "@/lib/model.ts";
+import { correlatedHitProbability } from "@/lib/correlation.ts";
 import { bestSlip } from "@/lib/bestSlip.ts";
+import { proHeaders } from "@/lib/proClient.ts";
 import { MAX_PICKS, pct } from "@/lib/format.ts";
 import { loadCustomProps, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
@@ -71,7 +73,7 @@ export default function Board() {
       const [base, mine] = await Promise.all([
         fetch("/api/props").then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
         custom.length
-          ? fetch("/api/props", { method: "POST", body: JSON.stringify({ props: custom }) }).then((r) =>
+          ? fetch("/api/props", { method: "POST", headers: proHeaders(), body: JSON.stringify({ props: custom }) }).then((r) =>
               r.ok ? r.json() : Promise.reject(r.status),
             )
           : Promise.resolve({ board: [] }),
@@ -119,6 +121,18 @@ export default function Board() {
 
   // Picks made from the games list: save the line, put the leg in the slip, then rescore the board.
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Same chance the slip panel shows, same-game links included.
+  const slipChance = useMemo(
+    () =>
+      correlatedHitProbability(
+        slip.map((l) => {
+          const r = rows.find((x) => x.id === l.propId);
+          return { ...l, sport: r?.sport ?? l.sport, team: r?.team || l.team, opponent: r?.opponent || l.opponent };
+        }),
+      ).prob,
+    [slip, rows],
+  );
+
   const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number) => {
     if (!slip.some((l) => l.propId === prop.id) && slip.length >= MAX_PICKS) return flash(`Pick 6 allows up to ${MAX_PICKS} picks`);
     saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
@@ -378,7 +392,8 @@ export default function Board() {
                       <div className="detailhead">
                         <span className={`conf ${p.confidence}`}>{p.confidence} confidence</span>
                         <span className="muted">
-                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)} · hits {pct(p.hitRateLast10)} lately ·{" "}
+                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)}
+                          {p.marketProb !== undefined ? ` · books ${pct(p.marketProb)}` : ""} · hits {pct(p.hitRateLast10)} lately ·{" "}
                           {p.thisSeason !== undefined && p.thisSeason < p.sampleSize
                             ? `${p.thisSeason} games this season + ${p.sampleSize - p.thisSeason} last season`
                             : `${p.sampleSize} games`}
@@ -394,6 +409,7 @@ export default function Board() {
                           <li key={x}>{x}</li>
                         ))}
                       </ul>
+                      <SplitChips splits={r.splits} />
                     </div>
                   )}
                 </div>
@@ -418,7 +434,7 @@ export default function Board() {
           <span>
             {slip.length} pick{slip.length === 1 ? "" : "s"}
           </span>
-          <strong>{pct(slipHitProbability(slip.map((l) => l.prob)), 1)} to hit</strong>
+          <strong>{pct(slipChance, 1)} to hit</strong>
           <span>View slip ↓</span>
         </a>
       )}

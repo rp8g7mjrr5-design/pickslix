@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
+import { splits } from "@/lib/splits.ts";
 import { pct } from "@/lib/format.ts";
 import { normName } from "@/lib/names.ts";
 import { proHeaders } from "@/lib/proClient.ts";
+import type { TeamEnv } from "@/lib/odds.ts";
 import type { SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type DefenseFactors, type GameLog, type NewsItem, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
@@ -13,6 +16,8 @@ type GameSport = Sport;
 interface OddsLine {
   line: number;
   book: string;
+  market?: { line: number; pOver: number; books: number; sharp: boolean };
+  open?: number;
 }
 /** normName(player) → stat → line, from /api/games/lines */
 type GameLines = Record<string, Partial<Record<StatKey, OddsLine>>>;
@@ -214,6 +219,7 @@ function GameSheet({
   const [query, setQuery] = useState("");
   const [lines, setLines] = useState<GameLines>({});
   const [linesLocked, setLinesLocked] = useState(false);
+  const [env, setEnv] = useState<{ home: TeamEnv | null; away: TeamEnv | null }>({ home: null, away: null });
   const team = [away, home][teamIdx];
   const opp = [away, home][1 - teamIdx];
 
@@ -233,6 +239,10 @@ function GameSheet({
         setLines(b.lines ?? {});
         setLinesLocked(Boolean(b.locked));
       })
+      .catch(() => {});
+    fetch(`/api/games/env?${q}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(setEnv)
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, sport]);
@@ -325,6 +335,7 @@ function GameSheet({
               open={openPlayer === p.id}
               onToggle={() => setOpenPlayer(openPlayer === p.id ? null : p.id)}
               posted={lines[normName(p.name)] ?? {}}
+              env={(team.home ? env.home : env.away) ?? undefined}
               slip={slip}
               onPick={onPick}
             />
@@ -376,6 +387,7 @@ function PlayerRow({
   open,
   onToggle,
   posted,
+  env,
   slip,
   onPick,
 }: {
@@ -384,6 +396,7 @@ function PlayerRow({
   team: Team;
   opp: Team;
   gameTime: string;
+  env?: TeamEnv;
   open: boolean;
   onToggle: () => void;
   posted: Partial<Record<StatKey, OddsLine>>;
@@ -432,7 +445,7 @@ function PlayerRow({
           ›
         </span>
       </button>
-      {open && <PickCard player={player} sport={sport} team={team} opp={opp} gameTime={gameTime} stats={stats} posted={posted} slip={slip} onPick={onPick} />}
+      {open && <PickCard player={player} sport={sport} team={team} opp={opp} gameTime={gameTime} stats={stats} posted={posted} env={env} slip={slip} onPick={onPick} />}
     </div>
   );
 }
@@ -445,6 +458,7 @@ function PickCard({
   gameTime,
   stats,
   posted,
+  env,
   slip,
   onPick,
 }: {
@@ -454,6 +468,7 @@ function PickCard({
   opp: Team;
   gameTime: string;
   stats: StatKey[];
+  env?: TeamEnv;
   posted: Partial<Record<StatKey, OddsLine>>;
   slip: SlipLeg[];
   onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
@@ -487,7 +502,8 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news }) : null;
+  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env }) : null;
+  const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;
 
@@ -588,9 +604,14 @@ function PickCard({
         })}
       </div>
       {proj && <small className="hint">The % is the model's chance that side hits. Tap one to add it to your slip.</small>}
+      {proj && line !== undefined && (
+        <MarketNote market={postedLine?.market} open={postedLine?.open} line={line} posted={postedLine?.line} proj={proj} />
+      )}
+      <SplitChips splits={split} />
+      <EnvNote env={env} team={team.abbr} />
       {proj && proj.reasons.length > 0 && (
         <ul className="reasons">
-          {proj.reasons.slice(0, 3).map((r) => (
+          {proj.reasons.slice(0, 4).map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>

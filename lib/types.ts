@@ -67,6 +67,8 @@ export interface GameLog {
   stats: Record<string, number>;
   /** From last season, filled in early in the year. Counts for less in the model. */
   prior?: boolean;
+  /** Played at home, when the feed says. */
+  home?: boolean;
 }
 
 /**
@@ -116,10 +118,30 @@ export interface Projection {
   status: "ok" | "out";
   /** Injury report status for this player, if listed. */
   injury?: "out" | "questionable";
+  /** The stats-only projection, before it's pulled toward the line or the market. */
+  modelMean?: number;
+  /** The mean the sportsbooks' price implies, when they've priced this prop. */
+  marketMean?: number;
+  /** The books' chance for `pick` at the Pick 6 line, when they've priced this prop. */
+  marketProb?: number;
+}
+
+/** How often a player cleared the line in games like this one (`lib/splits.ts`). */
+export interface Split {
+  key: "last5" | "season" | "opp" | "venue" | "rest";
+  label: string;
+  /** Games that cleared the line (over). */
+  over: number;
+  /** Games that stayed under it. Pushes are in neither. */
+  under: number;
+  n: number;
+  /** Lopsided enough over enough games to call out. */
+  pattern?: "OVER" | "UNDER";
 }
 
 export interface PropWithProjection extends Prop {
   projection: Projection;
+  splits?: Split[];
   recent: number[];
   /** How many of `recent` (newest first) are from this season, when some are from last season. */
   recentThisSeason?: number;

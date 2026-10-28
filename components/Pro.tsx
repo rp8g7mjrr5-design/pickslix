@@ -1,9 +1,9 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getProKey, setProKey, usePro } from "@/lib/proClient.ts";
-import { SignInPrompt, useAccount } from "@/components/Account";
+import { SignInPrompt, SignInTrouble, useAccount } from "@/components/Account";
 
 interface Config {
   required: boolean;
@@ -93,6 +93,11 @@ export default function Pro() {
   }, [params, router]);
 
   const checkout = async (plan: "monthly" | "yearly") => {
+    // Signed out: sign in first, then come back here and carry on to checkout.
+    if (needSignIn) {
+      router.push(`/sign-in?next=${encodeURIComponent(`/pro?buy=${plan}`)}`);
+      return;
+    }
     setBusy(plan);
     setNote("");
     const r = await post<{ url?: string }>("/api/pro/checkout", { plan }).catch(() => ({ error: "Couldn't start checkout." }) as { url?: string; error?: string });
@@ -145,6 +150,17 @@ export default function Pro() {
 
   const isPro = Boolean(status?.pro);
 
+  // Back from signing in to buy a plan: go straight on to checkout.
+  const buy = params.get("buy");
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !account.signedIn || isPro || !config?.checkout || (buy !== "monthly" && buy !== "yearly")) return;
+    started.current = true;
+    router.replace("/pro");
+    checkout(buy);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buy, account.signedIn, isPro, config?.checkout]);
+
   return (
     <div className="pro">
       <section className="prohero">
@@ -167,17 +183,18 @@ export default function Pro() {
       <Tiers
         config={config}
         current={isPro ? (status?.plan ?? "monthly") : "free"}
-        canBuy={!isPro && !needSignIn && Boolean(config?.checkout)}
+        canBuy={!isPro && Boolean(config?.checkout)}
         busy={busy}
         onBuy={checkout}
       />
 
-      {!isPro && needSignIn && (config?.checkout || config?.codes) && account.loaded && (
+      {!isPro && needSignIn && (config?.checkout || config?.codes) && (
         <div className="signinprompt">
           <small>Sign in first so Pro is saved to your account and works on all your devices.</small>
-          <SignInPrompt>Sign in to get Pro</SignInPrompt>
+          <SignInPrompt next="/pro">Sign in to get Pro</SignInPrompt>
         </div>
       )}
+      {!isPro && needSignIn && account.failed && <SignInTrouble />}
 
       {!isPro && config && !config.checkout && !config.codes && (
         <p className="banner">Pro isn't set up on this site yet. Everything is free for now.</p>
