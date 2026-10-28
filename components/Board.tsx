@@ -5,6 +5,7 @@ import GamePicker from "@/components/GamePicker";
 import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
 import ImportPanel, { type ImportResult } from "@/components/ImportPanel";
+import PickOfDay from "@/components/PickOfDay";
 import Pulse from "@/components/Pulse";
 import Slip from "@/components/Slip";
 import { correlatedHitProbability } from "@/lib/correlation.ts";
@@ -212,6 +213,7 @@ export default function Board() {
     <div className="layout">
       <section className={`boardcol ${gameOpen ? "gameopen" : ""}`}>
         <Welcome />
+        <PickOfDay slip={slip} onPick={pickFromGame} />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
 
         <div className="hero">
