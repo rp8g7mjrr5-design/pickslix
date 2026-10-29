@@ -144,6 +144,8 @@ export interface OddsLine {
   open?: number;
   /** Each pick'em app's own line, by Odds API key (pick6, prizepicks, underdog...). */
   posted?: Record<string, number>;
+  /** PrizePicks' other lines for this prop (goblins below the standard line, demons above), when loaded. */
+  alts?: number[];
   /** The best sportsbook price for each side at the market's line, for betting the prop straight. */
   best?: { over?: BestPrice; under?: BestPrice };
 }
@@ -383,6 +385,60 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
     recordCloses(sport, event.commence_time, lines).catch(() => {}),
   ]);
   return lines;
+}
+
+/** Pick'em apps whose alternate lines the API carries (PrizePicks' goblins and demons are in `*_alternate`). */
+export const ALT_BOOKS = new Set(["prizepicks"]);
+
+/** Alternate lines from one pick'em app's response: player → stat → every line it posts. */
+export function parseAltLines(json: any, sport: Sport): Record<string, Partial<Record<StatKey, number[]>>> {
+  const out: Record<string, Partial<Record<StatKey, number[]>>> = {};
+  for (const bm of json?.bookmakers ?? []) {
+    for (const m of bm?.markets ?? []) {
+      const stat = MARKETS[sport][String(m?.key ?? "").replace(/_alternate$/, "")];
+      if (!stat) continue;
+      for (const o of m?.outcomes ?? []) {
+        const player = normName(String(o?.description ?? ""));
+        const point = Number(o?.point);
+        if (!player || !Number.isFinite(point)) continue;
+        const list = ((out[player] ??= {})[stat] ??= []);
+        if (!list.includes(point)) list.push(point);
+      }
+    }
+  }
+  for (const stats of Object.values(out)) for (const list of Object.values(stats)) list?.sort((a, b) => a - b);
+  return out;
+}
+
+/**
+ * One app's alternate lines for a game, merged onto `lines` (only for props it has a standard line on). Costs a
+ * credit per market, so only when someone playing that app opens the game, and cached like the main lines.
+ */
+export async function withAltLines(sport: Sport, home: string, away: string, date: string, book: string, lines: GameLines): Promise<GameLines> {
+  if (!ALT_BOOKS.has(book) || Date.parse(date) < Date.now() || !FETCH_MARKETS[sport].length) return lines;
+  const events = await kvGet<OddsEvent[]>(`odds:events:${sport}`).catch(() => null);
+  const event = events ? matchEvent(events, home, away, date) : undefined;
+  if (!event) return lines;
+  const cacheKey = `odds:alt:${book}:${event.id}`;
+  let alts = await kvGet<ReturnType<typeof parseAltLines>>(cacheKey).catch(() => null);
+  if (!alts) {
+    const markets = FETCH_MARKETS[sport].map((m) => `${m}_alternate`);
+    if (!(await canSpend(markets.length))) return lines;
+    const json = await oddsJson(`/sports/${SPORT_KEYS[sport]}/events/${event.id}/odds?bookmakers=${book}&markets=${markets.join(",")}&oddsFormat=american`, LINES_TTL);
+    alts = parseAltLines(json, sport);
+    await kvSet(cacheKey, alts, LINES_TTL).catch(() => {});
+  }
+  const out: GameLines = {};
+  for (const [player, stats] of Object.entries(lines)) {
+    out[player] = {};
+    for (const [stat, l] of Object.entries(stats)) {
+      if (!l) continue;
+      const std = l.posted?.[book];
+      const more = (alts[player]?.[stat as StatKey] ?? []).filter((x) => x !== std);
+      out[player][stat as StatKey] = std !== undefined && more.length ? { ...l, alts: more } : l;
+    }
+  }
+  return out;
 }
 
 const CLOSE_TTL = 5 * 86400;

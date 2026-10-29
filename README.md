@@ -37,6 +37,9 @@ The board, game picker and slip follow the app picked under "Playing on" (saved 
   stands in and the card says so. Sleeper isn't in the API, so its lines start from the books'.
 - **Payouts:** each app's standard power table, plus flex tables (PrizePicks Flex Play, Underdog and Betr Flex).
   Every number can be edited in the slip, since apps change them and vary them for boosted picks.
+- **Goblins and demons:** for PrizePicks players, opening a game also loads its alternate lines (the API's
+  `*_alternate` markets, one credit per stat, cached six hours, Pro). Each shows as a chip with the model's chance of
+  More at that line; goblins and demons are More only, and the slip asks for the app's payout when one is in it.
 - **Flex math:** the slip simulates how many picks hit (same-game picks still move together, `lib/correlation.ts`)
   and pays each count from the table, so expected profit, break-even per pick and the bankroll coach all work for
   flex entries. Saved slips remember the app and table, and the tracker, profile and leaderboard pay them that way
@@ -49,6 +52,14 @@ The board, game picker and slip follow the app picked under "Playing on" (saved 
   price is de-vigged, Pinnacle and BetOnline counting double, into a fair chance; the best price across books is
   shown next to it, and sides where the best price beats the fair chance by 2%+ (with 3+ books) are flagged.
   The same call feeds the game environment's spreads and totals, so the model never pays for it twice.
+- **LayLock's team model** (`lib/ratings.ts`, `lib/ratingsData.ts`): every team gets attack and defense ratings fitted
+  to this season's ESPN scores (recent games weigh more; early-season ratings are shrunk toward average). Two teams'
+  ratings give an expected score, shown on each game, and from it a chance for every side: a normal margin and
+  total for basketball and football, Poisson goals and runs for hockey and baseball. The books know more than a
+  ratings model, so LayLock's chance is the fair price moved a quarter of the way toward the model's (35% for
+  college, less for teams with few games). Sides where that still pays at the best price, with the model 4+ points
+  past the books, are tagged "Model lean". Ratings rebuild daily in the cron (or on the first request after 36
+  hours) from free ESPN scoreboards.
 - **Player props, bet straight:** every scored prop on today's slate that the books deal, priced with the model's
   chance at the books' line (restated with the model's distribution when it differs from the pick'em line) against
   the best over and under price. Ranked by EV; Pro sees the full list.

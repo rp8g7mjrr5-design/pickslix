@@ -257,6 +257,8 @@ export interface EspnGame {
   state: "pre" | "in" | "post";
   seasonType: number;
   teams: EspnTeam[];
+  /** Played at a neutral site (no home edge). */
+  neutral?: boolean;
 }
 
 export interface EspnTeam {
@@ -272,6 +274,8 @@ export interface EspnTeam {
   goalie?: { name: string; confirmed: boolean };
   /** MLB: the probable starting pitcher. */
   pitcher?: { id: string; name: string };
+  /** Points (goals, runs) so far, once the game has started. */
+  score?: number;
 }
 
 /** ESPN lists hockey's starting goalie and baseball's starting pitcher under "probables". */
@@ -286,6 +290,13 @@ function starter(c: any): { goalie?: EspnTeam["goalie"]; pitcher?: EspnTeam["pit
   return pName && id ? { pitcher: { id: String(id), name: String(pName) } } : {};
 }
 
+/** A competitor's score: a string on scoreboards, sometimes an object with a value. */
+function scoreOf(c: any): { score?: number } {
+  const raw = typeof c?.score === "object" ? c?.score?.value : c?.score;
+  const n = raw === undefined || raw === null || raw === "" ? NaN : Number(raw);
+  return Number.isFinite(n) ? { score: n } : {};
+}
+
 export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
   return (json?.events ?? []).map((e: any) => {
     const comp = e?.competitions?.[0] ?? {};
@@ -294,6 +305,7 @@ export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
       date: String(e?.date ?? ""),
       state: comp?.status?.type?.state ?? "pre",
       seasonType: Number(e?.season?.type ?? 2),
+      ...(comp?.neutralSite ? { neutral: true } : {}),
       teams: (comp?.competitors ?? []).map((c: any) => ({
         abbr: canonTeam(c?.team?.abbreviation ?? "", sport),
         stats: Object.fromEntries((c?.statistics ?? []).map((s: any) => [s?.name, num(s?.displayValue)])),
@@ -303,6 +315,7 @@ export function parseScoreboard(json: any, sport: EspnSport): EspnGame[] {
         color: c?.team?.color ? `#${c.team.color}` : undefined,
         record: c?.records?.find((r: any) => r?.type === "total")?.summary,
         home: c?.homeAway === "home",
+        ...scoreOf(c),
         ...starter(c),
       })),
     };
@@ -707,4 +720,22 @@ export async function computeNflDefense(weeks = 8): Promise<DefenseFactors> {
     espnJson(`${SITE}/${PATHS.NFL}/summary?event=${g.id}`, TTL.finished).then(nflAllowed, () => [] as Allowed[]),
   );
   return defenseFactors("NFL", rows.flat(), 3);
+}
+
+/**
+ * Finished games over the last `days` (daily sports) or this season's weeks so far (football), for team ratings.
+ * Finished scoreboards are cached for a week, so the daily rebuild mostly reads cache.
+ */
+export async function fetchResults(sport: EspnSport, days = 60): Promise<EspnGame[]> {
+  let boards: EspnGame[][];
+  if (weekly(sport)) {
+    const { week } = await fetchScoreboard(sport);
+    const nums = Array.from({ length: Math.max(0, week) }, (_, i) => i + 1);
+    boards = await inBatches(nums, 6, (w) => fetchScoreboard(sport, `seasontype=2&week=${w}`, TTL.finished).then((b) => b.games, () => [] as EspnGame[]));
+  } else {
+    const dates = Array.from({ length: days }, (_, i) => espnDate(new Date(Date.now() - (i + 1) * 86400_000)));
+    boards = await inBatches(dates, 8, (d) => fetchScoreboard(sport, `dates=${d}`, TTL.finished).then((b) => b.games, () => [] as EspnGame[]));
+  }
+  const seen = new Set<string>();
+  return boards.flat().filter((g) => g.state === "post" && g.teams.length === 2 && g.teams.every((t) => t.score !== undefined) && !seen.has(g.id) && seen.add(g.id));
 }

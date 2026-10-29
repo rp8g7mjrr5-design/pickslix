@@ -16,6 +16,8 @@ export interface SlipLeg {
   closePrice?: { line: number; pOver: number };
   /** The model's spread-to-mean ratio for the player, to compare prices at different lines. */
   dispersion?: number;
+  /** An alternate line (PrizePicks goblin or demon), which pays differently from a standard pick. */
+  tier?: "below" | "above";
   result?: "hit" | "miss" | "push";
   /** What the player actually put up, when graded from the box score. */
   actual?: number;

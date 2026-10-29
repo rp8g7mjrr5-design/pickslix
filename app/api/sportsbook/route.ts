@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { fetchGameMarkets, parseGameMarkets, propEdges } from "@/lib/books.ts";
+import { fetchGameMarkets, parseGameMarkets, propEdges, withModel } from "@/lib/books.ts";
+import { loadRatings } from "@/lib/ratingsData.ts";
+import { sampleRatings } from "@/lib/sampleBooks.ts";
 import { oddsEnabled } from "@/lib/odds.ts";
 import { checkPass, proRequired } from "@/lib/pro.ts";
 import { getProvider } from "@/lib/providers.ts";
@@ -19,12 +21,13 @@ export async function GET(req: Request) {
   const sport = toSport(new URL(req.url).searchParams.get("sport"));
   const sample = getProvider().name === "sample";
   if (!sample && !oddsEnabled()) return NextResponse.json({ enabled: false, games: [], props: [], propCount: 0, locked: false });
-  const [markets, slate] = await Promise.all([
+  const [markets, slate, ratings] = await Promise.all([
     sample ? { games: parseGameMarkets(sampleOddsJson(sport), sport) } : fetchGameMarkets(sport).catch((e) => (console.error(e), null)),
     todaysSlate().catch(() => null),
+    sample ? sampleRatings(sport) : loadRatings(sport).catch(() => null),
   ]);
   const now = Date.now();
-  const games = (markets?.games ?? []).filter((g) => Date.parse(g.start) > now);
+  const games = withModel((markets?.games ?? []).filter((g) => Date.parse(g.start) > now), ratings);
   const props = propEdges((slate?.rows ?? []).filter((r) => r.sport === sport && Date.parse(r.gameTime ?? "") > now));
   const locked = proRequired() && !(await checkPass(req.headers.get("x-pro-key")));
   return NextResponse.json({

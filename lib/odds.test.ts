@@ -129,3 +129,22 @@ test("openers are kept and moved lines are marked", () => {
   assert.equal(later.lines["a b"].PTS!.open, 20.5);
   assert.equal(later.openers["a b|PTS"], 20.5);
 });
+
+test("PrizePicks' alternate lines are read per player and stat, sorted", async () => {
+  const { parseAltLines } = await import("./odds.ts");
+  const alts = parseAltLines(
+    {
+      bookmakers: [
+        {
+          key: "prizepicks",
+          markets: [
+            { key: "player_points_alternate", outcomes: [outcome("Over", "Jayson Tatum", 31.5), outcome("Over", "Jayson Tatum", 22.5), outcome("Over", "Jayson Tatum", 31.5)] },
+            { key: "player_blocks_alternate", outcomes: [outcome("Over", "Jayson Tatum", 1.5)] },
+          ],
+        },
+      ],
+    },
+    "NBA",
+  );
+  assert.deepEqual(alts, { "jayson tatum": { PTS: [22.5, 31.5] } });
+});

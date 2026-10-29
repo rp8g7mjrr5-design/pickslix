@@ -1,6 +1,7 @@
 // Demo sportsbook odds in The Odds API's shape, so DATA_SOURCE=sample shows the sportsbook page through the same
 // parser as live odds. Prices are made up, with the usual spread between books and the odd stale one.
 import { PRICED_BOOKS } from "./odds.ts";
+import { SPORT_MODEL, type Ratings } from "./ratings.ts";
 import type { Sport } from "./types.ts";
 
 interface SampleGame {
@@ -61,4 +62,24 @@ export function sampleOddsJson(sport: Sport, now = Date.now()): any[] {
       return { key: book, markets };
     }),
   }));
+}
+
+/** Demo team ratings for the sample games: close to the books, with a few honest disagreements. */
+export function sampleRatings(sport: Sport): Ratings | null {
+  const m = SPORT_MODEL[sport];
+  const games = GAMES[sport] ?? [];
+  if (!m || !games.length) return null;
+  const mu = { NBA: 113, NFL: 22.5, NHL: 3.1, MLB: 4.4, CFB: 28, CBB: 72 }[sport as "NBA"] ?? 100;
+  const teams: Ratings["teams"] = {};
+  games.forEach((g, i) => {
+    // The model sees the home side a little stronger or weaker than the market's spread, game by game.
+    const gap = -g.spread * (sport === "NHL" ? 0.25 : 1) + [1.5, -2.5, 0.5][i % 3] * (sport === "NHL" ? 0.1 : 1) - m.hfa;
+    const lean = [3, -2, 1][i % 3] * (sport === "NHL" ? 0.1 : 1);
+    const nick = (n: string) => n.split(" ").slice(-1)[0];
+    // Totals land near the market's, off by the lean.
+    const base = g.total ? (g.total - 2 * mu) / 2 : 0;
+    teams[`H${i}`] = { name: nick(g.home), att: base + gap / 4 + lean / 2, def: gap / 4, n: 20 };
+    teams[`A${i}`] = { name: nick(g.away), att: base - gap / 4 + lean / 2, def: -gap / 4, n: 20 };
+  });
+  return { sport, updatedAt: new Date().toISOString(), mu, hfa: m.hfa, teams };
 }

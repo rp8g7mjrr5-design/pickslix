@@ -3,6 +3,7 @@ import { refreshCalibration } from "./calibrationData.ts";
 import { computeCbbDefense, computeCfbDefense, computeNbaDefense, computeNflDefense, computeNhlDefense, fetchInjuries, type EspnSport } from "./espn.ts";
 import { refreshNflContext } from "./nflData.ts";
 import { refreshUfcFights } from "./ufcData.ts";
+import { RATED_SPORTS, refreshRatings } from "./ratingsData.ts";
 import type { DefenseFactors } from "./types.ts";
 
 interface Snapshot {
@@ -63,6 +64,7 @@ export async function refreshAll() {
     (c) => (c ? `${Object.keys(c.players).length} players, ${Object.keys(c.defense).length} defenses` : "no data yet"),
     (e) => `failed: ${e}`,
   );
+  const rated = await Promise.allSettled(RATED_SPORTS.map(refreshRatings));
   const ufc = await refreshUfcFights().then((f) => `${f.size} fights`, (e) => `failed: ${e}`);
   const calibration = await refreshCalibration().then(
     (c) => `${c.all.n} graded picks, a=${c.all.a.toFixed(2)} b=${c.all.b.toFixed(2)}`,
@@ -72,6 +74,12 @@ export async function refreshAll() {
     tookMs: Date.now() - started,
     nflverse: nfl,
     ufc,
+    ratings: Object.fromEntries(
+      RATED_SPORTS.map((s, i) => {
+        const r = rated[i];
+        return [s, r.status === "fulfilled" ? `${Object.keys(r.value?.teams ?? {}).length} teams` : `failed: ${r.reason}`];
+      }),
+    ),
     calibration,
     defense: Object.fromEntries(
       [...sports, "CBB", "CFB"].map((s, i) => {

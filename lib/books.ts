@@ -7,6 +7,7 @@
 import { kvGet, kvSet } from "./db.ts";
 import { overUnder } from "./model.ts";
 import { BOOK_NAMES, PRICED_BOOKS, SHARP_BOOKS, SPORT_KEYS, canSpend, impliedProb, oddsEnabled, oddsJson, parseSlate, type BestPrice, type Slate } from "./odds.ts";
+import { blend, predict, sideChance, type Ratings } from "./ratings.ts";
 import { STATS, type PropWithProjection, type Sport, type StatKey } from "./types.ts";
 
 export type MarketKey = "h2h" | "spreads" | "totals";
@@ -24,6 +25,11 @@ export interface SideQuote {
   best: BestPrice;
   /** Expected profit per unit staked at the best price, at the fair chance. */
   ev: number;
+  /** LayLock's team-ratings chance (lib/ratings.ts), when both teams are rated. */
+  model?: number;
+  /** The fair chance nudged toward the model's: what LayLock thinks, and the EV at the best price on it. */
+  chance?: number;
+  modelEv?: number;
 }
 
 export interface MarketView {
@@ -41,6 +47,8 @@ export interface GameBoard {
   away: string;
   start: string;
   markets: MarketView[];
+  /** The ratings model's expected score, when both teams are rated. */
+  projected?: { home: number; away: number };
 }
 
 /** Below this many books a "best price" is just one book's number; don't call it an edge. */
@@ -140,6 +148,32 @@ export function parseGameMarkets(json: any, sport: Sport): GameBoard[] {
     out.push({ id: String(ev.id), sport, home, away: String(ev?.away_team ?? ""), start: String(ev.commence_time), markets });
   }
   return out.sort((a, b) => a.start.localeCompare(b.start));
+}
+
+/** The model's points gap at which a side gets called out as one LayLock leans to. */
+export const MODEL_LEAN = 0.04;
+
+/** Add LayLock's own read to each side: the ratings model's chance, blended with the books' fair one. */
+export function withModel(games: GameBoard[], ratings: Ratings | null): GameBoard[] {
+  if (!ratings) return games;
+  return games.map((g) => {
+    const p = predict(ratings, g.home, g.away);
+    if (!p) return g;
+    return {
+      ...g,
+      markets: g.markets.map((m) => ({
+        ...m,
+        sides: m.sides.map((s) => {
+          const side = m.key === "totals" ? (s.name.toLowerCase() === "over" ? "over" : "under") : s.name === g.home ? "home" : "away";
+          const model = sideChance(g.sport, p, m.key, side, s.point);
+          if (!Number.isFinite(model)) return s;
+          const chance = blend(g.sport, s.fair, model, p.games);
+          return { ...s, model, chance, modelEv: chance * decimalOdds(s.best.price) - 1 };
+        }),
+      })),
+      projected: { home: p.home, away: p.away },
+    };
+  });
 }
 
 /** The flagged sides across a slate, best first. */
