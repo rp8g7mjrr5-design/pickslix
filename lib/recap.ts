@@ -27,7 +27,7 @@ export function recapLine(legs: RecapLeg[]): string {
   const pushes = legs.filter((l) => l.result === "push").length;
   const counted = legs.length - pushes;
   if (!counted) return "All pushed.";
-  const head = hits === counted ? `All ${counted} hit.` : `${hits} of ${counted} hit.`;
+  const head = hits === counted ? (counted === 1 ? "1 for 1." : `All ${counted} hit.`) : `${hits} of ${counted} hit.`;
   const push = pushes ? ` ${pushes} push${pushes === 1 ? "" : "es"}.` : "";
   if (!misses.length) {
     // Brag about the closest call, if one was close.

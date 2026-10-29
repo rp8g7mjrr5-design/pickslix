@@ -1145,3 +1145,5 @@ body[data-coach="3"] .slipbar {
 .installbar > span { flex: 1; min-width: 0; display: grid; }
 .installbar small { color: var(--muted); font-size: 12px; }
 body:has(.slipbar) .installbar, body[data-coach] .installbar { display: none; }
+.lockpage .fine a { color: var(--text); text-decoration: underline; }
+.spots b { white-space: nowrap; }

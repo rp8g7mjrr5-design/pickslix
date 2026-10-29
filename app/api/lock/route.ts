@@ -7,6 +7,9 @@ import { ownerFrom } from "../alerts/owner.ts";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** Picks need the database on Vercel; locally the in-memory store is fine. */
+const canSave = () => dbEnabled() || !process.env.VERCEL;
+
 /** The model's lean stays hidden until you've locked in (or the game has started). */
 const hideLean = (o: LockOption, show: boolean) => (show ? o : { ...o, lean: undefined, leanProb: undefined });
 
@@ -14,11 +17,11 @@ const hideLean = (o: LockOption, show: boolean) => (show ? o : { ...o, lean: und
 export async function GET(req: Request) {
   const now = Date.now();
   const [menu, owner] = await Promise.all([todaysMenu(now).catch(() => null), ownerFrom(new URL(req.url).searchParams.get("code"))]);
-  const entries = owner && dbEnabled() ? await loadEntries(owner, now).catch(() => []) : [];
+  const entries = owner && canSave() ? await loadEntries(owner, now).catch(() => []) : [];
   const today = menu ? entries.find((e) => e.date === menu.date) : undefined;
   const record = lockRecord(entries);
   return NextResponse.json({
-    enabled: dbEnabled(),
+    enabled: canSave(),
     menu: menu ? { date: menu.date, options: menu.options.map((o) => hideLean(o, Boolean(today) || Date.parse(o.gameTime) <= now)) } : null,
     today: today ?? null,
     record,
@@ -33,7 +36,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { optionId, side, code } = (await req.json().catch(() => ({}))) as { optionId?: unknown; side?: unknown; code?: unknown };
   const owner = await ownerFrom(code);
-  if (!owner || !dbEnabled() || typeof optionId !== "string" || (side !== "OVER" && side !== "UNDER")) {
+  if (!owner || !canSave() || typeof optionId !== "string" || (side !== "OVER" && side !== "UNDER")) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   const entry = await lockIn(owner, optionId, side);
