@@ -1,10 +1,11 @@
-# Phone alerts need checking more often than Vercel's free daily cron allows, so GitHub runs the check.
+# Phone alerts need checking more often than Vercel's free daily cron allows, so GitHub runs the check every
+# 30 minutes (about 1,500 runs a month, inside the free Actions minutes even for a private repo).
 # Set two repository secrets (Settings → Secrets and variables → Actions): SITE_URL (e.g. https://laylock.app)
 # and CRON_SECRET (the same value as on Vercel). Without them the job does nothing.
 name: Pick alerts
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 jobs:
   check:

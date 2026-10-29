@@ -44,8 +44,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* Archivo Expanded Black is only used for the wordmark. */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&display=swap" />
+        {/* Inter for reading; Archivo (expanded) for the wordmark, headings and big numbers. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,600..900&family=Inter:wght@400..800&display=swap"
+        />
       </head>
       <body>
         <AccountProvider>
@@ -79,6 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
         </footer>
+        <Nav bottom />
         <UsernameGate />
         <Install />
         </AccountProvider>

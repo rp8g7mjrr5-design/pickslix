@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Calibration } from "@/lib/calibration.ts";
+import Avatar from "@/components/Avatar";
 import { EnvNote, MarketNote, SplitChips } from "@/components/Insights";
 import { project, statValue } from "@/lib/model.ts";
 import { nflAdjust, type NflSlice } from "@/lib/nflverse.ts";
@@ -215,8 +216,8 @@ function Logo({ team, size }: { team: Team; size: number }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={team.logo} alt="" width={size} height={size} className="teamlogo" loading="lazy" onError={() => setBroken(true)} />
   ) : (
-    <span className="teamlogo fallback" style={{ width: size, height: size }}>
-      {team.abbr.slice(0, 1)}
+    <span className="teamlogo fallback" style={{ width: size, height: size, fontSize: Math.round(size * (team.abbr.length > 2 ? 0.3 : 0.36)), ...(team.color ? { background: `#${team.color.replace("#", "")}` } : {}) }}>
+      {team.abbr}
     </span>
   );
 }
@@ -438,17 +439,10 @@ function PlayerRow({
     .map((s) => `${player.avg[s]} ${SHORT[s]}`)
     .join(" · ");
 
-  const [noPhoto, setNoPhoto] = useState(false);
-
   return (
     <div className={`playerwrap ${open ? "open" : ""} ${player.injury === "out" ? "isout" : ""}`}>
       <button className="playerrow" onClick={onToggle} aria-expanded={open}>
-        {player.headshot && !noPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={player.headshot} alt="" className="headshot" loading="lazy" onError={() => setNoPhoto(true)} />
-        ) : (
-          <span className="headshot fallback">{player.name.slice(0, 1)}</span>
-        )}
+        <Avatar name={player.name} team={team.abbr} color={team.color} src={player.headshot} size={44} className="headshot" />
         <span className="pinfo">
           <strong>
             {player.name}

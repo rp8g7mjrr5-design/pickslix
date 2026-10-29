@@ -255,7 +255,7 @@ from the profile or tracker; on iPhone the site has to be added to the Home Scre
 1. Make keys with `npx web-push generate-vapid-keys` and set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and
    `VAPID_PRIVATE_KEY` on Vercel (optionally `VAPID_SUBJECT`, a `mailto:` address). Redeploy.
 2. On the GitHub repo add the secrets `SITE_URL` (your site's address) and `CRON_SECRET` (same as on Vercel).
-   `.github/workflows/alerts.yml` then calls `/api/cron/alerts` every 15 minutes.
+   `.github/workflows/alerts.yml` then calls `/api/cron/alerts` every 30 minutes.
 
 **Live sweat** (`lib/live.ts`, `/api/live`): while a game on an open pick is on, the tracker's "Live now" section
 reads ESPN's in-game box score every 30 seconds (only while the page is visible) and shows the stat so far against

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SignInPrompt, useAccount } from "@/components/Account";
+import Avatar from "@/components/Avatar";
 import { pct } from "@/lib/format.ts";
 import { BADGES, type LockEntry, type LockOption, type LockRecord } from "@/lib/lock.ts";
 import { syncCode } from "@/lib/storage.ts";
@@ -106,11 +107,12 @@ export default function DailyLock() {
 
       <section className="lockstreak">
         <div className="lockcount">
-          <span className="lockflame" aria-hidden>
-            {r.streak >= 5 ? "🔥" : "🔒"}
-          </span>
+          <StreakRing streak={r.streak} next={data.next} />
           <div>
-            <strong>{r.streak}</strong>
+            <span className="eyebrow">Current streak</span>
+            <strong>
+              {r.streak} {r.streak >= 5 ? "🔥" : ""}
+            </strong>
             <small>{r.streak === 1 ? "hit in a row" : "hits in a row"}</small>
           </div>
         </div>
@@ -156,10 +158,11 @@ export default function DailyLock() {
           const closed = Date.parse(o.gameTime) <= Date.now() || started;
           return (
             <div key={o.id} className={`lockoption ${mine ? "mine" : ""}`}>
+              <Avatar name={o.player} team={o.team} size={44} />
               <div>
                 <strong>{o.player}</strong>
-                <span>
-                  {o.line} {STATS[o.stat].label}
+                <span className="lockline">
+                  <b>{o.line}</b> {STATS[o.stat].label}
                 </span>
                 <small>
                   {o.sport} · {o.team} vs {o.opponent} · {when(o.gameTime)}
@@ -242,6 +245,29 @@ export default function DailyLock() {
         Free to play, no money involved. Lines come from today's Pick 6 board and grade from the box score. <Link href="/help">How it works</Link>
       </p>
     </div>
+  );
+}
+
+/** The streak as a ring that fills toward the next badge. */
+function StreakRing({ streak, next }: { streak: number; next: number | null }) {
+  const R = 34;
+  const C = 2 * Math.PI * R;
+  const prev = BADGES.filter((b) => b <= streak).pop() ?? 0;
+  const share = next ? (streak - prev) / (next - prev) : 1;
+  return (
+    <svg className="streakring" viewBox="0 0 80 80" width="80" height="80" aria-hidden>
+      <defs>
+        <linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ffd66b" />
+          <stop offset="1" stopColor="#ff8a3d" />
+        </linearGradient>
+      </defs>
+      <circle cx="40" cy="40" r={R} className="ringtrack" />
+      {share > 0 && <circle cx="40" cy="40" r={R} className="ringfill" strokeDasharray={`${share * C} ${C}`} />}
+      <text x="40" y="40" dominantBaseline="central" textAnchor="middle">
+        🔒
+      </text>
+    </svg>
   );
 }
 

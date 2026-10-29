@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Checks everyone's open picks and sends phone alerts. Meant to run every 15 minutes or so: the GitHub
+ * Checks everyone's open picks and sends phone alerts. Meant to run every 30 minutes: the GitHub
  * Actions workflow in .github/workflows/alerts.yml calls it with `Authorization: Bearer $CRON_SECRET`.
  * It also locks in the pick of the day and the Daily Lock menu once lines are up, and grades past ones.
  */
