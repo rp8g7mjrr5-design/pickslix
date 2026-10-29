@@ -193,3 +193,24 @@ export async function redeemCode(rawCode: string): Promise<{ key: string } | { e
   await kvSet(passKey(key), { plan: "lifetime", createdAt: new Date().toISOString(), code } satisfies ProPass);
   return { key };
 }
+
+/** Days free before the first charge on a new subscription (PRO_TRIAL_DAYS, default 7; 0 turns it off). */
+export function trialDays(): number {
+  const n = Number(process.env.PRO_TRIAL_DAYS ?? 7);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+const trialUsedKey = (userId: string) => `trialused:${userId}`;
+
+/**
+ * One free trial per account, and only for accounts that never paid: a free week from invites doesn't count.
+ * Signed-out buyers can't be told apart, so they don't get one.
+ */
+export async function trialEligible(userId: string | null, proKey?: string): Promise<boolean> {
+  if (!userId || !trialDays()) return false;
+  if (await kvGet(trialUsedKey(userId)).catch(() => null)) return false;
+  const pass = proKey ? await kvGet<ProPass>(passKey(proKey)).catch(() => null) : null;
+  return !pass || pass.plan === "trial";
+}
+
+export const markTrialUsed = (userId: string) => kvSet(trialUsedKey(userId), new Date().toISOString());

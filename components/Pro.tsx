@@ -4,6 +4,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getProKey, setProKey, usePro } from "@/lib/proClient.ts";
 import { SignInPrompt, SignInTrouble, useAccount } from "@/components/Account";
+import { pct } from "@/lib/format.ts";
+import type { SoftRecord } from "@/lib/softRecord.ts";
+import { STATS } from "@/lib/types.ts";
 
 interface Config {
   required: boolean;
@@ -14,6 +17,8 @@ interface Config {
   monthlyLabel: string | null;
   yearlyLabel: string | null;
   amounts?: { monthly: Price | null; yearly: Price | null };
+  trialDays?: number;
+  trialOnSignIn?: number;
 }
 interface Price {
   amount: number;
@@ -32,7 +37,7 @@ const TIERS: { name: string; free: boolean | string; monthly: boolean | string; 
   { name: "Tracker with auto-grading", free: true, monthly: true, yearly: true },
   { name: "Crews and the leaderboard", free: true, monthly: true, yearly: true },
   { name: "Injury ripple alerts", free: true, monthly: true, yearly: true },
-  { name: "Soft-line finder and alerts", free: false, monthly: true, yearly: true },
+  { name: "Soft-line finder and alerts", free: "1 a day", monthly: true, yearly: true },
   { name: "Pick 6 lines filled in", free: false, monthly: true, yearly: true },
   { name: "Build my best slip", free: false, monthly: true, yearly: true },
   { name: "Insights and model report card", free: false, monthly: true, yearly: true },
@@ -43,6 +48,7 @@ const TIERS: { name: string; free: boolean | string; monthly: boolean | string; 
 const TIP_URL = process.env.NEXT_PUBLIC_TIP_URL;
 
 const PERKS = [
+  ["Soft lines, found for you", "Every Pick 6 line the sportsbooks have moved past, the moment it opens up, with a phone alert."],
   ["Pick 6 lines, filled in", "Open any game and every posted line is already set. No typing numbers in."],
   ["Build my best slip", "One tap builds a 2 to 6 pick slip from the model's strongest picks, one per game."],
   ["Your insights", "Profit over time, ROI, streaks, and the stats you hit most (and least)."],
@@ -72,9 +78,14 @@ export default function Pro() {
   // With accounts on, Pro is bought and redeemed while signed in, so it's saved to the account.
   const needSignIn = account.enabled && !account.signedIn;
 
+  const [record, setRecord] = useState<SoftRecord | null>(null);
   useEffect(() => {
     setKey(getProKey());
     fetch("/api/pro/config").then((r) => r.json()).then(setConfig).catch(() => {});
+    fetch("/api/edges/record")
+      .then((r) => r.json() as Promise<{ record: SoftRecord | null }>)
+      .then((d) => setRecord(d.record))
+      .catch(() => {});
   }, []);
 
   // Back from Stripe Checkout: turn the payment into a Pro key.
@@ -157,6 +168,8 @@ export default function Pro() {
   // A free week from inviting friends: Pro now, but still free to buy a plan.
   const trial = isPro && status?.plan === "trial";
   const paid = isPro && !trial;
+  // Free days a new subscriber gets at checkout (once they're signed in, when accounts are on).
+  const freeDays = paid ? 0 : config?.trialDays || config?.trialOnSignIn || 0;
   const trialEnds = status?.until ? new Date(status.until).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
   // Back from signing in to buy a plan: go straight on to checkout.
@@ -180,9 +193,16 @@ export default function Pro() {
             ? `Everything is unlocked until ${trialEnds}. Invite more friends for more free weeks, or pick a plan to keep it.`
             : isPro
             ? `Thanks for supporting LayLock${status?.plan === "lifetime" ? " (lifetime)" : ""}. Everything is unlocked on this device.`
-            : "Lines filled in for every game, one-tap best slips, and insights on how you really do."}
+            : "Soft lines the moment they open, lines filled in for every game, one-tap best slips, and insights on how you really do."}
         </p>
+        {freeDays > 0 && !isPro && (
+          <span className="trialpill">
+            Try it free for {freeDays} days. Cancel before it ends and you pay nothing.
+          </span>
+        )}
       </section>
+
+      {record && <Proof record={record} />}
 
       {note && (
         <p className="note pronote" role="status">
@@ -197,6 +217,7 @@ export default function Pro() {
         canBuy={!paid && Boolean(config?.checkout)}
         busy={busy}
         onBuy={checkout}
+        freeDays={freeDays}
       />
 
       {!isPro && needSignIn && (config?.checkout || config?.codes) && (
@@ -316,6 +337,36 @@ export default function Pro() {
   );
 }
 
+/** The soft-line record: what Pro would have found you, graded from the box scores. */
+function Proof({ record }: { record: SoftRecord }) {
+  return (
+    <section className="proof" aria-label="Soft-line track record">
+      <div className="proofhead">
+        <div>
+          <span className="eyebrow">The proof</span>
+          <strong className="proofrate">{pct(record.rate!)}</strong>
+          <small>
+            {record.hits}–{record.misses} on the soft lines we flagged in the last 30 days
+          </small>
+        </div>
+      </div>
+      {record.recent.length > 0 && (
+        <ul className="proofrecent">
+          {record.recent.map((e) => (
+            <li key={`${e.player}-${e.stat}-${e.gameTime}`}>
+              <span>
+                {e.player} {e.side === "OVER" ? "More" : "Less"} {e.line} {STATS[e.stat].label}
+              </span>
+              <span className={`legresult ${e.result}`}>{e.result === "hit" ? "✓ Hit" : e.result === "miss" ? "✗ Miss" : "Push"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <small className="muted">Every one is graded from the box score, misses included. Past results don't promise future ones.</small>
+    </section>
+  );
+}
+
 const mark = (v: boolean) => (v ? <span className="tick" aria-label="Included">✓</span> : <span className="dash" aria-label="Not included">–</span>);
 
 /** Free, Monthly and Yearly side by side, with what each one gets. */
@@ -325,12 +376,14 @@ function Tiers({
   canBuy,
   busy,
   onBuy,
+  freeDays,
 }: {
   config: Config | null;
   current: string;
   canBuy: boolean;
   busy: string;
   onBuy: (plan: "monthly" | "yearly") => void;
+  freeDays: number;
 }) {
   const m = config?.amounts?.monthly;
   const y = config?.amounts?.yearly;
@@ -341,7 +394,7 @@ function Tiers({
       id: "monthly",
       title: "Pro Monthly",
       price: config?.monthlyLabel ?? (m ? `${money(m)}/mo` : "Monthly"),
-      sub: "Cancel anytime",
+      sub: freeDays ? `Free for ${freeDays} days, then cancel anytime` : "Cancel anytime",
       col: "monthly" as const,
       show: config?.monthly ?? true,
     },
@@ -379,7 +432,7 @@ function Tiers({
               <span className="tiercurrent">{onLifetime && p.id === "yearly" ? "You have lifetime Pro (gold)" : "Your plan"}</span>
             ) : p.id !== "free" && canBuy ? (
               <button className={p.id === "yearly" ? "" : "ghost"} onClick={() => onBuy(p.id as "monthly" | "yearly")} disabled={!!busy}>
-                {busy === p.id ? "Opening checkout…" : `Get ${p.title}`}
+                {busy === p.id ? "Opening checkout…" : freeDays ? `Start ${freeDays}-day free trial` : `Get ${p.title}`}
               </button>
             ) : null}
           </div>
