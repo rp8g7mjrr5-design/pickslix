@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Avatar from "@/components/Avatar";
 import GamePicker from "@/components/GamePicker";
 import { SplitChips } from "@/components/Insights";
 import Welcome from "@/components/Welcome";
@@ -23,6 +24,7 @@ type SportFilter = "ALL" | Sport;
 type SortKey = "edge" | "time" | "player";
 
 const SLIP_KEY = "pickslix.slip";
+const COLLAPSED = 12;
 
 const gameTimeLabel = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -53,6 +55,8 @@ export default function Board() {
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
   const [gameOpen, setGameOpen] = useState(false);
+  // The full list is long; show the best few until asked for the rest.
+  const [showAll, setShowAll] = useState(false);
   // Whether there's anything to load, so a first visit doesn't flash an empty table.
   const [hasLines, setHasLines] = useState(false);
   const [newHere, setNewHere] = useState(false);
@@ -230,9 +234,9 @@ export default function Board() {
           </div>
         )}
         <PickOfDay slip={slip} onPick={pickFromGame} />
-        <Edges slip={slip} onPick={pickFromGame} />
-        <LockTeaser />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
+        <LockTeaser />
+        <Edges slip={slip} onPick={pickFromGame} />
         <Angles slip={slip} onPick={pickFromGame} />
         <Ask slip={slip} onPick={pickFromGame} />
 
@@ -331,7 +335,7 @@ export default function Board() {
               <span>Less</span>
               <span title="Last 10 games; green bars beat the line">Last 10</span>
             </div>
-            {visible.map((r) => {
+            {(showAll || query ? visible : visible.slice(0, COLLAPSED)).map((r) => {
               const p = r.projection;
               const leg = slip.find((l) => l.propId === r.id);
               return (
@@ -350,19 +354,22 @@ export default function Board() {
                     }}
                   >
                     <span className="who">
-                      <strong>
-                        {r.player}
-                        {p.injury === "out" && <b className="tag out">OUT</b>}
-                        {p.injury === "questionable" && <b className="tag q">Q</b>}
-                      </strong>
-                      <small className="mobile-only">
-                        {r.line} {STATS[r.stat].label}
-                      </small>
-                      <small>
-                        {r.sport} · {r.team || "?"}
-                        {r.opponent ? ` vs ${r.opponent}` : ""}
-                        {r.gameTime ? ` · ${gameTimeLabel(r.gameTime)}` : ""}
-                      </small>
+                      <Avatar name={r.player} team={r.team} size={36} />
+                      <span className="whotext">
+                        <strong>
+                          {r.player}
+                          {p.injury === "out" && <b className="tag out">OUT</b>}
+                          {p.injury === "questionable" && <b className="tag q">Q</b>}
+                        </strong>
+                        <small className="mobile-only">
+                          {r.line} {STATS[r.stat].label}
+                        </small>
+                        <small>
+                          {r.sport} · {r.team || "?"}
+                          {r.opponent ? ` vs ${r.opponent}` : ""}
+                          {r.gameTime ? ` · ${gameTimeLabel(r.gameTime)}` : ""}
+                        </small>
+                      </span>
                     </span>
                     <span>{STATS[r.stat].label}</span>
                     <span className="num">{r.line}</span>
@@ -412,6 +419,11 @@ export default function Board() {
               );
             })}
             {!visible.length && <p className="empty">No lines match.</p>}
+            {!showAll && !query && visible.length > COLLAPSED && (
+              <button className="showall" onClick={() => setShowAll(true)}>
+                Show all {visible.length} lines
+              </button>
+            )}
           </div>
         ) : null}
         {hasMine && !importing && (

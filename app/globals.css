@@ -1147,3 +1147,300 @@ body[data-coach="3"] .slipbar {
 body:has(.slipbar) .installbar, body[data-coach] .installbar { display: none; }
 .lockpage .fine a { color: var(--text); text-decoration: underline; }
 .spots b { white-space: nowrap; }
+
+/* =====================================================================
+   Look and feel. Everything above sets layout; this layer gives it the
+   finish: type, surfaces with depth, the tab bar, and motion.
+   ===================================================================== */
+:root {
+  --bg: #05070a;
+  --panel: #0d1218;
+  --panel-2: #131a23;
+  --panel-3: #1a232e;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.12);
+  --text: #f2f6fa;
+  --muted: #8794a5;
+  --radius: 18px;
+  --display: Archivo, Inter, system-ui, sans-serif;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --glow: 0 10px 30px -8px rgba(43, 245, 155, 0.45);
+  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.5), 0 18px 40px -18px rgba(0, 0, 0, 0.8);
+  --tabh: 0px;
+}
+body {
+  font-family: var(--sans); font-size: 14.5px; letter-spacing: -0.1px;
+  background:
+    radial-gradient(1100px 520px at 15% -12%, rgba(43, 245, 155, 0.11), transparent 60%),
+    radial-gradient(900px 480px at 105% -5%, rgba(122, 107, 255, 0.13), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: var(--display); font-stretch: 112%; }
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.9px; line-height: 1.1; margin-bottom: 4px; }
+h2 { font-weight: 750; letter-spacing: -0.4px; }
+.eyebrow { display: block; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); }
+.hero { margin-bottom: 16px; }
+.hero p, .intro p { font-size: 15px; }
+::selection { background: rgba(43, 245, 155, 0.3); }
+
+/* Surfaces: one card look everywhere. */
+:is(.table, .slip, .card, .saved, .report, .edges, .lockmenu, .lockrecent, .lockleaders, .lockteaser, .livesweat, .import,
+    .check, .steps li, .ask, .pulsecard, .leader, .crewcard, .crewforms form, .perk, button.plan, .tier, .profilehead,
+    .emptycard, .lockstreak, .potd, .gamecard, .gameview, .bigside, .market) {
+  border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--lift);
+}
+:is(.table, .slip, .card, .saved, .report, .edges, .lockmenu, .lockrecent, .lockleaders, .lockteaser, .livesweat, .import,
+    .check, .steps li, .ask, .pulsecard, .leader, .crewcard, .crewforms form, .perk, button.plan, .tier, .emptycard) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 120px), var(--panel);
+}
+.emptycard { border-style: dashed; border-color: var(--line-2); box-shadow: none; }
+:is(.edges, .lockmenu, .lockrecent, .lockleaders, .livesweat, .ask, .pulsecard, .report, .saved) { padding: 16px 18px; }
+:is(.edgeshead, .pulsehead, .reporthead, .lockmenuhead) h2, .slip h2, .lockpage h2, .livesweat h2 { font-size: 17px; }
+
+/* Numbers people read at a glance. */
+.card strong, .lockcount strong, .leader .num strong, .stat.big strong, .livefoot strong, .bigside strong, .recaphead {
+  font-family: var(--display); font-stretch: 112%; font-variant-numeric: tabular-nums; letter-spacing: -0.6px;
+}
+.card { padding: 16px; }
+.card strong { font-size: 28px; font-weight: 800; display: block; margin: 2px 0; }
+.card > small:first-child, .card > span:first-child { text-transform: uppercase; font-size: 11px; letter-spacing: 0.9px; font-weight: 700; }
+
+/* Buttons. */
+button:where(:not([class*="cl-"])), a.button {
+  border-radius: 12px; font-weight: 750; letter-spacing: -0.1px;
+  transition: transform 0.12s ease, filter 0.15s, background 0.15s, box-shadow 0.2s, border-color 0.15s;
+}
+button:where(:not([class*="cl-"]):not(.ghost):not(.side):not(.x):not(.linkish):not(.chip):not(.playerrow):not(.gamecard):not(.bigside):not(.plan):not(.tipbtn)),
+a.button { box-shadow: var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+button:where(:not([class*="cl-"])):active:not(:disabled), a.button:active, .tabbar a:active, .lockteaser:active, .crewcard:active { transform: scale(0.97); }
+button.ghost { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02); box-shadow: none; }
+:where(input, select, textarea):not([class*="cl-"]) {
+  border-radius: 12px; background: var(--panel-2); border-color: var(--line-2); padding: 10px 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+:where(input, select, textarea):not([class*="cl-"]):focus { border-color: rgba(43, 245, 155, 0.6); box-shadow: 0 0 0 3px rgba(43, 245, 155, 0.15); }
+.seg, .tabs { border-radius: 12px; background: rgba(0, 0, 0, 0.35); border-color: var(--line); }
+.seg button, .tabs button { border-radius: 9px; box-shadow: none; }
+.seg button.on, .tabs button.active { background: var(--panel-3); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.4); }
+
+/* Avatars. */
+.avatar2 {
+  flex: none; display: inline-grid; place-items: center; border-radius: 50%; font-weight: 800; letter-spacing: -0.3px;
+  font-family: var(--display); font-stretch: 112%; color: #fff; object-fit: cover;
+  background: radial-gradient(120% 120% at 30% 20%, hsl(var(--h) 70% 52%), hsl(var(--h) 65% 26%));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 4px 12px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.avatar2.teamc { background: radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--c) 85%, white), color-mix(in srgb, var(--c) 70%, black)); }
+.avatar2.photo { background: var(--panel-3); }
+.teamlogo.fallback { color: #fff; font-family: var(--display); font-stretch: 112%; background: var(--panel-3); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+
+/* ---- Top bar ---- */
+.topbar { background: rgba(5, 7, 10, 0.72); backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); border-bottom-color: var(--line); }
+.wordmark { font-size: 19px; }
+.mainnav { border-radius: 14px; padding: 4px; background: rgba(255, 255, 255, 0.03); border-color: var(--line); }
+.mainnav a { border-radius: 10px; }
+.mainnav a.active { background: linear-gradient(var(--panel-3), var(--panel-3)) padding-box, var(--brand) border-box; }
+.navicon { position: relative; display: inline-grid; place-items: center; }
+.mainnav .navicon svg { width: 17px; height: 17px; }
+.mainnav .navicon .navcount { margin-left: 6px; }
+.mainnav .navicon { display: inline-flex; align-items: center; }
+
+/* ---- Bottom tab bar (phones) ---- */
+.tabbar { display: none; }
+@media (max-width: 760px) {
+  :root { --tabh: calc(62px + env(safe-area-inset-bottom)); }
+  .tabbar {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; z-index: 45; left: 0; right: 0; bottom: 0;
+    height: var(--tabh); padding: 6px 6px env(safe-area-inset-bottom);
+    background: rgba(8, 11, 15, 0.82); backdrop-filter: saturate(160%) blur(18px); -webkit-backdrop-filter: saturate(160%) blur(18px);
+    border-top: 1px solid var(--line);
+  }
+  .tabbar a {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    color: var(--muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1px; border-radius: 12px; transition: color 0.15s;
+  }
+  .tabbar a.active { color: var(--text); }
+  .tabbar a.active .navicon { color: var(--accent); }
+  .tabbar a.active::before {
+    content: ""; position: absolute; top: -6px; width: 28px; height: 3px; border-radius: 0 0 3px 3px; background: var(--brand);
+    box-shadow: 0 0 14px rgba(43, 245, 155, 0.8);
+  }
+  .tabbar .navicon svg { width: 22px; height: 22px; }
+  .tabbar .navcount { position: absolute; top: -5px; left: 13px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 4px; box-shadow: 0 0 0 2px #080b0f; }
+  /* The top bar keeps only what the tab bar doesn't have (Pro, Admin). */
+  .mainnav a.primary { display: none; }
+  .mainnav:not(:has(a:not(.primary))) { display: none; }
+  .mainnav .navlabel { display: none; }
+  .mainnav a { padding: 7px 10px; }
+  .foot { padding-bottom: calc(var(--tabh) + 90px); }
+  .slipbar { bottom: calc(var(--tabh) + 10px) !important; }
+  .installbar, .coach { bottom: calc(var(--tabh) + 10px); }
+  .toast { bottom: calc(var(--tabh) + 76px); }
+  .tipbox { bottom: calc(var(--tabh) + 80px); }
+  .sheetfoot { bottom: var(--tabh); }
+  h1 { font-size: 25px; }
+}
+
+/* ---- Board ---- */
+.intro h1 { font-size: 30px; letter-spacing: -1.1px; }
+.intro h1 { background: linear-gradient(180deg, #fff, #b9c4d1); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.table { overflow: hidden; }
+.row { padding: 12px 16px; }
+.row.head { background: rgba(255, 255, 255, 0.02); font-weight: 700; letter-spacing: 0.8px; }
+.rowwrap { border-top-color: var(--line); transition: background 0.15s; }
+.rowwrap:hover, .rowwrap.open { background: rgba(255, 255, 255, 0.025); }
+.row .who { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.row .whotext { min-width: 0; display: grid; }
+.row .who strong { font-size: 14.5px; letter-spacing: -0.2px; }
+.side {
+  border-radius: 12px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); box-shadow: none;
+  font-family: var(--display); font-stretch: 108%; font-size: 14px; padding: 8px 0; transition: transform 0.12s, background 0.15s, border-color 0.15s;
+}
+.side small { font-family: var(--sans); letter-spacing: 0.6px; }
+.side.best { border-color: rgba(43, 245, 155, 0.45); background: rgba(43, 245, 155, 0.07); color: var(--over); }
+.side.selected { background: var(--brand); border-color: transparent; color: var(--accent-ink); box-shadow: var(--glow); }
+.spark i.over { background: linear-gradient(180deg, #6dffbd, #19b871); }
+.spark i.under { background: #3a2a30; }
+.showall {
+  display: block; width: 100%; border-radius: 0; background: transparent !important; color: var(--accent) !important;
+  border-top: 1px solid var(--line) !important; padding: 14px; box-shadow: none !important; font-weight: 750;
+}
+.showall:hover { background: rgba(43, 245, 155, 0.05) !important; }
+.detail ul { color: #c6d0db; }
+.banner { border-radius: 12px; }
+
+/* Games strip. */
+.gameshead h2 { font-size: 21px; }
+.gamecard { border-radius: 16px; min-height: 116px; padding: 13px; }
+.gamecard:hover:not(:disabled) { border-color: var(--line-2); }
+.teamline strong { font-family: var(--display); font-stretch: 112%; font-size: 16px; }
+.gameview { border-radius: 22px; }
+.matchup strong { font-family: var(--display); font-stretch: 108%; font-size: 18px; letter-spacing: -0.4px; }
+.playerrow { border-radius: 14px; padding: 10px; }
+.headshot { border: 0; }
+.pinfo strong { font-size: 15px; letter-spacing: -0.2px; }
+.bigside { border-radius: 14px; padding: 14px 16px; background: rgba(255, 255, 255, 0.03); }
+.bigside.over.best, .bigside.under.best { border-color: rgba(43, 245, 155, 0.45); box-shadow: inset 0 0 0 1px rgba(43, 245, 155, 0.3), var(--lift); }
+.bigside.over.selected { background: var(--brand); box-shadow: var(--glow); }
+.chip.on { background: var(--brand); color: var(--accent-ink); border-color: transparent; }
+.stepper > button { border-radius: 12px; }
+.stepper input { font-family: var(--display); font-stretch: 112%; }
+.sheetfoot { background: rgba(8, 11, 15, 0.8); }
+
+/* Pick of the day: the hero of the Board. */
+.potd {
+  position: relative; overflow: hidden; padding: 18px; margin-bottom: 18px;
+  background:
+    radial-gradient(140% 120% at 100% 0%, rgba(122, 107, 255, 0.28), transparent 55%),
+    radial-gradient(120% 140% at 0% 100%, rgba(43, 245, 155, 0.2), transparent 60%),
+    linear-gradient(180deg, #121a22, #0b1015);
+  border: 1px solid rgba(43, 245, 155, 0.28);
+  box-shadow: var(--lift), 0 20px 50px -24px rgba(43, 245, 155, 0.45);
+}
+.potd::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.06) 45%, transparent 60%);
+  background-size: 250% 100%; animation: sheen 6s ease-in-out infinite;
+}
+@keyframes sheen { 0%, 60% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+.potdplayer { font-family: var(--display); font-stretch: 112%; font-size: 24px; font-weight: 800; letter-spacing: -0.8px; }
+.potdline { font-size: 15px; }
+.potdrecord { background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); }
+
+/* Daily Lock teaser. */
+.lockteaser {
+  background:
+    radial-gradient(120% 160% at 0% 50%, rgba(255, 194, 75, 0.14), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent), var(--panel);
+  padding: 14px 16px; transition: transform 0.12s, border-color 0.15s;
+}
+.lockteaser .lockflame {
+  width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; font-size: 21px;
+  background: linear-gradient(135deg, rgba(255, 214, 107, 0.25), rgba(255, 138, 61, 0.15)); border: 1px solid rgba(255, 194, 75, 0.3);
+}
+.lockteaser strong { font-family: var(--display); font-stretch: 108%; letter-spacing: -0.2px; }
+
+/* Edges, Angles, Ask. */
+.edge { padding-top: 12px; }
+.edge strong { letter-spacing: -0.2px; }
+.ask { background: radial-gradient(120% 160% at 100% 0%, rgba(122, 107, 255, 0.14), transparent 60%), var(--panel); }
+.askexamples .chip { background: rgba(255, 255, 255, 0.03); border-color: var(--line-2); }
+
+/* ---- Slip ---- */
+.slip { background: linear-gradient(180deg, rgba(43, 245, 155, 0.05), transparent 160px), var(--panel); padding: 18px; }
+.leg { border-bottom-color: var(--line); padding: 11px 0; }
+.pill { border-radius: 8px; letter-spacing: 0.5px; }
+.pill.over { background: rgba(43, 245, 155, 0.14); }
+.pill.under { background: rgba(255, 93, 115, 0.14); }
+.stat.big strong { font-size: 30px; }
+@media (max-width: 900px) {
+  .slipbar { border-radius: 16px; padding: 13px 18px; box-shadow: var(--glow), 0 14px 34px rgba(0, 0, 0, 0.6); }
+}
+
+/* ---- Tracker ---- */
+.saved { padding: 16px 18px; }
+.savedtitle strong { font-family: var(--display); font-stretch: 108%; letter-spacing: -0.2px; }
+.legresult { letter-spacing: 0.2px; }
+.bucketbar { height: 8px; background: var(--panel-3); }
+
+/* ---- Daily Lock ---- */
+.lockstreak {
+  padding: 22px; gap: 16px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(255, 194, 75, 0.22), transparent 55%),
+    radial-gradient(100% 120% at 100% 100%, rgba(255, 93, 115, 0.12), transparent 60%),
+    linear-gradient(180deg, #141a22, #0c1117);
+  border-color: rgba(255, 194, 75, 0.22);
+}
+.lockcount { gap: 16px; }
+.lockcount .eyebrow { color: #ffc24b; }
+.lockcount strong { font-size: 52px; font-weight: 900; letter-spacing: -2px; }
+.streakring { flex: none; transform: rotate(-90deg); filter: drop-shadow(0 6px 18px rgba(255, 160, 60, 0.35)); }
+.streakring text { transform: rotate(90deg); transform-origin: 40px 40px; font-size: 26px; }
+.ringtrack { fill: rgba(0, 0, 0, 0.3); stroke: rgba(255, 255, 255, 0.08); stroke-width: 7; }
+.ringfill { fill: none; stroke: url(#ringgrad); stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray 0.8s ease; }
+.lockstats span { background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); padding: 5px 11px; border-radius: 999px; font-size: 13px; }
+.lockbadge { width: 38px; height: 38px; font-family: var(--display); }
+.lockoption { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 0; border-top-color: var(--line); }
+.lockoption > div:nth-child(2) { display: grid; gap: 1px; min-width: 0; }
+.lockoption strong { font-size: 15px; letter-spacing: -0.2px; }
+.lockline b { font-family: var(--display); font-stretch: 108%; font-size: 16px; }
+.lockoption.mine { margin: 0 -10px; padding: 14px 10px; border-radius: 14px; background: rgba(43, 245, 155, 0.06); border-top-color: transparent; }
+.locksides .side { min-width: 72px; padding: 10px 0; }
+@media (max-width: 520px) {
+  .lockoption { grid-template-columns: auto minmax(0, 1fr); }
+  .lockoption .locksides { grid-column: 1 / -1; }
+}
+
+/* ---- Leaders, Crews, Profile, Pro ---- */
+.leader { padding: 14px 16px; }
+.leader.top1 { background: linear-gradient(90deg, rgba(255, 194, 75, 0.16), var(--panel) 65%); border-color: rgba(255, 194, 75, 0.3); }
+.leader.top2 { background: linear-gradient(90deg, rgba(201, 210, 221, 0.1), var(--panel) 65%); }
+.leader.top3 { background: linear-gradient(90deg, rgba(208, 138, 90, 0.12), var(--panel) 65%); }
+.leader .place { font-family: var(--display); font-size: 18px; }
+.crewcard { transition: transform 0.12s, border-color 0.15s; }
+.crewcard:hover { border-color: var(--line-2); background: var(--panel-2); }
+.crewavatar { border-radius: 14px; box-shadow: var(--glow); font-family: var(--display); }
+.profilehead {
+  padding: 22px; background: radial-gradient(120% 160% at 0% 0%, rgba(43, 245, 155, 0.16), transparent 55%),
+    radial-gradient(100% 140% at 100% 100%, rgba(122, 107, 255, 0.16), transparent 60%), var(--panel);
+}
+.profilehead .avatar { width: 72px; height: 72px; box-shadow: 0 0 0 4px rgba(43, 245, 155, 0.15); }
+.form i { border-radius: 10px; font-family: var(--display); }
+.form i.hit { background: var(--brand); box-shadow: 0 4px 12px -2px rgba(43, 245, 155, 0.45); }
+.prohero h1 { font-size: 36px; letter-spacing: -1.4px; }
+.tier { border-radius: 20px; }
+.pulsestats div { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 12px; }
+
+/* ---- Motion ---- */
+/* Cards rise in on arrival. Fill mode "backwards" only, so nothing keeps a transform afterwards (one would trap fixed bars). */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+.boardcol > *, .lockpage > *, .tracker > *, .profile > * { animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.boardcol > :nth-child(2), .lockpage > :nth-child(2), .tracker > :nth-child(2), .profile > :nth-child(2) { animation-delay: 0.04s; }
+.boardcol > :nth-child(3), .lockpage > :nth-child(3), .tracker > :nth-child(3), .profile > :nth-child(3) { animation-delay: 0.08s; }
+.boardcol > :nth-child(4), .lockpage > :nth-child(4), .tracker > :nth-child(4), .profile > :nth-child(4) { animation-delay: 0.12s; }
+.boardcol > :nth-child(n + 5), .lockpage > :nth-child(n + 5), .tracker > :nth-child(n + 5), .profile > :nth-child(n + 5) { animation-delay: 0.16s; }
+@media (prefers-reduced-motion: reduce) { .potd::after { display: none; } }
