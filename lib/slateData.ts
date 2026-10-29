@@ -31,7 +31,7 @@ const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CBB", "CFB"];
 const MAX_GAMES = 8;
 const MAX_PROPS = 80;
 /** Lines move slowly; rescoring this often is plenty. */
-const FRESH_S = 15 * 60;
+const FRESH_S = 30 * 60;
 
 /** Today's games that haven't started, earliest first. */
 async function todaysGames(date: string, now: number) {

@@ -29,7 +29,7 @@ demo board with made-up lines instead.
 
 ## Today's slate and what's built on it
 
-Every 15 minutes or so (`lib/slateData.ts`, run by the alerts cron), today's posted lines are scored once
+Every 30 minutes at most (`lib/slateData.ts`, kept fresh by the alerts cron), today's posted lines are scored once
 and saved. That scan only uses lines already cached, plus one game's worth a day if nobody has opened
 any, so it costs almost no Odds API credits. Built on it:
 
