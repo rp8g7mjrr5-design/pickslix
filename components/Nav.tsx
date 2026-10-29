@@ -39,6 +39,13 @@ const icons = {
       <path d="M12 14.5v2" />
     </svg>
   ),
+  books: (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="4" width="17" height="16" rx="2.5" />
+      <path d="M3.5 9.5h17M9 9.5V20" />
+      <path d="M12.5 13.5h4.5M12.5 16.5h3" />
+    </svg>
+  ),
   admin: (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z" />
@@ -91,6 +98,7 @@ export default function Nav({ bottom = false }: { bottom?: boolean }) {
   const account = useAccount();
   const items: Item[] = [
     ...LINKS.map((l) => ({ ...l, exact: true, primary: true })),
+    { href: "/books", label: "Books", icon: icons.books, primary: true },
     { href: "/lock", label: "Lock", icon: icons.lock, primary: true },
     // The site-wide leaderboard and Crews are separate tabs; each crew keeps its own standings inside Crews.
     ...(account.enabled

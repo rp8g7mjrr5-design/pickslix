@@ -1474,3 +1474,44 @@ button.ghost { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02
 .proofrate { display: block; font: 900 48px/1 var(--display); font-stretch: 112%; letter-spacing: -2px; margin: 4px 0; color: var(--accent); }
 .proofrecent { list-style: none; margin: 0; padding: 0; display: grid; }
 .proofrecent li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+
+/* ---------- Sportsbook ---------- */
+.sbpage { max-width: 860px; margin: 0 auto; display: grid; gap: 14px; }
+.sbpage h2 { margin: 0 0 2px; font-size: 17px; }
+.sbsports { max-width: 100%; overflow-x: auto; scrollbar-width: none; justify-self: start; }
+.sbsports button { flex-shrink: 0; }
+.sbbest, .sbgames, .sbprops, .sbparlay, .sbempty { padding: 14px 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); display: grid; gap: 10px; }
+.sbbest { border-color: rgba(43, 245, 155, 0.35); }
+.sbrow { display: flex; align-items: center; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sbrow > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.sbrow strong { font-size: 15px; }
+.sbrow button { flex: none; }
+.sbev { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13px; flex: none; }
+.sbgame { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
+.sbgamehead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sbmarket { display: grid; grid-template-columns: 92px 1fr 1fr; gap: 8px; align-items: stretch; }
+.sbmkt { font-size: 13px; font-weight: 700; align-self: center; }
+.sbside { position: relative; display: grid; gap: 1px; text-align: left; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); box-shadow: none; }
+.sbside span { font-size: 13px; color: var(--muted); }
+.sbside strong { font-size: 16px; font-variant-numeric: tabular-nums; }
+.sbside small { font-size: 11px; }
+.sbside.edge { border-color: rgba(43, 245, 155, 0.55); }
+.sbside.on { background: var(--panel-3); border-color: var(--text); }
+.sbside .sbev { position: absolute; top: 7px; right: 9px; font-size: 11px; }
+.sbparlay.empty { opacity: 0.85; }
+.sbparlay .inputs input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+@media (max-width: 520px) {
+  .sbmarket { grid-template-columns: 1fr 1fr; }
+  .sbmkt { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; }
+  .sbrow { flex-wrap: wrap; }
+}
+
+/* ---------- Pick'em app picker ---------- */
+.platformpick { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.platformpick select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; color: var(--text); font-weight: 700; }
+.playtoggle { margin-top: 8px; }
+.tiers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tiers label { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.tiers input { width: 52px; background: transparent; border: 0; color: var(--text); font-weight: 700; padding: 0; }
+.platformrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.platformrow .linkish { font-size: 13px; color: var(--muted); text-decoration: underline; }

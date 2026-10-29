@@ -11,7 +11,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "LayLock", template: "%s · LayLock" },
-  description: "Over/under probabilities for DraftKings Pick 6 player props, from recent games, matchups and injury news.",
+  description: "Over/under probabilities for Pick 6, PrizePicks, Underdog and sportsbook bets, from recent games, matchups, injury news and the sharp books.",
   applicationName: "LayLock",
   appleWebApp: { capable: true, title: "LayLock", statusBarStyle: "black-translucent" },
 };
@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <footer className="foot">
-          Probabilities are model estimates from public stats, not guarantees. Not affiliated with DraftKings. 21+.
+          Probabilities are model estimates from public stats, not guarantees. Not affiliated with DraftKings, PrizePicks, Underdog or any sportsbook. 21+.
           Gambling problem? Call 1-800-GAMBLER. <Link href="/help">How it works</Link> · <Link href="/accuracy">Model accuracy</Link> ·{" "}
           <Link href="/setup">Setup check</Link> · <Link href="/privacy">Privacy</Link> ·{" "}
           <Link href="/terms">Terms</Link>

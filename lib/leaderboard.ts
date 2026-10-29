@@ -1,5 +1,6 @@
 // Leaderboard math. Only picks that count are ones graded from the box score (not marked by hand)
 // and saved before their game started, so nobody climbs by marking wins or adding finished games.
+import { slipProfit, type PayoutTiers, type PlatformId, type Play } from "./platforms.ts";
 
 export interface LeaderLeg {
   result?: "hit" | "miss" | "push";
@@ -10,6 +11,9 @@ export interface LeaderSlip {
   createdAt: string;
   entry: number;
   multiplier: number;
+  platform?: PlatformId;
+  play?: Play;
+  tiers?: PayoutTiers;
   legs: LeaderLeg[];
 }
 
@@ -43,11 +47,9 @@ export function leaderStats(slips: LeaderSlip[]): LeaderStats {
     }
     const entry = Number(s.entry) || 0;
     if (!s.legs.length || !s.legs.every((l) => counts(s, l)) || entry <= 0) continue;
-    const live = s.legs.filter((l) => l.result !== "push");
-    const won = live.length >= 2 && live.every((l) => l.result === "hit");
     settled++;
     staked += entry;
-    profit += won ? entry * (Number(s.multiplier) || 0) - entry : -entry;
+    profit += slipProfit(s);
   }
   return { picks, hits, hitRate: picks ? hits / picks : 0, slips: settled, roi: staked ? profit / staked : null };
 }

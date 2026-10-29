@@ -1,4 +1,5 @@
 "use client";
+import type { PayoutTiers, PlatformId, Play } from "./platforms.ts";
 import type { Prop, Sport, StatKey } from "./types.ts";
 
 export interface SlipLeg {
@@ -30,7 +31,13 @@ export interface SavedSlip {
   id: string;
   createdAt: string;
   entry: number;
+  /** Paid when every pick hits. */
   multiplier: number;
+  /** The pick'em app it was played on (absent on older slips: Pick 6). */
+  platform?: PlatformId;
+  play?: Play;
+  /** Flex: hits → multiplier, as set when saved. */
+  tiers?: PayoutTiers;
   legs: SlipLeg[];
 }
 

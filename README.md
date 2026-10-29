@@ -1,7 +1,8 @@
 # LayLock
 
-Tracks DraftKings Pick 6 over/under player props for NBA and NFL and estimates
-the chance each one hits, using recent games, the opponent matchup, and injury news.
+Scores player-prop over/unders on the pick'em apps (DraftKings Pick 6, PrizePicks, Underdog, Betr Picks, Sleeper)
+and prices sportsbook bets (moneylines, spreads, totals, player props and parlays), estimating the chance each one
+hits from recent games, the opponent matchup, injury news and the sharp books' prices.
 
 ## Run it
 
@@ -26,6 +27,35 @@ demo board with made-up lines instead.
   threes and PRA, for example), only for games that haven't started, and each game's lines are cached
   for everyone for six hours. Fetching pauses before the monthly credits run out.
 - **Paste lines:** one prop per line or text copied from the app (`lib/parseLines.ts`).
+
+## Pick'em apps (`lib/platforms.ts`)
+
+The board, game picker and slip follow the app picked under "Playing on" (saved in the browser):
+
+- **Lines:** each app's own line when The Odds API carries it (`pick6`, `prizepicks`, `underdog`, `betr_us_dfs`, all
+  in the same request as before, so no extra credits). When the app hasn't posted a line, the sportsbooks' line
+  stands in and the card says so. Sleeper isn't in the API, so its lines start from the books'.
+- **Payouts:** each app's standard power table, plus flex tables (PrizePicks Flex Play, Underdog and Betr Flex).
+  Every number can be edited in the slip, since apps change them and vary them for boosted picks.
+- **Flex math:** the slip simulates how many picks hit (same-game picks still move together, `lib/correlation.ts`)
+  and pays each count from the table, so expected profit, break-even per pick and the bankroll coach all work for
+  flex entries. Saved slips remember the app and table, and the tracker, profile and leaderboard pay them that way
+  (a push drops the entry to the smaller table; under two picks left, it's refunded).
+
+## Sportsbook (`lib/books.ts`, `/books`)
+
+- **Game lines:** moneyline, spread and total for every game in a sport from one Odds API call (3 credits, shared by
+  everyone, cached six hours; set `ODDS_MARKETS_TTL` in seconds to refresh more often on a paid plan). Each book's
+  price is de-vigged, Pinnacle and BetOnline counting double, into a fair chance; the best price across books is
+  shown next to it, and sides where the best price beats the fair chance by 2%+ (with 3+ books) are flagged.
+  The same call feeds the game environment's spreads and totals, so the model never pays for it twice.
+- **Player props, bet straight:** every scored prop on today's slate that the books deal, priced with the model's
+  chance at the books' line (restated with the model's distribution when it differs from the pick'em line) against
+  the best over and under price. Ranked by EV; Pro sees the full list.
+- **Parlay / SGP pricer:** tap any price to add it. Shows the fair chance and odds, what the prices parlay to, and EV
+  at the book's quoted price. Same-game props use the correlation model; game lines are treated as unrelated.
+
+`DATA_SOURCE=sample` shows demo sportsbook odds (`lib/sampleBooks.ts`) through the same parser.
 
 ## Today's slate and what's built on it
 

@@ -1,5 +1,6 @@
 // The numbers on someone's profile, from their own saved slips. Unlike the leaderboard this counts every graded
 // pick, marked by hand or not, since it's their own record; the leaderboard's stricter count is shown beside it.
+import { slipMultiplier } from "./platforms.ts";
 import type { SavedSlip, SlipLeg } from "./storage.ts";
 import { STATS, type Sport, type StatKey } from "./types.ts";
 
@@ -79,13 +80,12 @@ export function profileStats(slips: SavedSlip[]): ProfileStats {
       open++;
       continue;
     }
-    const live = s.legs.filter((l) => l.result !== "push");
-    const win = live.length >= 2 && live.every((l) => l.result === "hit");
+    const mult = slipMultiplier(s);
     const entry = Number(s.entry) || 0;
     settled++;
-    if (win) won++;
+    if (mult > 1) won++;
     staked += entry;
-    profit += win ? entry * (Number(s.multiplier) || 0) - entry : -entry;
+    profit += entry * (mult - 1);
   }
 
   const hits = legs.filter((l) => l.result === "hit").length;

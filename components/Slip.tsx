@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { correlatedHitProbability } from "@/lib/correlation.ts";
-import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
+import { pct } from "@/lib/format.ts";
+import { PLATFORMS, breakEvenProb, expectedReturn, hasFlex, payoutTable, type PayoutTiers, type Play } from "@/lib/platforms.ts";
+import { PlatformPicker, usePlatform } from "@/lib/platformClient.tsx";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
 import { STATS, type Prop, type PropWithProjection } from "@/lib/types.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
@@ -31,11 +33,19 @@ export default function Slip({
   const slate = useSlate();
   const pro = usePro();
   const [entry, setEntry] = useState(10);
-  const [multiplier, setMultiplier] = useState<number | null>(null);
+  const platform = usePlatform();
+  const app = PLATFORMS[platform];
+  const MAX_PICKS = app.max;
+  const [play, setPlay] = useState<Play>("power");
+  const flexOk = hasFlex(platform, legs.length);
+  const mode: Play = play === "flex" && flexOk ? "flex" : "power";
+  // Hits → multiplier; edits override the app's standard table until the slip changes size or app.
+  const [edits, setEdits] = useState<PayoutTiers | null>(null);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareNote, setShareNote] = useState("");
-  const mult = multiplier ?? DEFAULT_MULTIPLIERS[legs.length] ?? 0;
+  const tiers: PayoutTiers = edits ?? payoutTable(platform, legs.length, mode);
+  const mult = tiers[legs.length] ?? 0;
   // Same-game picks move together, so the slip's chance is simulated rather than multiplied.
   const corr = useMemo(
     () =>
@@ -48,6 +58,8 @@ export default function Slip({
     [legs, rows],
   );
   const hit = corr.prob;
+  // What a unit staked returns on average: only all-hit pays on a power play, a flex pays by hits.
+  const ret = expectedReturn(corr.dist, tiers);
   // Lines from today's slate that move with this slip.
   const pairs = useMemo(() => {
     if (legs.length >= MAX_PICKS) return [];
@@ -57,8 +69,11 @@ export default function Slip({
     });
     return suggestPairs(withGame, slate);
   }, [legs, rows, slate]);
-  const ev = legs.length >= 2 && entry > 0 && mult > 0 ? hit * mult * entry - entry : 0;
-  const breakEven = mult > 0 ? Math.pow(1 / mult, 1 / Math.max(legs.length, 1)) : 0;
+  const ev = legs.length >= 2 && entry > 0 && mult > 0 ? (ret - 1) * entry : 0;
+  const breakEven = mult > 0 ? breakEvenProb(legs.length, tiers) : 0;
+  const tierList = Object.entries(tiers)
+    .map(([k, v]) => [Number(k), v] as const)
+    .sort((a, b) => b[0] - a[0]);
 
   const linkedNote = corr.linked.length
     ? `${corr.linked
@@ -69,9 +84,9 @@ export default function Slip({
   const outLegs = legs.filter((l) => rows.find((r) => r.id === l.propId)?.projection.status === "out");
 
   useEffect(() => {
-    setMultiplier(null);
+    setEdits(null);
     setSaved(false);
-  }, [legs.length]);
+  }, [legs.length, platform, mode]);
 
   const save = async () => {
     setSaved(true);
@@ -83,7 +98,7 @@ export default function Slip({
       return r ? { ...l, sport: r.sport, team: r.team || undefined, opponent: r.opponent || undefined, gameTime: r.gameTime } : l;
     });
     const id = crypto.randomUUID();
-    persistSlips([{ id, createdAt: new Date().toISOString(), entry, multiplier: mult, legs: withGame }, ...slips]);
+    persistSlips([{ id, createdAt: new Date().toISOString(), entry, multiplier: mult, platform, play: mode, ...(mode === "flex" ? { tiers } : {}), legs: withGame }, ...slips]);
     countForCrowd(id, withGame);
   };
 
@@ -114,16 +129,17 @@ export default function Slip({
         <h2>Your slip</h2>
         {legs.length > 0 && <span className="count">{legs.length}/{MAX_PICKS}</span>}
       </div>
+      <PlatformPicker />
       {!legs.length && (
         <p className="muted">
           {rows.length
-            ? `Tap More or Less on a line to add it. Pick 6 takes 2 to ${MAX_PICKS} picks.`
-            : `Tap a game at the top, pick a player, then tap More or Less. Pick 6 takes 2 to ${MAX_PICKS} picks.`}
+            ? `Tap More or Less on a line to add it. ${app.name} takes ${app.min} to ${MAX_PICKS} picks.`
+            : `Tap a game at the top, pick a player, then tap More or Less. ${app.name} takes ${app.min} to ${MAX_PICKS} picks.`}
         </p>
       )}
       {legs.map((l) => (
         <div key={l.propId} className="leg">
-          <span className={`pill ${l.side === "OVER" ? "over" : "under"}`}>{l.side === "OVER" ? "More" : "Less"}</span>
+          <span className={`pill ${l.side === "OVER" ? "over" : "under"}`}>{l.side === "OVER" ? app.over : app.under}</span>
           <div>
             <strong>{l.player}</strong>
             <small>
@@ -159,7 +175,7 @@ export default function Slip({
             </label>
             <label>
               <span>
-                Payout × <Tip text="What Pick 6 multiplies your entry by if every pick hits. It's shown in the DraftKings app before you submit." />
+                {mode === "flex" ? "All hit pays ×" : "Payout ×"} <Tip text={`What ${app.name} multiplies your entry by if every pick hits. It's shown in the app before you submit.`} />
               </span>
               <input
                 type="number"
@@ -167,15 +183,42 @@ export default function Slip({
                 min={1}
                 step={0.5}
                 value={mult || ""}
-                onChange={(e) => setMultiplier(Math.max(0, Number(e.target.value) || 0))}
-                onBlur={() => mult < 1 && setMultiplier(DEFAULT_MULTIPLIERS[legs.length] ?? 1)}
+                onChange={(e) => setEdits({ ...tiers, [legs.length]: Math.max(0, Number(e.target.value) || 0) })}
+                onBlur={() => mult < 1 && setEdits(null)}
               />
             </label>
           </div>
+          {app.flex && legs.length >= 2 && (
+            <div className="seg playtoggle" role="group" aria-label="Play type">
+              <button className={mode === "power" ? "on" : ""} onClick={() => setPlay("power")} aria-pressed={mode === "power"}>
+                Power
+              </button>
+              <button className={mode === "flex" ? "on" : ""} onClick={() => setPlay("flex")} disabled={!flexOk} aria-pressed={mode === "flex"} title={flexOk ? undefined : `${app.flexName} needs ${Math.min(...Object.keys(app.flex).map(Number))}+ picks`}>
+                {app.flexName}
+              </button>
+            </div>
+          )}
+          {mode === "flex" && tierList.length > 1 && (
+            <div className="tiers" aria-label="Flex payouts">
+              {tierList.map(([k, v]) => (
+                <label key={k}>
+                  {k}/{legs.length} ×
+                  <input type="number" inputMode="decimal" min={0} step={0.05} value={v} onChange={(e) => setEdits({ ...tiers, [k]: Math.max(0, Number(e.target.value) || 0) })} />
+                  <small>{pct(corr.dist[k] ?? 0)}</small>
+                </label>
+              ))}
+            </div>
+          )}
           {legs.length >= 2 && (
             <>
+              {mode === "flex" && (
+                <div className="stat">
+                  <span>Chance it pays something</span>
+                  <strong>{pct(tierList.reduce((a, [k, v]) => a + (v > 0 ? (corr.dist[k] ?? 0) : 0), 0), 1)}</strong>
+                </div>
+              )}
               <div className="stat">
-                <span>Pays</span>
+                <span>{mode === "flex" ? "Pays if all hit" : "Pays"}</span>
                 <strong>${(entry * mult).toFixed(2)}</strong>
               </div>
               <div className="stat">
@@ -192,7 +235,8 @@ export default function Slip({
                   : "✗ Not worth it at this payout. Try stronger picks (higher %) or fewer picks."}
               </p>}
               <p className="fine">Each pick needs about {pct(breakEven)} to break even at this payout.</p>
-              <EntryCoach hit={hit} mult={mult} entry={entry} onUse={setEntry} />
+              {/* Flex: sized as a power play with the same average return, close enough for a quarter-Kelly stake. */}
+              <EntryCoach hit={mode === "flex" ? ret / mult : hit} mult={mult} entry={entry} onUse={setEntry} />
             </>
           )}
           {outLegs.length > 0 && (
@@ -229,7 +273,7 @@ export default function Slip({
               })}
             </div>
           )}
-          <p className="fine">Check the payout in the DraftKings app; it changes with the picks you choose.</p>
+          <p className="fine">{app.payoutNote}</p>
           {shareNote.length >= 16 && <p className="warn">{shareNote}</p>}
           <div className="actions">
             {saved ? (

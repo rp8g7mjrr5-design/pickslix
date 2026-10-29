@@ -7,12 +7,13 @@
 import { kvGet, kvSet } from "./db.ts";
 import { closeField, closeKey, type Price } from "./clv.ts";
 import { normName } from "./names.ts";
+import { DFS_BOOKS, PLATFORMS, type PlatformId } from "./platforms.ts";
 import type { Sport, StatKey } from "./types.ts";
 
 export const oddsEnabled = () => Boolean(process.env.ODDS_API_KEY);
 
 const BASE = "https://api.the-odds-api.com/v4";
-const SPORT_KEYS: Record<Sport, string> = {
+export const SPORT_KEYS: Record<Sport, string> = {
   NBA: "basketball_nba",
   NFL: "americanfootball_nfl",
   NHL: "icehockey_nhl",
@@ -21,24 +22,34 @@ const SPORT_KEYS: Record<Sport, string> = {
   CBB: "basketball_ncaab",
   UFC: "mma_mixed_martial_arts",
 };
+/** Sportsbooks that price both sides. Caesars is `williamhill_us` in the API. */
+export const PRICED_BOOKS = ["draftkings", "fanduel", "betmgm", "williamhill_us", "pinnacle", "betonlineag"];
 /**
- * Pick 6 first; the rest fill gaps and price the market. Up to 10 bookmakers cost the same as one region, so
- * Pinnacle and BetOnline (the sharpest books the API carries) ride along for free.
+ * The pick'em apps first (each posts its own lines); the sportsbooks fill gaps and price the market. Up to 10
+ * bookmakers cost the same as one region, so Pinnacle and BetOnline (the sharpest books the API carries) ride
+ * along for free.
  */
-const BOOKS = ["pick6", "draftkings", "fanduel", "betmgm", "caesars", "pinnacle", "betonlineag", "prizepicks"];
+const BOOKS = [...DFS_BOOKS, ...PRICED_BOOKS].slice(0, 10);
 /** Books whose prices move first when sharp money comes in; they count double in the market price. */
-const SHARP_BOOKS = new Set(["pinnacle", "betonlineag"]);
+export const SHARP_BOOKS = new Set(["pinnacle", "betonlineag"]);
 /** Pick'em apps post lines without prices, so they can't be de-vigged. */
-const NO_PRICE_BOOKS = new Set(["pick6", "prizepicks"]);
-const BOOK_NAMES: Record<string, string> = {
+const NO_PRICE_BOOKS = new Set(DFS_BOOKS);
+export const BOOK_NAMES: Record<string, string> = {
   pick6: "Pick 6",
+  prizepicks: "PrizePicks",
+  underdog: "Underdog",
+  betr_us_dfs: "Betr",
   pinnacle: "Pinnacle",
   betonlineag: "BetOnline",
   draftkings: "DraftKings",
   fanduel: "FanDuel",
   betmgm: "BetMGM",
+  williamhill_us: "Caesars",
   caesars: "Caesars",
-  prizepicks: "PrizePicks",
+  espnbet: "ESPN BET",
+  fanatics: "Fanatics",
+  betrivers: "BetRivers",
+  hardrockbet: "Hard Rock",
 };
 
 /** Odds API market key → our stat. */
@@ -131,6 +142,31 @@ export interface OddsLine {
   market?: MarketPrice;
   /** The first line we saw for this prop, when it has moved since. */
   open?: number;
+  /** Each pick'em app's own line, by Odds API key (pick6, prizepicks, underdog...). */
+  posted?: Record<string, number>;
+  /** The best sportsbook price for each side at the market's line, for betting the prop straight. */
+  best?: { over?: BestPrice; under?: BestPrice };
+}
+
+export interface BestPrice {
+  /** Display name of the book. */
+  book: string;
+  /** American odds. */
+  price: number;
+}
+
+/**
+ * The line to play on this app: its own when it has posted one, otherwise the line `l` already carries (Pick 6's
+ * or the sportsbooks'). `own` says whether it's the app's line or a stand-in to check.
+ */
+export function lineFor(l: OddsLine, platform: PlatformId): { line: number; book: string; own: boolean } {
+  const p = PLATFORMS[platform];
+  const own = p.book ? l.posted?.[p.book] : undefined;
+  if (own !== undefined) return { line: own, book: p.name, own: true };
+  // Another app's line isn't a good stand-in for this one; the books' consensus is.
+  const fromApp = DFS_BOOKS.some((b) => BOOK_NAMES[b] === l.book);
+  if (fromApp && l.market) return { line: l.market.line, book: "Sportsbooks", own: false };
+  return { line: l.line, book: l.book, own: false };
 }
 
 /** normName(player) → stat → line */
@@ -143,7 +179,7 @@ export interface OddsEvent {
   away_team: string;
 }
 
-async function oddsJson(path: string, revalidate: number): Promise<any> {
+export async function oddsJson(path: string, revalidate: number): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${BASE}${path}${sep}apiKey=${process.env.ODDS_API_KEY}`, { next: { revalidate } } as RequestInit);
   if (res.status === 401 || res.status === 429) {
@@ -174,7 +210,7 @@ export function matchEvent<E extends OddsEvent>(events: E[], home: string, away:
     .sort((x, y) => Math.abs(Date.parse(x.commence_time) - t) - Math.abs(Date.parse(y.commence_time) - t))[0];
 }
 
-const median = (xs: number[]) => {
+export const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   return s[Math.floor((s.length - 1) / 2)];
 };
@@ -213,9 +249,26 @@ export function marketPrice(quotes: BookQuote[]): MarketPrice | undefined {
   return { line: point, pOver: p / w, books: at.length, sharp: at.some((q) => SHARP_BOOKS.has(q.book)) };
 }
 
+/** Higher American odds pay more on the same stake. */
+const better = (a: number, b: number) => a > b;
+
+/** The best price on each side among books dealing exactly this point. */
+export function bestPrices(quotes: BookQuote[], point: number): { over?: BestPrice; under?: BestPrice } {
+  const out: { over?: BestPrice; under?: BestPrice } = {};
+  for (const q of quotes) {
+    if (q.point !== point || NO_PRICE_BOOKS.has(q.book)) continue;
+    for (const side of ["over", "under"] as const) {
+      const price = q[side];
+      if (price === undefined || !Number.isFinite(price)) continue;
+      if (!out[side] || better(price, out[side]!.price)) out[side] = { book: BOOK_NAMES[q.book] ?? q.book, price };
+    }
+  }
+  return out;
+}
+
 /** Read the event-odds response into one line per player and stat. */
 export function parseEventLines(json: any, sport: Sport): GameLines {
-  const byKey = new Map<string, { player: string; stat: StatKey; pick6?: number; books: BookQuote[] }>();
+  const byKey = new Map<string, { player: string; stat: StatKey; posted: Record<string, number>; books: BookQuote[] }>();
   for (const bm of json?.bookmakers ?? []) {
     const book = String(bm?.key ?? "");
     for (const m of bm?.markets ?? []) {
@@ -227,11 +280,11 @@ export function parseEventLines(json: any, sport: Sport): GameLines {
         const point = Number(o?.point);
         if (!player || !Number.isFinite(point)) continue;
         const key = `${normName(player)}|${stat}`;
-        const entry = byKey.get(key) ?? { player, stat, books: [] };
+        const entry = byKey.get(key) ?? { player, stat, posted: {}, books: [] };
         byKey.set(key, entry);
         // DFS books sometimes send a lone outcome; its point is the line either way.
-        if (book === "pick6") {
-          entry.pick6 ??= point;
+        if (NO_PRICE_BOOKS.has(book)) {
+          entry.posted[book] ??= point;
           continue;
         }
         let quote = entry.books.find((b) => b.book === book);
@@ -245,15 +298,25 @@ export function parseEventLines(json: any, sport: Sport): GameLines {
   const out: GameLines = {};
   for (const e of byKey.values()) {
     let line: OddsLine | undefined;
-    if (e.pick6 !== undefined) line = { line: e.pick6, book: "Pick 6" };
+    if (e.posted.pick6 !== undefined) line = { line: e.posted.pick6, book: "Pick 6" };
     else if (e.books.length) {
       const point = median(e.books.map((b) => b.point));
       const from = BOOKS.find((k) => e.books.some((b) => b.book === k && b.point === point)) ?? e.books[0].book;
       line = { line: point, book: BOOK_NAMES[from] ?? from };
     }
-    if (!line) continue;
+    if (!line) {
+      // Only another pick'em app posted it: its line stands until the books price it.
+      const [book, point] = Object.entries(e.posted)[0] ?? [];
+      if (book === undefined) continue;
+      line = { line: point, book: BOOK_NAMES[book] ?? book };
+    }
+    if (Object.keys(e.posted).length) line.posted = e.posted;
     const market = marketPrice(e.books);
-    if (market) line.market = market;
+    if (market) {
+      line.market = market;
+      const best = bestPrices(e.books, market.line);
+      if (best.over || best.under) line.best = best;
+    }
     (out[normName(e.player)] ??= {})[e.stat] = line;
   }
   return out;
@@ -274,7 +337,7 @@ export function withOpeners(lines: GameLines, openers: Record<string, number>): 
 }
 
 /** Can we afford a call costing this many credits right now? */
-async function canSpend(cost: number): Promise<boolean> {
+export async function canSpend(cost: number): Promise<boolean> {
   if (await kvGet(PAUSE_KEY).catch(() => null)) return false;
   const left = await kvGet<{ remaining: number }>("odds:remaining").catch(() => null);
   return !left || left.remaining - cost >= CREDIT_RESERVE;
@@ -370,8 +433,6 @@ export interface Slate {
 /** Typical game totals, used when the slate is too small to average (a two-game NBA night says little). */
 const TYPICAL_TOTAL: Record<Sport, number> = { NBA: 228, NFL: 44, NHL: 6.1, MLB: 8.6, CFB: 54, CBB: 145, UFC: 2.5 };
 const SLATE_MIN_GAMES = 4;
-/** Spreads and totals for every game in a sport cost two credits (one per market), so a slate is cached for hours. */
-const SLATE_TTL = 6 * 3600;
 
 export function parseSlate(json: any, sport: Sport): Slate {
   const games: GameOdds[] = [];
@@ -405,21 +466,17 @@ export function parseSlate(json: any, sport: Sport): Slate {
   return { games, avgTotal };
 }
 
-/** Spreads and totals for a sport's upcoming games. Shared by everyone and cheap, so it isn't a Pro feature. */
+/**
+ * Spreads and totals for a sport's upcoming games. Shared by everyone and cheap, so it isn't a Pro feature. They
+ * come from the same call as the sportsbook page's moneylines (lib/books.ts), so neither pays for the other.
+ */
 export async function fetchSlate(sport: Sport): Promise<Slate | null> {
   // A fight has no spread or game total in the sense the environment model uses.
   if (!oddsEnabled() || sport === "UFC") return null;
-  const cacheKey = `odds:slate:${sport}`;
-  const cached = await kvGet<Slate>(cacheKey).catch(() => null);
+  const cached = await kvGet<Slate>(`odds:slate:${sport}`).catch(() => null);
   if (cached) return cached;
-  if (!(await canSpend(2))) return null;
-  const json = await oddsJson(
-    `/sports/${SPORT_KEYS[sport]}/odds?bookmakers=${BOOKS.filter((b) => !NO_PRICE_BOOKS.has(b)).join(",")}&markets=spreads,totals&oddsFormat=american`,
-    SLATE_TTL,
-  );
-  const slate = parseSlate(json, sport);
-  await kvSet(cacheKey, slate, SLATE_TTL).catch(() => {});
-  return slate;
+  const { fetchGameMarkets } = await import("./books.ts");
+  return (await fetchGameMarkets(sport))?.slate ?? null;
 }
 
 /** One team's side of a game: its implied points and the opponent's, measured against the slate. */
