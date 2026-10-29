@@ -1124,3 +1124,13 @@ body[data-coach="3"] .slipbar {
 .crewwinner { margin: 6px 0 8px; font-size: 14px; }
 .crewweek > small { display: block; margin-top: 8px; }
 .crewforms form > small { display: block; margin: -2px 0 6px; font-size: 12px; }
+
+/* ---------- Ask LayLock ---------- */
+.ask { margin: 0 0 14px; padding: 12px 14px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); display: grid; gap: 10px; }
+.ask form { display: flex; gap: 8px; }
+.ask input { flex: 1; min-width: 0; }
+.askexamples { display: flex; gap: 6px; flex-wrap: wrap; }
+.askexamples .chip { font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); font-weight: 600; }
+.askanswer { display: grid; gap: 6px; justify-items: start; }
+.askanswer strong { font-size: 15px; line-height: 1.35; }
+.askanswer ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 3px; }
