@@ -16,7 +16,10 @@ import Slip from "@/components/Slip";
 import { correlatedHitProbability } from "@/lib/correlation.ts";
 import { bestSlip } from "@/lib/bestSlip.ts";
 import { proHeaders } from "@/lib/proClient.ts";
-import { MAX_PICKS, pct } from "@/lib/format.ts";
+import Link from "next/link";
+import { pct } from "@/lib/format.ts";
+import { PLATFORMS } from "@/lib/platforms.ts";
+import { PlatformPicker, usePlatform } from "@/lib/platformClient.tsx";
 import { loadCustomProps, loadSlips, saveCustomProps, type SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, type Prop, type PropWithProjection, type Sport } from "@/lib/types.ts";
 
@@ -52,6 +55,7 @@ export default function Board() {
   const [sort, setSort] = useState<SortKey>("edge");
   const [open, setOpen] = useState<string | null>(null);
   const [slip, setSlip] = useState<SlipLeg[]>([]);
+  const app = PLATFORMS[usePlatform()];
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState("");
   const [gameOpen, setGameOpen] = useState(false);
@@ -130,8 +134,8 @@ export default function Board() {
     const picked = Object.entries(r.sides).filter(([id]) => byId.has(id));
     const missing = r.unresolved.length ? ` No stats found for ${r.unresolved.join(", ")}.` : "";
     if (picked.length) {
-      setSlip(picked.slice(0, MAX_PICKS).map(([id, side]) => legFor(byId.get(id)!, side)));
-      flash(`Loaded ${Math.min(picked.length, MAX_PICKS)} picks into your slip.${missing}`);
+      setSlip(picked.slice(0, app.max).map(([id, side]) => legFor(byId.get(id)!, side)));
+      flash(`Loaded ${Math.min(picked.length, app.max)} picks into your slip.${missing}`);
     } else {
       flash(`Added ${r.props.length} line${r.props.length === 1 ? "" : "s"}.${missing}`);
     }
@@ -153,7 +157,7 @@ export default function Board() {
   );
 
   const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number) => {
-    if (!slip.some((l) => l.propId === prop.id) && slip.length >= MAX_PICKS) return flash(`Pick 6 allows up to ${MAX_PICKS} picks`);
+    if (!slip.some((l) => l.propId === prop.id) && slip.length >= app.max) return flash(`${app.name} allows up to ${app.max} picks`);
     saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
     setSlip((s) => {
       const existing = s.find((l) => l.propId === prop.id);
@@ -210,8 +214,8 @@ export default function Board() {
       const existing = s.find((l) => l.propId === r.id);
       const rest = s.filter((l) => l.propId !== r.id);
       if (existing?.side === side) return rest;
-      if (!existing && s.length >= MAX_PICKS) {
-        flash(`Pick 6 allows up to ${MAX_PICKS} picks`);
+      if (!existing && s.length >= app.max) {
+        flash(`${app.name} allows up to ${app.max} picks`);
         return s;
       }
       return [...rest, legFor(r, side)];
@@ -229,10 +233,16 @@ export default function Board() {
       <section className={`boardcol ${gameOpen ? "gameopen" : ""}`}>
         {newHere && !slip.length && (
           <div className="intro">
-            <h1>Find the Pick 6 picks worth playing.</h1>
+            <h1>Find the {app.name} picks worth playing.</h1>
             <p>Tap a game, then a player. We give you the odds on More and Less from recent games, the matchup and injury news.</p>
           </div>
         )}
+        <div className="platformrow">
+          <PlatformPicker />
+          <Link href="/books" className="linkish">
+            Betting at a sportsbook instead?
+          </Link>
+        </div>
         <PickOfDay slip={slip} onPick={pickFromGame} />
         <GamePicker slip={slip} onPick={pickFromGame} onViewSlip={viewSlip} onOpenChange={setGameOpen} />
         <LockTeaser />
@@ -247,7 +257,7 @@ export default function Board() {
               <p className="muted">
                 {rows.length
                   ? `${rows.length} line${rows.length === 1 ? "" : "s"}${strong ? ` · ${strong} the model likes` : ""}. Tap More or Less to add one to your slip.`
-                  : "Paste the lines you see in Pick 6 and we'll score each one."}
+                  : `Paste the lines you see in ${app.name} and we'll score each one.`}
               </p>
             </div>
             {!importing && (
@@ -259,7 +269,7 @@ export default function Board() {
         ) : (
           !loading && (
             <p className="pastecta">
-              Already have lines from Pick 6?{" "}
+              Already have lines from {app.name}?{" "}
               <button className="linkish" onClick={() => setImporting(true)}>
                 Paste them instead
               </button>

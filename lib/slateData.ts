@@ -9,6 +9,7 @@ import { propContexts } from "./gameContext.ts";
 import { normName } from "./names.ts";
 import { fetchGameLines, oddsEnabled, type GameLines } from "./odds.ts";
 import { getProvider, propId } from "./providers.ts";
+import { toAmerican, type PropBook } from "./books.ts";
 import { sampleProps } from "./sampleData.ts";
 import { logSoft } from "./softLog.ts";
 import type { Prop, PropWithProjection, Sport } from "./types.ts";
@@ -19,6 +20,8 @@ export type SlateRow = PropWithProjection & {
   pick6: boolean;
   /** The first line we saw, when it has moved since. */
   open?: number;
+  /** The sportsbooks' line and best prices, for betting the prop straight (lib/books.ts). */
+  book?: PropBook;
 };
 
 export interface Slate {
@@ -46,7 +49,7 @@ async function todaysGames(date: string, now: number) {
 
 const teamName = (t: EspnGame["teams"][number]) => t.name || t.abbr;
 
-type Candidate = Prop & { priced: boolean; pick6: boolean; open?: number };
+type Candidate = Prop & { priced: boolean; pick6: boolean; open?: number; book?: PropBook };
 
 /** Turn one game's posted lines into props, using the rosters to put each player on a team. */
 async function gameProps(sport: Sport, g: EspnGame, lines: GameLines): Promise<Candidate[]> {
@@ -77,6 +80,7 @@ async function gameProps(sport: Sport, g: EspnGame, lines: GameLines): Promise<C
         priced: Boolean(l.market),
         pick6: l.book === "Pick 6",
         open: l.open,
+        book: l.market && l.best ? { line: l.market.line, ...l.best } : undefined,
       });
     }
   }
@@ -89,7 +93,7 @@ async function score(date: string, now: number): Promise<SlateRow[]> {
     // The demo slate's dates are fixed; treat it as tonight's.
     const tonight = new Date(now + 6 * 3600_000).toISOString();
     const rows = await buildBoard(sampleProps().map((p) => ({ ...p, gameTime: tonight })), provider);
-    return rows.map((r) => ({ ...r, pick6: true }));
+    return rows.map((r) => ({ ...r, pick6: true, book: sampleBook(r) }));
   }
   if (provider.name !== "espn" || !oddsEnabled()) return [];
   const games = await todaysGames(date, now);
@@ -111,10 +115,21 @@ async function score(date: string, now: number): Promise<SlateRow[]> {
     .slice(0, MAX_PROPS);
   if (!candidates.length) return [];
   const meta = new Map(candidates.map((c) => [c.id, c]));
-  const props = candidates.map(({ priced: _, pick6: __, open: ___, ...p }): Prop => p);
+  const props = candidates.map(({ priced: _, pick6: __, open: ___, book: ____, ...p }): Prop => p);
   const contexts = await propContexts(props, { spend: false }).catch(() => new Map());
   const rows = await buildBoard(props, provider, contexts, await loadCalibration());
-  return rows.map((r) => ({ ...r, pick6: meta.get(r.id)?.pick6 ?? false, open: meta.get(r.id)?.open }));
+  return rows.map((r) => ({ ...r, pick6: meta.get(r.id)?.pick6 ?? false, open: meta.get(r.id)?.open, book: meta.get(r.id)?.book }));
+}
+
+/** Demo prices for the sample slate: the books lean halfway to the model, with a normal margin and a little spread between books. */
+function sampleBook(r: PropWithProjection): PropBook {
+  const lean = 0.5 + (r.projection.pOver - 0.5) * 0.5;
+  const wobble = ((r.player.length * 7 + r.line * 10) % 9) / 100 - 0.03;
+  return {
+    line: r.line,
+    over: { book: "FanDuel", price: toAmerican(Math.min(0.9, lean + 0.022 - wobble)) },
+    under: { book: "DraftKings", price: toAmerican(Math.min(0.9, 1 - lean + 0.022 + wobble)) },
+  };
 }
 
 const inflight = new Map<string, Promise<Slate>>();

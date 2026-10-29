@@ -13,18 +13,14 @@ import { splits } from "@/lib/splits.ts";
 import { pct } from "@/lib/format.ts";
 import { normName } from "@/lib/names.ts";
 import { proHeaders } from "@/lib/proClient.ts";
-import type { TeamEnv } from "@/lib/odds.ts";
+import { lineFor, type OddsLine, type TeamEnv } from "@/lib/odds.ts";
+import { PLATFORMS } from "@/lib/platforms.ts";
+import { usePlatform } from "@/lib/platformClient.tsx";
 import type { SlipLeg } from "@/lib/storage.ts";
 import { SPORTS, STATS, statSport, type DefenseFactors, type GameLog, type NewsItem, type Prop, type Sport, type StatKey } from "@/lib/types.ts";
 
 type GameSport = Sport;
 
-interface OddsLine {
-  line: number;
-  book: string;
-  market?: { line: number; pOver: number; books: number; sharp: boolean };
-  open?: number;
-}
 /** normName(player) → stat → line, from /api/games/lines */
 type GameLines = Record<string, Partial<Record<StatKey, OddsLine>>>;
 
@@ -119,6 +115,7 @@ export default function GamePicker({
   const [failed, setFailed] = useState(false);
   const [sport, setSport] = useState<GameSport>("NBA");
   const [open, setOpen] = useState<Game | null>(null);
+  const platform = usePlatform();
 
   useEffect(() => {
     fetch("/api/games")
@@ -143,7 +140,7 @@ export default function GamePicker({
       <div className="gameshead">
         <div>
           <h2>Pick from upcoming games</h2>
-          <small>Tap a game, choose players, set the Pick 6 line.</small>
+          <small>Tap a game, choose players, set the {PLATFORMS[platform].name} line.</small>
         </div>
         <div className="seg" role="tablist">
           {SPORTS.filter((s) => !games || games[s]?.length || s === sport).map((s) => (
@@ -239,6 +236,7 @@ function GameView({
   onViewSlip: () => void;
 }) {
   const [away, home] = ordered(game);
+  const platform = usePlatform();
   const [teamIdx, setTeamIdx] = useState(0);
   const [players, setPlayers] = useState<Record<string, Player[] | "error">>({});
   const [openPlayer, setOpenPlayer] = useState<string | null>(null);
@@ -334,7 +332,7 @@ function GameView({
         {linesLocked && (
           <a href="/pro" className="probanner">
             <span>
-              <strong>Pick 6 lines, filled in for you</strong>
+              <strong>{PLATFORMS[platform].name} lines, filled in for you</strong>
               <small>Pro loads every posted line for this game.</small>
             </span>
             <b>Get Pro</b>
@@ -489,6 +487,8 @@ function PickCard({
   onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
 }) {
   const [stat, setStat] = useState<StatKey>(stats[0]);
+  const platform = usePlatform();
+  const app = PLATFORMS[platform];
   const [data, setData] = useState<PlayerData | null>(null);
   const [failed, setFailed] = useState(false);
   const [lines, setLines] = useState<Partial<Record<StatKey, number>>>({});
@@ -510,10 +510,12 @@ function PickCard({
   const fallbackAvg = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : undefined;
   const avg = player.avg[stat] ?? fallbackAvg;
   const postedLine = posted[stat];
+  // This app's own line when it posted one, otherwise a stand-in (Pick 6's or the books').
+  const shown = postedLine ? lineFor(postedLine, platform) : undefined;
   const line =
     leg && !(stat in lines)
       ? leg.line
-      : (lines[stat] ?? postedLine?.line ?? (avg !== undefined ? suggestLine(avg) : undefined));
+      : (lines[stat] ?? shown?.line ?? (avg !== undefined ? suggestLine(avg) : undefined));
 
   const prop: Prop | null =
     line === undefined
@@ -535,7 +537,7 @@ function PickCard({
           return (
             <button key={s} role="tab" aria-selected={stat === s} className={`chip ${stat === s ? "on" : ""} ${on ? "inslip" : ""}`} onClick={() => setStat(s)}>
               {SHORT[s] ?? STATS[s].label}
-              {posted[s] ? <span className="posted">{posted[s]!.line}</span> : player.avg[s] !== undefined && <span>{player.avg[s]}</span>}
+              {posted[s] ? <span className="posted">{lineFor(posted[s]!, platform).line}</span> : player.avg[s] !== undefined && <span>{player.avg[s]}</span>}
             </button>
           );
         })}
@@ -592,11 +594,11 @@ function PickCard({
         <small className="hint">Faded bars are last season. They count for less.</small>
       )}
       <small className="hint">
-        {postedLine
-          ? postedLine.book === "Pick 6"
-            ? `Pick 6 line: ${postedLine.line}${line !== postedLine.line ? " (you changed it)" : ""}`
-            : `${postedLine.book} line: ${postedLine.line}. Pick 6 hasn't posted this one; adjust if theirs differs.`
-          : "No posted line found. We started it at the season average; match it to Pick 6."}
+        {shown
+          ? shown.own
+            ? `${app.name} line: ${shown.line}${line !== shown.line ? " (you changed it)" : ""}`
+            : `${shown.book} line: ${shown.line}. ${app.name} hasn't posted this one; adjust if theirs differs.`
+          : `No posted line found. We started it at the season average; match it to ${app.name}.`}
       </small>
 
       <div className="bigsides">
@@ -622,7 +624,7 @@ function PickCard({
       </div>
       {proj && <small className="hint">The % is the model's chance that side hits. Tap one to add it to your slip.</small>}
       {proj && line !== undefined && (
-        <MarketNote market={postedLine?.market} open={postedLine?.open} line={line} posted={postedLine?.line} proj={proj} />
+        <MarketNote market={postedLine?.market} open={postedLine?.open} line={line} posted={shown?.line} proj={proj} />
       )}
       <SplitChips splits={split} />
       <EnvNote env={env} team={team.abbr} />

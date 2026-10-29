@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { pct } from "@/lib/format.ts";
+import { PLATFORMS, slipMultiplier } from "@/lib/platforms.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 import { clvSummary, legClv } from "@/lib/clv.ts";
@@ -17,12 +18,11 @@ const RESULTS: NonNullable<SlipLeg["result"]>[] = ["hit", "miss", "push"];
 
 type Filter = "all" | "open" | "settled";
 
-/** A settled slip's result and profit. A push leg is treated as removed. */
+/** A settled slip's result and profit. A push leg is treated as removed; flex entries pay by hits. */
 function outcome(s: SavedSlip): { state: "open" | "won" | "lost"; pnl: number } {
   if (!s.legs.every((l) => l.result)) return { state: "open", pnl: 0 };
-  const live = s.legs.filter((l) => l.result !== "push");
-  const won = live.length >= 2 && live.every((l) => l.result === "hit");
-  return { state: won ? "won" : "lost", pnl: won ? s.entry * s.multiplier - s.entry : -s.entry };
+  const mult = slipMultiplier(s);
+  return { state: mult > 1 ? "won" : "lost", pnl: s.entry * (mult - 1) };
 }
 
 const money = (x: number) => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
@@ -547,12 +547,12 @@ function SavedSlipCard({
       <div className="savedhead">
         <div className="savedtitle">
           <strong>
-            {s.legs.length}-pick · ${s.entry} at {s.multiplier}×
+            {s.legs.length}-pick{s.platform ? ` ${PLATFORMS[s.platform].name}` : ""}{s.play === "flex" ? " flex" : ""} · ${s.entry} at {s.multiplier}×
           </strong>
           <small>{new Date(s.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>
         </div>
         <span className={`result ${o.state}`}>
-          {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : "Lost"} ${money(o.pnl)}`}
+          {o.state === "open" ? `${done}/${s.legs.length} in` : `${o.state === "won" ? "Won" : o.pnl === 0 ? "Refunded" : "Lost"} ${money(o.pnl)}`}
         </span>
       </div>
       {s.legs.map((l) => (

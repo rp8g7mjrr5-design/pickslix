@@ -25,7 +25,13 @@ test("Pick 6 lines win; otherwise the sportsbook median stands in", () => {
   );
   assert.deepEqual(lines["jayson tatum"], {
     // DraftKings priced both sides of points, so its no-vig price rides along.
-    PTS: { line: 26.5, book: "Pick 6", market: { line: 27.5, pOver: 0.5, books: 1, sharp: false } },
+    PTS: {
+      line: 26.5,
+      book: "Pick 6",
+      posted: { pick6: 26.5 },
+      market: { line: 27.5, pOver: 0.5, books: 1, sharp: false },
+      best: { over: { book: "DraftKings", price: -110 }, under: { book: "DraftKings", price: -110 } },
+    },
     REB: { line: 8.5, book: "DraftKings" },
   });
 });
@@ -35,7 +41,7 @@ test("hockey markets map onto hockey stats", () => {
     { bookmakers: [{ key: "pick6", markets: [{ key: "player_shots_on_goal", outcomes: [outcome("Over", "Connor McDavid", 3.5)] }] }] },
     "NHL",
   );
-  assert.deepEqual(lines["connor mcdavid"], { SOG: { line: 3.5, book: "Pick 6" } });
+  assert.deepEqual(lines["connor mcdavid"], { SOG: { line: 3.5, book: "Pick 6", posted: { pick6: 3.5 } } });
 });
 
 test("events match ESPN short team names and the nearest start time", () => {

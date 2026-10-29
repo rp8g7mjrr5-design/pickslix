@@ -3,6 +3,7 @@
 // game script (overs with overs) and overcounts slips that fight themselves (an over and an under on linked stats).
 // Each pair of legs gets an estimated correlation; the slip's chance is then simulated with a Gaussian copula.
 // The correlations are rough, published-research-sized estimates, not fitted to our own data yet.
+import { hitDistribution } from "./platforms.ts";
 import { statSport, type Sport, type StatKey } from "./types.ts";
 
 export interface CorrLeg {
@@ -122,27 +123,29 @@ const SAMPLES = 40000;
 
 /**
  * Chance every leg hits, allowing for same-game correlation. Equals the plain product when no two legs are linked.
+ * `dist` is the chance of each number of hits (index = hits), which flex payouts need.
  * `linked` lists the pairs (by index) that moved the number, for the slip to explain.
  */
-export function correlatedHitProbability(legs: CorrLeg[]): { prob: number; independent: number; linked: [number, number][] } {
+export function correlatedHitProbability(legs: CorrLeg[]): { prob: number; independent: number; dist: number[]; linked: [number, number][] } {
   const independent = legs.reduce((a, l) => a * l.prob, 1);
   const n = legs.length;
   const corr = legs.map((a, i) => legs.map((b, j) => (i === j ? 1 : legCorrelation(a, b))));
   const linked: [number, number][] = [];
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (Math.abs(corr[i][j]) >= 0.1) linked.push([i, j]);
-  if (!linked.length) return { prob: independent, independent, linked };
+  const plain = () => ({ prob: independent, independent, dist: hitDistribution(legs.map((l) => l.prob)), linked: [] as [number, number][] });
+  if (!linked.length) return plain();
 
   // Shrink toward independence until the matrix is valid (a set of pairwise guesses needn't be).
   let l: number[][] | null = null;
   for (let shrink = 1; shrink >= 0 && !l; shrink -= 0.1) {
     l = cholesky(corr.map((row, i) => row.map((v, j) => (i === j ? 1 : v * shrink))));
   }
-  if (!l) return { prob: independent, independent, linked: [] };
+  if (!l) return plain();
 
   const cut = legs.map((leg) => normInv(leg.prob));
   const rand = mulberry32(n * 7919 + Math.round(independent * 1e6));
   const z = new Array<number>(n);
-  let hits = 0;
+  const counts = new Array<number>(n + 1).fill(0);
   for (let s = 0; s < SAMPLES; s++) {
     for (let i = 0; i < n; i += 2) {
       // Box-Muller: two normals per pair of uniforms.
@@ -152,13 +155,14 @@ export function correlatedHitProbability(legs: CorrLeg[]): { prob: number; indep
       z[i] = r * Math.cos(2 * Math.PI * v);
       if (i + 1 < n) z[i + 1] = r * Math.sin(2 * Math.PI * v);
     }
-    let all = true;
-    for (let i = 0; i < n && all; i++) {
+    let hits = 0;
+    for (let i = 0; i < n; i++) {
       let x = 0;
       for (let k = 0; k <= i; k++) x += l[i][k] * z[k];
-      if (x > cut[i]) all = false;
+      if (x <= cut[i]) hits++;
     }
-    if (all) hits++;
+    counts[hits]++;
   }
-  return { prob: hits / SAMPLES, independent, linked };
+  const dist = counts.map((c) => c / SAMPLES);
+  return { prob: dist[n], independent, dist, linked };
 }
