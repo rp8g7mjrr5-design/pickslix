@@ -10,6 +10,7 @@ import { normName } from "./names.ts";
 import { fetchGameLines, oddsEnabled, type GameLines } from "./odds.ts";
 import { getProvider, propId } from "./providers.ts";
 import { sampleProps } from "./sampleData.ts";
+import { logSoft } from "./softLog.ts";
 import type { Prop, PropWithProjection, Sport } from "./types.ts";
 
 /** One scored line, with where it came from. */
@@ -129,7 +130,11 @@ export async function todaysSlate(now = Date.now()): Promise<Slate> {
       const rows = await score(date, now).catch(() => [] as SlateRow[]);
       // Keep the last good scan if this one came up empty (lines briefly missing, a failed fetch).
       const slate = { date, at: new Date(now).toISOString(), rows: rows.length || !saved ? rows : saved.rows };
-      if (getProvider().name !== "sample") await kvSet(key, slate, 2 * 86400).catch(() => {});
+      if (getProvider().name !== "sample") {
+        await kvSet(key, slate, 2 * 86400).catch(() => {});
+        // Every soft line we flag goes on the record, so the track record grows with no extra lookups.
+        if (rows.length) await logSoft(rows, now).catch(() => {});
+      }
       return slate;
     };
     inflight.set(date, run().finally(() => inflight.delete(date)));

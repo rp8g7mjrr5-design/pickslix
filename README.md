@@ -326,6 +326,11 @@ Setting it up:
 3. Turn on the customer portal (Settings → Billing → Customer portal) so subscribers can cancel.
 4. The database (Upstash) is required: it's where Pro keys and used codes are kept.
 5. For free lifetime passes, put codes in `LIFETIME_CODES`, comma separated, or make them on `/admin`. Each works once.
+6. New subscribers get a free trial: `PRO_TRIAL_DAYS` (default 7, `0` turns it off). Stripe takes the card at checkout
+   and charges when the trial ends. It's once per signed-in account, and accounts that have paid before don't get one.
+
+Selling points that work for free: everyone sees one soft line a day in full (the rest are blurred), and every soft line
+we flag is logged and graded from the box score, so the Board and `/pro` show the real 30-day record once 10 have graded.
 
 ## Next up
 

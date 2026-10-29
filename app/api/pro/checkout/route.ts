@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { accountsEnabled, currentUserId } from "@/lib/accounts.ts";
-import { prices, stripe, stripeEnabled } from "@/lib/pro.ts";
+import { accountsEnabled, currentUserId, getAccount } from "@/lib/accounts.ts";
+import { prices, stripe, stripeEnabled, trialDays, trialEligible } from "@/lib/pro.ts";
 
 /** Start a Stripe Checkout for a Pro subscription. Body: { plan: "monthly" | "yearly" } → { url } */
 export async function POST(req: Request) {
@@ -12,6 +12,8 @@ export async function POST(req: Request) {
   const userId = await currentUserId();
   if (accountsEnabled() && !userId) return NextResponse.json({ error: "Sign in first so Pro is saved to your account." }, { status: 401 });
   const origin = new URL(req.url).origin;
+  // A first-time subscriber's first week is free; Stripe charges when it ends unless they cancel.
+  const trial = userId && (await trialEligible(userId, (await getAccount(userId).catch(() => ({}) as { proKey?: string })).proKey)) ? trialDays() : 0;
   try {
     const session = await stripe("/checkout/sessions", {
       form: {
@@ -22,6 +24,7 @@ export async function POST(req: Request) {
         success_url: `${origin}/pro?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/pro`,
         ...(userId ? { client_reference_id: userId } : {}),
+        ...(trial ? { "subscription_data[trial_period_days]": String(trial) } : {}),
       },
     });
     return NextResponse.json({ url: session.url });
