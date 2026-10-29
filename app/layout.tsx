@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Analytics } from "@vercel/analytics/next";
 import { AccountButton, AccountProvider } from "@/components/Account";
 import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
@@ -82,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <UsernameGate />
         <Install />
         </AccountProvider>
+        <Analytics />
       </body>
     </html>
   );
