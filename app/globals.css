@@ -1134,3 +1134,14 @@ body[data-coach="3"] .slipbar {
 .askanswer { display: grid; gap: 6px; justify-items: start; }
 .askanswer strong { font-size: 15px; line-height: 1.35; }
 .askanswer ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 3px; }
+
+/* ---------- Install ---------- */
+.installbar {
+  position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 40; max-width: 480px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius);
+  background: var(--panel-2); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.installbar img { border-radius: 9px; flex: none; }
+.installbar > span { flex: 1; min-width: 0; display: grid; }
+.installbar small { color: var(--muted); font-size: 12px; }
+body:has(.slipbar) .installbar, body[data-coach] .installbar { display: none; }

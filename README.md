@@ -25,8 +25,26 @@ demo board with made-up lines instead.
   To save Odds API credits, only the most-played stats are fetched (NBA points, rebounds, assists,
   threes and PRA, for example), only for games that haven't started, and each game's lines are cached
   for everyone for six hours. Fetching pauses before the monthly credits run out.
-- **Paste text:** one prop per line or text copied from the app (`lib/parseLines.ts`).
-- **Type one:** player, stat and line.
+- **Paste lines:** one prop per line or text copied from the app (`lib/parseLines.ts`).
+
+## Today's slate and what's built on it
+
+Every 15 minutes or so (`lib/slateData.ts`, run by the alerts cron), today's posted lines are scored once
+and saved. That scan only uses lines already cached, plus one game's worth a day if nobody has opened
+any, so it costs almost no Odds API credits. Built on it:
+
+- **Pick of the day** (`lib/potd.ts`): the model's best line, graded in public.
+- **Where Pick 6 is behind** (`lib/edges.ts`): soft lines, where the books' price at the Pick 6 line favors
+  one side by 57%+ (Pro), and injury ripples, where a teammate's usage bump hasn't moved their line (free).
+  Both can push to phones, a few a day at most.
+- **Daily Lock** (`lib/lock.ts`, `lib/lockData.ts`): a free one-pick-a-day streak game with badges and a
+  streak leaderboard.
+- **Pairs well with this slip** (`lib/pairs.ts`), **hot spots** (`lib/hotspots.ts`) and **crowd vs model**
+  (`lib/crowd.ts`, counted from saved slips).
+- **Ask LayLock** (`lib/ask.ts`): plain-English questions answered from the model's numbers, no AI service.
+
+Also: post-game recap cards (`lib/recap.ts`), the bankroll coach (`lib/bankroll.ts`) and weekly crew
+contests and head-to-heads (`lib/contest.ts`).
 
 ## Deploy on Vercel (Hobby, free)
 

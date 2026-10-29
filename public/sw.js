@@ -1,4 +1,56 @@
-// LayLock service worker: shows pick alerts and opens the tracker when one is tapped.
+// LayLock service worker: shows pick alerts, opens the right page when one is tapped, and keeps the app usable on
+// a bad connection (pages fall back to the last copy, then to an offline page; built assets come from cache).
+const CACHE = "laylock-v2";
+const OFFLINE = "/offline.html";
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll([OFFLINE, "/icon-192.png"])).then(() => self.skipWaiting()));
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  // Built files never change under the same name: cache first.
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(
+      caches.match(req).then(
+        (hit) =>
+          hit ||
+          fetch(req).then((res) => {
+            if (res.ok) caches.open(CACHE).then((c) => c.put(req, res.clone()));
+            return res;
+          }),
+      ),
+    );
+    return;
+  }
+  // Pages: network first, then the last copy, then the offline page.
+  if (req.mode === "navigate") {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || caches.match(OFFLINE))),
+    );
+  }
+});
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -9,8 +61,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "LayLock", {
       body: data.body || "",
-      icon: "/apple-icon.png",
-      badge: "/apple-icon.png",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
       tag: data.tag,
       data: { url: data.url || "/tracker" },
     }),
