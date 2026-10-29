@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/accounts.ts";
 import { accountOf, getCrew, removeMember, resetInvite } from "@/lib/crews.ts";
-import { kvGet } from "@/lib/db.ts";
+import { prevWeek, standings, weekOf } from "@/lib/contest.ts";
+import { kvClaim, kvGet, kvSet } from "@/lib/db.ts";
 import { leaderStats } from "@/lib/leaderboard.ts";
 import { checkPass, isGold } from "@/lib/pro.ts";
 import type { SavedSlip } from "@/lib/storage.ts";
@@ -35,6 +36,7 @@ export async function GET(_req: Request, { params }: Params) {
         // Entry amounts stay private; the legs and results are what the crew sees.
         .map((s) => ({ id: s.id, createdAt: s.createdAt, legs: s.legs.map(({ propId: _p, auto: _a, ...l }) => l) }));
       return {
+        slips,
         memberId,
         username: account.username ?? "Member",
         you: memberId === userId,
@@ -48,9 +50,20 @@ export async function GET(_req: Request, { params }: Params) {
   );
   const shown = members.filter((m) => m !== null);
   shown.sort((a, b) => b.stats.hitRate - a.stats.hitRate || b.stats.picks - a.stats.picks);
+  const week = weekOf(Date.now());
+  const last = prevWeek(week);
+  const thisWeek = standings(shown, week);
+  const lastWeek = standings(shown, last);
+  // Last week's winner gets the badge once.
+  if (lastWeek.winner && (await kvClaim(`crewwin:${crew.id}:${last}`, lastWeek.winner.memberId, 400 * 86400).catch(() => false))) {
+    const key = `crewwins:user:${lastWeek.winner.memberId}`;
+    const wins = (await kvGet<{ crew: string; name: string; week: string }[]>(key).catch(() => null)) ?? [];
+    await kvSet(key, [{ crew: crew.id, name: crew.name, week: last }, ...wins].slice(0, 200)).catch(() => {});
+  }
   return NextResponse.json({
     crew: { id: crew.id, name: crew.name, invite: crew.invite, owner: crew.ownerId === userId, createdAt: crew.createdAt },
-    members: shown,
+    members: shown.map(({ slips: _, ...m }) => m),
+    week: { id: week, rows: thisWeek.rows.map(({ memberId: _, ...r }) => r), lastWinner: lastWeek.winner ? { username: lastWeek.winner.username, net: lastWeek.winner.net } : null },
   });
 }
 

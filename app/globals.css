@@ -1119,3 +1119,8 @@ body[data-coach="3"] .slipbar {
 .budgetbar { height: 8px; border-radius: 999px; background: var(--panel-3); overflow: hidden; margin: 4px 0 6px; }
 .budgetbar i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
 .budgetbar i.over { background: var(--under); }
+
+/* ---------- Crew week ---------- */
+.crewwinner { margin: 6px 0 8px; font-size: 14px; }
+.crewweek > small { display: block; margin-top: 8px; }
+.crewforms form > small { display: block; margin: -2px 0 6px; font-size: 12px; }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/accounts.ts";
 import { createCrew, getCrew, joinCrew, myCrewIds } from "@/lib/crews.ts";
+import { kvGet } from "@/lib/db.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +10,10 @@ export async function GET() {
   const userId = await currentUserId();
   if (!userId) return NextResponse.json({ signedIn: false, crews: [] });
   const crews = (await Promise.all((await myCrewIds(userId)).map(getCrew))).filter((c) => c?.members.includes(userId));
+  const wins = (await kvGet<unknown[]>(`crewwins:user:${userId}`).catch(() => null)) ?? [];
   return NextResponse.json({
     signedIn: true,
+    wins: wins.length,
     crews: crews.map((c) => ({ id: c!.id, name: c!.name, members: c!.members.length, owner: c!.ownerId === userId })),
   });
 }
