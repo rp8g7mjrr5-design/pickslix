@@ -47,12 +47,12 @@ export async function kvSet(key: string, value: unknown, ttlSeconds?: number): P
 }
 
 /** Set only if the key doesn't exist yet. True when this call claimed it (used for one-time codes). */
-export async function kvClaim(key: string, value: unknown): Promise<boolean> {
+export async function kvClaim(key: string, value: unknown, ttlSeconds?: number): Promise<boolean> {
   const raw = JSON.stringify(value);
-  if (dbEnabled()) return (await command(["SET", key, raw, "NX"])) === "OK";
+  if (dbEnabled()) return (await command(ttlSeconds ? ["SET", key, raw, "NX", "EX", ttlSeconds] : ["SET", key, raw, "NX"])) === "OK";
   const hit = memory.get(key);
   if (hit && hit.expires > Date.now()) return false;
-  memory.set(key, { value: raw, expires: Infinity });
+  memory.set(key, { value: raw, expires: ttlSeconds ? Date.now() + ttlSeconds * 1000 : Infinity });
   return true;
 }
 
@@ -72,4 +72,32 @@ export async function kvKeys(prefix: string, limit = 5000): Promise<string[]> {
     cursor = next;
   } while (cursor !== "0" && keys.length < limit);
   return keys.slice(0, limit);
+}
+
+const hashes = new Map<string, { fields: Map<string, number>; expires: number }>();
+
+/** Add to a counter field in a hash, keeping the hash for ttlSeconds. */
+export async function kvHashIncr(key: string, field: string, by: number, ttlSeconds: number): Promise<void> {
+  if (dbEnabled()) {
+    await command(["HINCRBY", key, field, by]);
+    await command(["EXPIRE", key, ttlSeconds]);
+    return;
+  }
+  const hit = hashes.get(key);
+  const h = hit && hit.expires > Date.now() ? hit : { fields: new Map<string, number>(), expires: 0 };
+  h.fields.set(field, (h.fields.get(field) ?? 0) + by);
+  h.expires = Date.now() + ttlSeconds * 1000;
+  hashes.set(key, h);
+}
+
+/** Every counter in a hash. */
+export async function kvHashAll(key: string): Promise<Record<string, number>> {
+  if (dbEnabled()) {
+    const flat = ((await command(["HGETALL", key])) as string[] | null) ?? [];
+    const out: Record<string, number> = {};
+    for (let i = 0; i + 1 < flat.length; i += 2) out[flat[i]] = Number(flat[i + 1]) || 0;
+    return out;
+  }
+  const hit = hashes.get(key);
+  return hit && hit.expires > Date.now() ? Object.fromEntries(hit.fields) : {};
 }

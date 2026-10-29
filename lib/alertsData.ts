@@ -3,10 +3,14 @@
 import webpush from "web-push";
 import { alertsFor, legKey, openLegs, type OpenLeg } from "./alerts.ts";
 import type { Price } from "./clv.ts";
+import { getAccount } from "./accounts.ts";
 import { kvDel, kvGet, kvKeys, kvSet } from "./db.ts";
-import { fetchInjuries, fetchUpcomingGames, type EspnGame } from "./espn.ts";
+import { edgeAlert, rippleLines, softLines, type Edge } from "./edges.ts";
+import { espnDate, fetchInjuries, fetchUpcomingGames, type EspnGame } from "./espn.ts";
 import { normName } from "./names.ts";
 import { fetchGameLines, oddsEnabled } from "./odds.ts";
+import { checkPass, proRequired } from "./pro.ts";
+import { todaysSlate } from "./slateData.ts";
 import type { SavedSlip } from "./storage.ts";
 import type { NewsItem, Sport } from "./types.ts";
 
@@ -25,7 +29,24 @@ const ownerId = (o: Owner) => ("user" in o ? `user:${o.user}` : `code:${o.code}`
 const subsKey = (o: Owner) => `push:${ownerId(o)}`;
 const slipsKey = (id: string) => (id.startsWith("user:") ? `slips:${id}` : `slips:${id.slice("code:".length)}`);
 const sentKey = (id: string) => `pushsent:${id}`;
+const prefsKey = (o: Owner) => `pushprefs:${ownerId(o)}`;
 const MAX_SUBS = 5;
+/** Edge alerts go out only when they're this strong, at most this many a run and this many a day per person. */
+const EDGE_PUSH_MIN = 0.6;
+const EDGES_PER_RUN = 2;
+const EDGES_PER_DAY = 4;
+
+export interface PushPrefs {
+  /** Soft-line and injury ripple alerts, on top of alerts about your own picks. On unless turned off. */
+  edges: boolean;
+}
+
+export async function getPrefs(o: Owner): Promise<PushPrefs> {
+  const p = await kvGet<Partial<PushPrefs>>(prefsKey(o)).catch(() => null);
+  return { edges: p?.edges !== false };
+}
+
+export const setPrefs = (o: Owner, prefs: PushPrefs) => kvSet(prefsKey(o), prefs);
 
 export async function addSubscription(o: Owner, sub: PushSub) {
   const subs = ((await kvGet<PushSub[]>(subsKey(o))) ?? []).filter((s) => s.endpoint !== sub.endpoint);
@@ -71,7 +92,7 @@ export async function sendTest(o: Owner) {
   if (!alertsEnabled()) return 0;
   configure();
   const subs = (await kvGet<PushSub[]>(subsKey(o))) ?? [];
-  return sendAll(ownerId(o), subs, { title: "Alerts are on", body: "We'll buzz you if a player on your slip is ruled out or the line moves.", url: "/tracker" });
+  return sendAll(ownerId(o), subs, { title: "Alerts are on", body: "We'll buzz you if a player on your slip is ruled out or the line moves, and when Pick 6 is behind the books.", url: "/tracker" });
 }
 
 /** The books' current price for each open leg, from cached lines only (no credits spent). */
@@ -93,6 +114,14 @@ async function currentPrices(legs: OpenLeg[]): Promise<Map<string, Price>> {
   return out;
 }
 
+/** Soft lines need Pro once Pro is set up; a signed-out device can't show it has Pro, so it gets ripples only. */
+async function ownerHasPro(id: string): Promise<boolean> {
+  if (!proRequired()) return true;
+  if (!id.startsWith("user:")) return false;
+  const account = await getAccount(id.slice("user:".length)).catch(() => ({}) as { proKey?: string });
+  return Boolean(await checkPass(account.proKey).catch(() => null));
+}
+
 /** The scheduled job: check everyone with alerts on and send what's new. */
 export async function runAlerts(now = Date.now()) {
   if (!alertsEnabled()) return { enabled: false };
@@ -103,20 +132,45 @@ export async function runAlerts(now = Date.now()) {
     if (!news.has(s)) news.set(s, fetchInjuries(s).catch(() => []));
     return news.get(s)!;
   };
+  // Today's edges, worked out once for everyone and only if someone is listening.
+  let edges: Promise<{ soft: Edge[]; ripple: Edge[] }> | undefined;
+  const edgesNow = () =>
+    (edges ??= todaysSlate(now)
+      .then((s) => ({
+        soft: softLines(s.rows, now).filter((e) => e.booksProb! >= EDGE_PUSH_MIN).slice(0, 3),
+        ripple: rippleLines(s.rows, now).filter((e) => e.prob >= EDGE_PUSH_MIN).slice(0, 3),
+      }))
+      .catch(() => ({ soft: [], ripple: [] })));
+  const today = espnDate(new Date(now));
   let owners = 0;
   let sent = 0;
   for (const key of keys) {
     const id = key.slice("push:".length);
     const subs = (await kvGet<PushSub[]>(key).catch(() => null)) ?? [];
     if (!subs.length) continue;
+    const owner: Owner = id.startsWith("user:") ? { user: id.slice("user:".length) } : { code: id.slice("code:".length) };
+    const already = new Set((await kvGet<string[]>(sentKey(id)).catch(() => null)) ?? []);
+    const alerts: { id: string; title: string; body: string; url: string }[] = [];
+
     const slips = (await kvGet<SavedSlip[]>(slipsKey(id)).catch(() => null)) ?? [];
     const legs = openLegs(slips, now);
-    if (!legs.length) continue;
-    owners++;
-    const sports = [...new Set(legs.map((l) => l.sport))];
-    const reports = (await Promise.all(sports.map(newsFor))).flat();
-    const already = new Set((await kvGet<string[]>(sentKey(id)).catch(() => null)) ?? []);
-    const alerts = alertsFor(legs, reports, await currentPrices(legs), already);
+    if (legs.length) {
+      owners++;
+      const sports = [...new Set(legs.map((l) => l.sport))];
+      const reports = (await Promise.all(sports.map(newsFor))).flat();
+      alerts.push(...alertsFor(legs, reports, await currentPrices(legs), already));
+    }
+
+    if ((await getPrefs(owner)).edges) {
+      const dayKey = `pushedges:${id}:${today}`;
+      const used = (await kvGet<number>(dayKey).catch(() => null)) ?? 0;
+      const { soft, ripple } = await edgesNow();
+      const pool = [...ripple, ...(soft.length && (await ownerHasPro(id)) ? soft : [])].filter((e) => !already.has(e.id));
+      const fresh = pool.slice(0, Math.max(0, Math.min(EDGES_PER_RUN, EDGES_PER_DAY - used))).map(edgeAlert);
+      if (fresh.length) await kvSet(dayKey, used + fresh.length, 2 * 86400).catch(() => {});
+      alerts.push(...fresh);
+    }
+
     for (const a of alerts) sent += await sendAll(id, subs, { title: a.title, body: a.body, url: a.url, tag: a.id });
     if (alerts.length) await kvSet(sentKey(id), [...already, ...alerts.map((a) => a.id)].slice(-300), 4 * 86400);
   }

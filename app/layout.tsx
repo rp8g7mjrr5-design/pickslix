@@ -6,6 +6,7 @@ import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
 import { UsernameGate } from "@/components/Username";
 import { InviteBanner } from "@/components/Invite";
+import Install from "@/components/Install";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           )}
         </footer>
         <UsernameGate />
+        <Install />
         </AccountProvider>
       </body>
     </html>

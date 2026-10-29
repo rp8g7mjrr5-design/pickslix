@@ -1033,3 +1033,117 @@ body[data-coach="3"] .slipbar {
 .trackcards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .trackcards small:last-child { margin-top: 2px; }
 .saved .leg:has(+ .savedfoot) { border-bottom: 0; }
+
+/* ---------- Where Pick 6 is behind ---------- */
+.edges { margin: 0 0 14px; padding: 14px 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); display: grid; gap: 10px; }
+.edgeshead h2 { margin: 0; font-size: 16px; }
+.edgeshead small { display: block; margin-top: 2px; }
+.edge { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.edge > div { min-width: 0; display: grid; gap: 2px; }
+.edge strong { font-size: 15px; }
+.edgeline { font-size: 14px; }
+.edge button, .edge .button { flex: none; }
+.edgetag { justify-self: start; font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+.edgetag.soft { background: rgba(122, 107, 255, 0.18); color: #b3a9ff; }
+.edgetag.ripple { background: rgba(255, 194, 75, 0.16); color: var(--warn); }
+.edge.locked { opacity: 0.95; }
+.alertopt { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.alertopt input { margin-top: 2px; accent-color: var(--accent); }
+
+/* ---------- Daily Lock ---------- */
+.lockpage { max-width: 720px; margin: 0 auto; display: grid; gap: 14px; }
+.lockpage h2 { margin: 0 0 8px; font-size: 16px; }
+.lockstreak {
+  padding: 18px; border-radius: var(--radius); display: grid; gap: 12px; justify-items: start;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(255, 194, 75, 0.16), transparent 60%), var(--panel); border: 1px solid var(--line);
+}
+.lockstreak.skeletoncard { min-height: 180px; width: 100%; }
+.lockcount { display: flex; align-items: center; gap: 12px; }
+.lockcount strong { display: block; font-size: 44px; line-height: 1; letter-spacing: -1.5px; }
+.lockcount small { color: var(--muted); }
+.lockflame { font-size: 34px; }
+.lockstats { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+.lockstats b { color: var(--text); }
+.lockbadges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lockbadge {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px;
+  border: 1px dashed var(--line); color: var(--muted);
+}
+.lockbadge.on { border: none; background: linear-gradient(135deg, #ffd66b, #ff9f43); color: #1b1203; box-shadow: 0 0 0 3px rgba(255, 194, 75, 0.18); }
+.lockmenu, .lockrecent, .lockleaders { padding: 14px 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
+.lockmenuhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lockoption { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.lockoption > div:first-child { min-width: 0; display: grid; gap: 2px; }
+.lockoption.mine strong { color: var(--accent); }
+.locksides { display: flex; gap: 6px; flex: none; }
+.locksides .side { min-width: 64px; }
+.lockrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.lockteaser {
+  display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 12px 14px; border-radius: var(--radius);
+  background: var(--panel); border: 1px solid var(--line); color: var(--text); text-decoration: none;
+}
+.lockteaser:hover { border-color: rgba(255, 194, 75, 0.5); }
+.lockteaser .lockflame { font-size: 24px; }
+.lockteaser > span:nth-child(2) { flex: 1; min-width: 0; display: grid; }
+.lockteaser small { color: var(--muted); }
+.lockteaser b { color: var(--muted); font-size: 22px; }
+@media (max-width: 520px) {
+  .lockoption { flex-direction: column; align-items: stretch; }
+  .locksides .side { flex: 1; }
+}
+
+/* ---------- Recap ---------- */
+.savedfoot .recapbtn { margin-right: auto; }
+.recapline { margin: 6px 0 0; font-weight: 700; }
+.saved .leg:has(+ .recapline) { border-bottom: 0; }
+.recaphead { font-size: 22px; font-weight: 800; letter-spacing: -0.4px; margin: 0 0 6px; }
+
+/* ---------- Pairs, hot spots ---------- */
+.pairs { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); margin: 4px 0; }
+.pairs > small { font-size: 12px; }
+.pair { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 14px; }
+.pair > span { min-width: 0; display: grid; }
+.pair small { color: var(--muted); font-size: 12px; }
+.angles .edgeshead:not(:first-child) { margin-top: 6px; }
+.spots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.spots li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.spots small { color: var(--muted); font-weight: 400; }
+
+/* ---------- Bankroll coach ---------- */
+.coachline { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13px; }
+.coachline b { font-weight: 600; }
+.coachbtns { display: flex; align-items: center; gap: 10px; flex: none; }
+.budgetform { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.budgetform label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.budgetform input { width: 120px; }
+.budgetbar { height: 8px; border-radius: 999px; background: var(--panel-3); overflow: hidden; margin: 4px 0 6px; }
+.budgetbar i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.budgetbar i.over { background: var(--under); }
+
+/* ---------- Crew week ---------- */
+.crewwinner { margin: 6px 0 8px; font-size: 14px; }
+.crewweek > small { display: block; margin-top: 8px; }
+.crewforms form > small { display: block; margin: -2px 0 6px; font-size: 12px; }
+
+/* ---------- Ask LayLock ---------- */
+.ask { margin: 0 0 14px; padding: 12px 14px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); display: grid; gap: 10px; }
+.ask form { display: flex; gap: 8px; }
+.ask input { flex: 1; min-width: 0; }
+.askexamples { display: flex; gap: 6px; flex-wrap: wrap; }
+.askexamples .chip { font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); font-weight: 600; }
+.askanswer { display: grid; gap: 6px; justify-items: start; }
+.askanswer strong { font-size: 15px; line-height: 1.35; }
+.askanswer ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 3px; }
+
+/* ---------- Install ---------- */
+.installbar {
+  position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 40; max-width: 480px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius);
+  background: var(--panel-2); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.installbar img { border-radius: 9px; flex: none; }
+.installbar > span { flex: 1; min-width: 0; display: grid; }
+.installbar small { color: var(--muted); font-size: 12px; }
+body:has(.slipbar) .installbar, body[data-coach] .installbar { display: none; }
+.lockpage .fine a { color: var(--text); text-decoration: underline; }
+.spots b { white-space: nowrap; }

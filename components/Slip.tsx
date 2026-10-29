@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { correlatedHitProbability } from "@/lib/correlation.ts";
 import { DEFAULT_MULTIPLIERS, MAX_PICKS, pct } from "@/lib/format.ts";
 import { persistSlips, pullSlips, type SlipLeg } from "@/lib/storage.ts";
-import { STATS, type PropWithProjection } from "@/lib/types.ts";
+import { STATS, type Prop, type PropWithProjection } from "@/lib/types.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
+import { EntryCoach } from "@/components/Budget";
+import { suggestPairs } from "@/lib/pairs.ts";
 import { shareSlip } from "@/lib/shareClient.ts";
+import { countForCrowd, useSlate } from "@/lib/slateClient.ts";
 
 const BEST_SIZES = [2, 3, 4, 5, 6];
 
@@ -16,13 +19,16 @@ export default function Slip({
   onRemove,
   onClear,
   onBest,
+  onAdd,
 }: {
   legs: SlipLeg[];
   rows: PropWithProjection[];
   onRemove: (id: string) => void;
   onClear: () => void;
   onBest: (n: number) => void;
+  onAdd: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
 }) {
+  const slate = useSlate();
   const pro = usePro();
   const [entry, setEntry] = useState(10);
   const [multiplier, setMultiplier] = useState<number | null>(null);
@@ -42,6 +48,15 @@ export default function Slip({
     [legs, rows],
   );
   const hit = corr.prob;
+  // Lines from today's slate that move with this slip.
+  const pairs = useMemo(() => {
+    if (legs.length >= MAX_PICKS) return [];
+    const withGame = legs.map((l) => {
+      const r = rows.find((x) => x.id === l.propId) ?? slate.find((x) => x.player === l.player && x.stat === l.stat);
+      return { ...l, sport: r?.sport ?? l.sport, team: r?.team || l.team, opponent: r?.opponent || l.opponent };
+    });
+    return suggestPairs(withGame, slate);
+  }, [legs, rows, slate]);
   const ev = legs.length >= 2 && entry > 0 && mult > 0 ? hit * mult * entry - entry : 0;
   const breakEven = mult > 0 ? Math.pow(1 / mult, 1 / Math.max(legs.length, 1)) : 0;
 
@@ -67,10 +82,9 @@ export default function Slip({
       const r = rows.find((x) => x.id === l.propId);
       return r ? { ...l, sport: r.sport, team: r.team || undefined, opponent: r.opponent || undefined, gameTime: r.gameTime } : l;
     });
-    persistSlips([
-      { id: crypto.randomUUID(), createdAt: new Date().toISOString(), entry, multiplier: mult, legs: withGame },
-      ...slips,
-    ]);
+    const id = crypto.randomUUID();
+    persistSlips([{ id, createdAt: new Date().toISOString(), entry, multiplier: mult, legs: withGame }, ...slips]);
+    countForCrowd(id, withGame);
   };
 
   const share = async () => {
@@ -178,6 +192,7 @@ export default function Slip({
                   : "✗ Not worth it at this payout. Try stronger picks (higher %) or fewer picks."}
               </p>}
               <p className="fine">Each pick needs about {pct(breakEven)} to break even at this payout.</p>
+              <EntryCoach hit={hit} mult={mult} entry={entry} onUse={setEntry} />
             </>
           )}
           {outLegs.length > 0 && (
@@ -188,6 +203,31 @@ export default function Slip({
               {linkedNote} move together, so the chance is {pct(hit, 1)} rather than {pct(corr.independent, 1)} if they were unrelated.{" "}
               {hit >= corr.independent ? "Picks that rise and fall together help a slip." : "These picks pull against each other: one hitting makes the other less likely."}
             </p>
+          )}
+          {pairs.length > 0 && (
+            <div className="pairs">
+              <strong>Pairs well with this slip</strong>
+              <small className="muted">These move with your picks, so they lift the chance more than an unrelated pick would.</small>
+              {pairs.map((p) => {
+                const prop: Prop = {
+                  id: `custom-${p.row.player}-${p.row.stat}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                  sport: p.row.sport, player: p.row.player, team: p.row.team, opponent: p.row.opponent, stat: p.row.stat, line: p.row.line, gameTime: p.row.gameTime,
+                };
+                return (
+                  <div key={p.row.id} className="pair">
+                    <span>
+                      <b className={p.side === "OVER" ? "pos" : "neg"}>{p.side === "OVER" ? "More" : "Less"}</b> {p.row.player} {p.row.line} {STATS[p.row.stat].label}
+                      <small>
+                        {pct(p.prob)} · moves with {p.with.split(" ").slice(-1)[0]}
+                      </small>
+                    </span>
+                    <button className="ghost small" onClick={() => onAdd(prop, p.side, p.prob)}>
+                      Add
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
           <p className="fine">Check the payout in the DraftKings app; it changes with the picks you choose.</p>
           {shareNote.length >= 16 && <p className="warn">{shareNote}</p>}

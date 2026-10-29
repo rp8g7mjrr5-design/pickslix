@@ -5,6 +5,8 @@ import { pct } from "@/lib/format.ts";
 import { loadSlips, persistSlips, pullSlips, setSyncCode, syncCode, type SavedSlip, type SlipLeg } from "@/lib/storage.ts";
 import { STATS } from "@/lib/types.ts";
 import { clvSummary, legClv } from "@/lib/clv.ts";
+import { BudgetCard } from "@/components/Budget";
+import { recapLine, settled } from "@/lib/recap.ts";
 import { shareSlip } from "@/lib/shareClient.ts";
 import { unlocked, usePro } from "@/lib/proClient.ts";
 import { SignInPrompt, useAccount } from "@/components/Account";
@@ -76,9 +78,11 @@ export default function Tracker() {
           })),
         }),
       });
-      const { results } = (await res.json()) as { results: (SlipLeg["result"] | null)[] };
-      const found = new Map<string, NonNullable<SlipLeg["result"]>>();
-      open.slice(0, 60).forEach((o, i) => results[i] && found.set(`${o.slipId}|${o.leg.propId}`, results[i]!));
+      const { results, values } = (await res.json()) as { results: (SlipLeg["result"] | null)[]; values?: (number | null)[] };
+      const found = new Map<string, { result: NonNullable<SlipLeg["result"]>; actual?: number }>();
+      open
+        .slice(0, 60)
+        .forEach((o, i) => results[i] && found.set(`${o.slipId}|${o.leg.propId}`, { result: results[i]!, actual: values?.[i] ?? undefined }));
       if (!found.size) return;
       // Re-read so a mark made while grading isn't lost.
       const latest = loadSlips();
@@ -86,7 +90,7 @@ export default function Tracker() {
         ...s,
         legs: s.legs.map((l) => {
           const r = found.get(`${s.id}|${l.propId}`);
-          return r && !l.result ? { ...l, result: r, auto: true } : l;
+          return r && !l.result ? { ...l, result: r.result, ...(r.actual !== undefined ? { actual: r.actual } : {}), auto: true } : l;
         }),
       }));
       setSlips(next);
@@ -261,6 +265,7 @@ export default function Tracker() {
           </small>
         </div>
       )}
+      {slips.length > 0 && <BudgetCard />}
       {settled.length > 0 && <Insights slips={settled} locked={locked} />}
       {settledLegs.length > 0 && <ReportCard legs={settledLegs} locked={locked} />}
       {account.enabled && account.loaded && !account.signedIn && (
@@ -290,6 +295,22 @@ function ShareButton({ slip }: { slip: SavedSlip }) {
           <path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
         </svg>
       )}
+    </button>
+  );
+}
+
+/** After the games: a share card with how every pick went. */
+function RecapButton({ slip }: { slip: SavedSlip }) {
+  const [note, setNote] = useState("");
+  const go = async () => {
+    setNote("…");
+    const r = await shareSlip(slip.legs, undefined, { recap: true, text: `${recapLine(slip.legs)} My LayLock recap:` });
+    setNote(r.ok ? (r.how === "copied" ? "Link copied" : "Shared ✓") : "Try again");
+    setTimeout(() => setNote(""), 2500);
+  };
+  return (
+    <button className="small recapbtn" onClick={go} disabled={note === "…"}>
+      {note || "Share recap"}
     </button>
   );
 }
@@ -541,6 +562,7 @@ function SavedSlipCard({
             <small>
               <span className={l.side === "OVER" ? "pos" : "neg"}>{l.side === "OVER" ? "More" : "Less"}</span> than {l.line}{" "}
               {STATS[l.stat].label} · model {pct(l.prob)}
+              {l.actual !== undefined && l.result && ` · had ${l.actual}`}
               <ClvTag leg={l} />
             </small>
           </div>
@@ -559,8 +581,9 @@ function SavedSlipCard({
           )}
         </div>
       ))}
+      {settled(s.legs) && <p className="recapline">{recapLine(s.legs)}</p>}
       <div className="savedfoot">
-        <ShareButton slip={s} />
+        {settled(s.legs) ? <RecapButton slip={s} /> : <ShareButton slip={s} />}
         <button className="linkish" onClick={() => setEditing((v) => !v)}>
           {editing ? "Done" : "Fix a result"}
         </button>

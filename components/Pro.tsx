@@ -31,6 +31,8 @@ const TIERS: { name: string; free: boolean | string; monthly: boolean | string; 
   { name: "Game picker", free: true, monthly: true, yearly: true },
   { name: "Tracker with auto-grading", free: true, monthly: true, yearly: true },
   { name: "Crews and the leaderboard", free: true, monthly: true, yearly: true },
+  { name: "Injury ripple alerts", free: true, monthly: true, yearly: true },
+  { name: "Soft-line finder and alerts", free: false, monthly: true, yearly: true },
   { name: "Pick 6 lines filled in", free: false, monthly: true, yearly: true },
   { name: "Build my best slip", free: false, monthly: true, yearly: true },
   { name: "Insights and model report card", free: false, monthly: true, yearly: true },

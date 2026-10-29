@@ -24,6 +24,8 @@ export default function Crews() {
   const [crews, setCrews] = useState<CrewRow[] | null>(null);
   const [name, setName] = useState("");
   const [invite, setInvite] = useState("");
+  const [rival, setRival] = useState("");
+  const [wins, setWins] = useState(0);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState("");
 
@@ -31,14 +33,18 @@ export default function Crews() {
     if (!account.signedIn) return;
     fetch("/api/crews", { cache: "no-store" })
       .then((r) => r.json())
-      .then((b: { crews: CrewRow[] }) => setCrews(b.crews))
+      .then((b: { crews: CrewRow[]; wins?: number }) => {
+        setCrews(b.crews);
+        setWins(b.wins ?? 0);
+      })
       .catch(() => setCrews([]));
   }, [account.signedIn]);
 
-  const go = async (action: "create" | "join") => {
+  const go = async (action: "create" | "join" | "versus") => {
     setBusy(action);
     setNote("");
-    const r = await post(action === "create" ? { action, name } : { action, invite });
+    const versus = `${account.username} vs ${rival.trim().replace(/^@/, "")}`.slice(0, 30);
+    const r = await post(action === "create" ? { action, name } : action === "versus" ? { action: "create", name: versus } : { action, invite });
     setBusy("");
     if (r.crew) router.push(`/crews/${r.crew.id}`);
     else setNote(r.error ?? "Try again.");
@@ -49,7 +55,12 @@ export default function Crews() {
       <div className="hero">
         <div>
           <h1>Crews</h1>
-          <p className="muted">Private groups for you and your friends. See each other's picks, tail a slip in one tap, and settle who's best.</p>
+          <p className="muted">Private groups for you and your friends. See each other's picks, tail a slip in one tap, and play a contest every week.</p>
+          {wins > 0 && (
+            <p className="crewwinner">
+              🏆 {wins} crew week win{wins === 1 ? "" : "s"}
+            </p>
+          )}
         </div>
       </div>
 
@@ -93,6 +104,21 @@ export default function Crews() {
           )}
 
           <div className="crewforms">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                go("versus");
+              }}
+            >
+              <label htmlFor="rival">Head-to-head</label>
+              <small className="muted">Challenge one friend. You get a private link to send them, and the week&apos;s winner gets the trophy.</small>
+              <div>
+                <input id="rival" placeholder="Friend's name" value={rival} onChange={(e) => setRival(e.target.value)} maxLength={20} />
+                <button type="submit" disabled={!!busy || !account.username || rival.trim().length < 2}>
+                  {busy === "versus" ? "Starting…" : "Challenge"}
+                </button>
+              </div>
+            </form>
             <form
               onSubmit={(e) => {
                 e.preventDefault();

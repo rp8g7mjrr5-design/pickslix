@@ -23,6 +23,7 @@ interface Member {
 interface Data {
   crew: { id: string; name: string; invite: string; owner: boolean };
   members: Member[];
+  week?: { id: string; rows: { username: string; hits: number; misses: number; picks: number; net: number }[]; lastWinner: { username: string; net: number } | null };
 }
 
 const ago = (iso: string) => {
@@ -142,9 +143,42 @@ export default function Crew({ id }: { id: string }) {
         </div>
       </div>
 
+      {data.week && (
+        <section className="report crewweek">
+          <div className="reporthead">
+            <h2>Crew week</h2>
+            <small>Most net wins by Sunday night takes it</small>
+          </div>
+          {data.week.lastWinner && (
+            <p className="crewwinner">
+              🏆 Last week: <strong>{data.week.lastWinner.username}</strong> won at +{data.week.lastWinner.net}
+            </p>
+          )}
+          <ol className="leaderlist">
+            {data.week.rows.map((r, i) => (
+              <li key={r.username} className={`leader ${r.username === account.username ? "me" : ""} ${i === 0 && r.net > 0 ? "top1" : ""}`}>
+                <span className="place">{i + 1}</span>
+                <span className="who">
+                  <strong>{r.username}</strong>
+                  <small>{r.picks ? `${r.hits}–${r.misses} this week` : "No graded picks this week"}</small>
+                </span>
+                <span className="num">
+                  <strong className={r.net > 0 ? "pos" : r.net < 0 ? "neg" : ""}>
+                    {r.net > 0 ? "+" : ""}
+                    {r.net}
+                  </strong>
+                  <small className="muted">net</small>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <small className="muted">Hits minus misses on picks graded from the box score and saved before the game. Needs 3 picks to win.</small>
+        </section>
+      )}
+
       <section className="report">
         <div className="reporthead">
-          <h2>Standings</h2>
+          <h2>All-time standings</h2>
           <small>{MIN_PICKS} graded picks to be ranked</small>
         </div>
         <ol className="leaderlist">

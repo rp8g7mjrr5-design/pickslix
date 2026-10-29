@@ -4,6 +4,7 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { clvSummary } from "@/lib/clv.ts";
+import { hotSpots, SPOT_MIN } from "@/lib/hotspots.ts";
 import { pct } from "@/lib/format.ts";
 import { leaderStats, MIN_PICKS } from "@/lib/leaderboard.ts";
 import { usePro } from "@/lib/proClient.ts";
@@ -48,6 +49,7 @@ export default function Profile() {
   const counted = useMemo(() => leaderStats(slips), [slips]);
   const beat = s.picks ? s.hitRate - s.expected : 0;
   const clv = useMemo(() => clvSummary(slips), [slips]);
+  const spots = useMemo(() => hotSpots(slips), [slips]);
 
   return (
     <div className="profile">
@@ -165,6 +167,34 @@ export default function Profile() {
                 </small>
               </section>
             )}
+            <section className="report">
+              <div className="reporthead">
+                <h2>Hot spots</h2>
+                <small>Where you hit most and least</small>
+              </div>
+              {spots.hot.length || spots.cold.length ? (
+                <ul className="spots">
+                  {spots.hot.slice(0, 3).map((x) => (
+                    <li key={x.label}>
+                      <span>🔥 {x.label}</span>
+                      <b className="pos">
+                        {pct(x.rate)} <small>of {x.n}</small>
+                      </b>
+                    </li>
+                  ))}
+                  {spots.cold.slice(0, 2).map((x) => (
+                    <li key={x.label}>
+                      <span>🧊 {x.label}</span>
+                      <b className="neg">
+                        {pct(x.rate)} <small>of {x.n}</small>
+                      </b>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <small className="muted">Once you have {SPOT_MIN} graded picks of one kind (say, NBA rebound unders), your best and worst show up here, and the Board points out tonight&apos;s lines that fit.</small>
+              )}
+            </section>
             {s.bestCall && (
               <section className="report bestcall">
                 <div className="reporthead">

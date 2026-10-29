@@ -43,6 +43,32 @@ const FAQ: [string, React.ReactNode][] = [
     "Once lines are up, the model picks the one line on today's slate it likes most, with a real sample behind it and no injury flag. It's graded in public after the game, and its record sits right on the card.",
   ],
   [
+    "What's the Daily Lock?",
+    <>
+      A free game on the <Link href="/lock">Lock</Link> tab. Each day pick one side of one line from a short menu. Hit it and your streak grows, miss and it
+      starts over. Skipping a day doesn&apos;t break it. Badges at 5, 10 and 20 in a row.
+    </>,
+  ],
+  [
+    "What does \"Where Pick 6 is behind\" mean?",
+    "Pick 6 moves its lines slowly. A soft line is one where the sportsbooks have moved past Pick 6, so one side is better than it looks. An injury ripple is a teammate whose line hasn't caught up with a starter being ruled out. Soft lines are a Pro feature; ripples are free.",
+  ],
+  [
+    "Can I just ask about a player?",
+    "Yes. Type a question on the Board, like \"Is Tatum's 27.5 points safe?\", and you get the model's read: its lean, what it expects, recent form and what the books say.",
+  ],
+  [
+    "How do crew contests work?",
+    <>
+      Every <Link href="/crews">crew</Link> plays a week-long contest on the picks you already save: most hits minus misses by Sunday night wins. Want a
+      one-on-one? Start a head-to-head with a friend.
+    </>,
+  ],
+  [
+    "What's the bankroll coach?",
+    "Set a weekly budget on the Tracker. Your slip then suggests an entry sized to its edge, tells you when a slip isn't worth playing, and gives you a nudge if you start chasing losses.",
+  ],
+  [
     "Can I get Pro free?",
     <>
       Yes. Share your invite link from your <Link href="/profile">profile</Link>, or share a slip. When a friend signs up from it, you both get a week of Pro.

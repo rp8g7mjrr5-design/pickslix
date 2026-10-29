@@ -26,6 +26,7 @@ async function registration() {
 export function AlertsToggle() {
   const [state, setState] = useState<State>("loading");
   const [note, setNote] = useState("");
+  const [edges, setEdges] = useState(true);
 
   useEffect(() => {
     if (!KEY) return setState("unsupported");
@@ -35,7 +36,16 @@ export function AlertsToggle() {
       .then((r) => r.pushManager.getSubscription())
       .then((s) => setState(s ? "on" : "off"))
       .catch(() => setState("unsupported"));
+    fetch(`/api/alerts?code=${encodeURIComponent(syncCode())}`)
+      .then((r) => r.json() as Promise<{ edges?: boolean }>)
+      .then((p) => setEdges(p.edges !== false))
+      .catch(() => {});
   }, []);
+
+  const toggleEdges = async (on: boolean) => {
+    setEdges(on);
+    await fetch("/api/alerts", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ edges: on, code: syncCode() }) }).catch(() => {});
+  };
 
   const turnOn = async () => {
     setState("busy");
@@ -89,6 +99,12 @@ export function AlertsToggle() {
               ? "Notifications are blocked for this site. Allow them in your browser or phone settings, then come back."
               : "A buzz on this device when a player on your slip is ruled out or questionable, or the books move the line 5+ points."}
         </small>
+        {state === "on" && (
+          <label className="alertopt">
+            <input type="checkbox" checked={edges} onChange={(e) => toggleEdges(e.target.checked)} />
+            <span>Also alert me to soft lines and injury news (a few a day at most)</span>
+          </label>
+        )}
         {note && <small className="muted">{note}</small>}
       </div>
       {(state === "off" || state === "busy" || state === "on") && (

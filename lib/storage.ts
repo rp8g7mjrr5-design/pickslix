@@ -16,6 +16,8 @@ export interface SlipLeg {
   /** The model's spread-to-mean ratio for the player, to compare prices at different lines. */
   dispersion?: number;
   result?: "hit" | "miss" | "push";
+  /** What the player actually put up, when graded from the box score. */
+  actual?: number;
   /** Set when the tracker graded this leg from the box score (a manual mark clears it). */
   auto?: boolean;
   sport?: Sport;
@@ -58,6 +60,9 @@ function write(key: string, value: unknown) {
 export const loadSlips = () => read<SavedSlip[]>(SLIPS, []);
 export const saveSlips = (s: SavedSlip[]) => write(SLIPS, s);
 export const loadCustomProps = () => read<Prop[]>(CUSTOM, []);
+/** Weekly budget for the bankroll coach, in dollars; 0 when not set. */
+export const loadBudget = () => read<number>("pickslix.budget", 0);
+export const saveBudget = (n: number) => write("pickslix.budget", Math.max(0, Math.round(n)));
 export const saveCustomProps = (p: Prop[]) => write(CUSTOM, p);
 
 // ---------- Sync through the server database (when the deployment has one) ----------

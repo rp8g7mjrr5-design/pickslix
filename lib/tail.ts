@@ -11,6 +11,9 @@ export interface TailLeg {
   team?: string;
   opponent?: string;
   gameTime?: string;
+  /** On a recap: how it went. */
+  result?: "hit" | "miss" | "push";
+  actual?: number;
 }
 
 // Same ids the game picker and screenshot import use, so a tailed line merges with one already on the board.
