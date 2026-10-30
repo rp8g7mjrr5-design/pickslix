@@ -156,14 +156,14 @@ export default function Board() {
     [slip, rows],
   );
 
-  const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number) => {
+  const pickFromGame = (prop: Prop, side: "OVER" | "UNDER", prob: number, extra?: Partial<SlipLeg>) => {
     if (!slip.some((l) => l.propId === prop.id) && slip.length >= app.max) return flash(`${app.name} allows up to ${app.max} picks`);
     saveCustomProps([prop, ...loadCustomProps().filter((p) => p.id !== prop.id)]);
     setSlip((s) => {
       const existing = s.find((l) => l.propId === prop.id);
       const rest = s.filter((l) => l.propId !== prop.id);
       if (existing?.side === side && existing.line === prop.line) return rest;
-      return [...rest, { propId: prop.id, player: prop.player, stat: prop.stat, line: prop.line, side, prob }];
+      return [...rest, { propId: prop.id, player: prop.player, stat: prop.stat, line: prop.line, side, prob, ...(extra?.tier ? { tier: extra.tier } : {}) }];
     });
     clearTimeout(refreshTimer.current);
     refreshTimer.current = setTimeout(refresh, 900);

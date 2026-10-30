@@ -22,6 +22,8 @@ export interface Platform {
   flex?: Record<number, PayoutTiers>;
   /** What the app calls its flex play. */
   flexName?: string;
+  /** What the app calls its alternate lines below and above the standard one, when the API carries them. */
+  alt?: { below: string; above: string };
   /** What the app calls the two sides. */
   over: string;
   under: string;
@@ -55,6 +57,7 @@ export const PLATFORMS: Record<PlatformId, Platform> = {
       6: { 6: 25, 5: 2, 4: 0.4 },
     },
     flexName: "Flex Play",
+    alt: { below: "Goblin", above: "Demon" },
     over: "More",
     under: "Less",
     payoutNote: "Standard lines shown. Goblins and demons pay less or more; edit the payout to match.",

@@ -106,7 +106,7 @@ export default function GamePicker({
   onOpenChange,
 }: {
   slip: SlipLeg[];
-  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number, extra?: Partial<SlipLeg>) => void;
   onViewSlip: () => void;
   /** A game opened or closed: the board hides its other sections while one is open. */
   onOpenChange?: (open: boolean) => void;
@@ -231,7 +231,7 @@ function GameView({
   game: Game;
   sport: GameSport;
   slip: SlipLeg[];
-  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number, extra?: Partial<SlipLeg>) => void;
   onClose: () => void;
   onViewSlip: () => void;
 }) {
@@ -257,7 +257,11 @@ function GameView({
         .catch(() => setPlayers((p) => ({ ...p, [t.abbr]: "error" })));
     }
     const q = new URLSearchParams({ sport, home: home?.name ?? home?.abbr ?? "", away: away?.name ?? away?.abbr ?? "", date: game.date });
-    fetch(`/api/games/lines?${q}`, { headers: proHeaders() })
+    // PrizePicks players get its goblin and demon lines too.
+    const app = PLATFORMS[platform];
+    const lq = new URLSearchParams(q);
+    if (app.alt && app.book) lq.set("alt", app.book);
+    fetch(`/api/games/lines?${lq}`, { headers: proHeaders() })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((b: { lines?: GameLines; locked?: boolean }) => {
         setLines(b.lines ?? {});
@@ -269,7 +273,7 @@ function GameView({
       .then(setEnv)
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.id, sport]);
+  }, [game.id, sport, platform]);
 
   const ref = useRef<HTMLDivElement>(null);
   // Bring the game into view when it opens (the strip stays just above it).
@@ -421,7 +425,7 @@ function PlayerRow({
   onToggle: () => void;
   posted: Partial<Record<StatKey, OddsLine>>;
   slip: SlipLeg[];
-  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number, extra?: Partial<SlipLeg>) => void;
 }) {
   const stats = useMemo(() => {
     const withAvg = (Object.keys(STATS) as StatKey[]).filter((k) => player.avg[k] !== undefined);
@@ -484,7 +488,7 @@ function PickCard({
   env?: TeamEnv;
   posted: Partial<Record<StatKey, OddsLine>>;
   slip: SlipLeg[];
-  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number) => void;
+  onPick: (prop: Prop, side: "OVER" | "UNDER", prob: number, extra?: Partial<SlipLeg>) => void;
 }) {
   const [stat, setStat] = useState<StatKey>(stats[0]);
   const platform = usePlatform();
@@ -521,7 +525,12 @@ function PickCard({
     line === undefined
       ? null
       : { id, sport, player: player.name, team: team.abbr, opponent: opp.abbr, stat, line, gameTime };
-  const proj = prop && data ? project({ prop, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(prop, data.nfl) : data.mlb ? mlbAdjust(prop.stat, data.mlb) : usageAdjust(prop.stat, data.usage), ufc: data.ufc ?? undefined, calibration: data.calibration }) : null;
+  const projAt = (p: Prop) =>
+    data ? project({ prop: p, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(p, data.nfl) : data.mlb ? mlbAdjust(p.stat, data.mlb) : usageAdjust(p.stat, data.usage), ufc: data.ufc ?? undefined, calibration: data.calibration }) : null;
+  const proj = prop ? projAt(prop) : null;
+  // PrizePicks' goblins (below the standard line) and demons (above): More only, and they pay differently.
+  const alts = app.alt && shown?.own ? (postedLine?.alts ?? []) : [];
+  const tier = line !== undefined && alts.includes(line) && shown ? (line < shown.line ? "below" : "above") : undefined;
   const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
   const counted = thisSeason < recent.length && thisSeason > 0 ? recent.slice(0, thisSeason) : recent;
   const hits = line === undefined ? 0 : counted.filter((v) => v > line).length;
@@ -596,10 +605,27 @@ function PickCard({
       <small className="hint">
         {shown
           ? shown.own
-            ? `${app.name} line: ${shown.line}${line !== shown.line ? " (you changed it)" : ""}`
+            ? tier && app.alt
+              ? `${tier === "below" ? app.alt.below : app.alt.above} at ${line}. ${app.name}'s standard line is ${shown.line}.`
+              : `${app.name} line: ${shown.line}${line !== shown.line ? " (you changed it)" : ""}`
             : `${shown.book} line: ${shown.line}. ${app.name} hasn't posted this one; adjust if theirs differs.`
           : `No posted line found. We started it at the season average; match it to ${app.name}.`}
       </small>
+      {alts.length > 0 && shown && prop && (
+        <div className="altlines" aria-label={`${app.alt!.below}s and ${app.alt!.above}s`}>
+          {[shown.line, ...alts].sort((a, b) => a - b).map((x) => {
+            const p = projAt({ ...prop, line: x });
+            const kind = x === shown.line ? "Standard" : x < shown.line ? app.alt!.below : app.alt!.above;
+            return (
+              <button key={x} className={`altline ${kind.toLowerCase()} ${line === x ? "on" : ""}`} onClick={() => setLine(x)} aria-pressed={line === x}>
+                <span>{kind}</span>
+                <strong>{x}</strong>
+                {p && <small>{app.over} {pct(p.pOver)}</small>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="bigsides">
         {(["OVER", "UNDER"] as const).map((side) => {
@@ -609,9 +635,10 @@ function PickCard({
             <button
               key={side}
               className={`bigside ${side.toLowerCase()} ${leg?.side === side ? "selected" : ""} ${best ? "best" : ""}`}
-              disabled={!prop}
               aria-pressed={leg?.side === side}
-              onClick={() => prop && onPick(prop, side, prob)}
+              disabled={!prop || (tier !== undefined && side === "UNDER")}
+              title={tier !== undefined && side === "UNDER" ? `${app.name} only offers ${app.over} on ${tier === "below" ? app.alt?.below : app.alt?.above}s` : undefined}
+              onClick={() => prop && onPick(prop, side, prob, { tier })}
             >
               <span>
                 {side === "OVER" ? "More" : "Less"}

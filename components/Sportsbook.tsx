@@ -3,7 +3,7 @@
 // player props bet straight ranked by EV, and a parlay / same-game parlay pricer that knows which legs move together.
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { EDGE_EV, MARKET_LABEL, MIN_BOOKS, fmtAmerican, priceParlay, type GameBoard, type MarketKey, type PropEdge, type SideQuote } from "@/lib/books.ts";
+import { EDGE_EV, MARKET_LABEL, MIN_BOOKS, MODEL_LEAN, fmtAmerican, priceParlay, type GameBoard, type MarketKey, type PropEdge, type SideQuote } from "@/lib/books.ts";
 import { correlatedHitProbability, type CorrLeg } from "@/lib/correlation.ts";
 import { pct } from "@/lib/format.ts";
 import { getProKey, proHeaders } from "@/lib/proClient.ts";
@@ -34,7 +34,14 @@ interface Leg {
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
 const short = (team: string) => team.split(" ").slice(-1)[0];
+const fmtScore = (x: number) => (x >= 20 ? Math.round(x) : x.toFixed(1));
 const evText = (ev: number) => `${ev >= 0 ? "+" : "−"}${Math.abs(ev * 100).toFixed(1)}%`;
+
+/** LayLock's own read favors this side: the model sits well above the books and the blend still pays at the best price. */
+const leans = (s: SideQuote) => s.model !== undefined && s.model - s.fair >= MODEL_LEAN && (s.modelEv ?? -1) >= EDGE_EV;
+
+/** LayLock's EV at the best price: on the blended chance when the team model rates both sides, else the books' fair one. */
+const edgeOf = (s: SideQuote) => s.modelEv ?? s.ev;
 
 function sideLabel(key: MarketKey, s: SideQuote) {
   if (key === "totals") return `${s.name} ${s.point}`;
@@ -75,16 +82,22 @@ export default function Sportsbook() {
   const best = useMemo(() => {
     if (!data) return [];
     return data.games
-      .flatMap((g) => g.markets.flatMap((m) => m.sides.filter((s) => m.books >= MIN_BOOKS && s.ev >= EDGE_EV).map((s) => ({ g, m, s }))))
-      .sort((a, b) => b.s.ev - a.s.ev)
-      .slice(0, 4);
+      .flatMap((g) =>
+        g.markets.flatMap((m) =>
+          m.sides
+            .filter((s) => m.books >= MIN_BOOKS && edgeOf(s) >= EDGE_EV)
+            .map((s) => ({ g, m, s, score: edgeOf(s) })),
+        ),
+      )
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
   }, [data]);
 
   const gameLeg = (g: GameBoard, key: MarketKey, s: SideQuote): Leg => ({
     id: `${g.id}|${key}|${s.name}`,
     label: `${sideLabel(key, s)} ${key === "h2h" ? "ML" : ""}`.trim(),
     sub: `${short(g.away)} @ ${short(g.home)} · ${MARKET_LABEL[key]}`,
-    fair: s.fair,
+    fair: s.chance ?? s.fair,
     price: s.best.price,
     game: g.id,
   });
@@ -134,22 +147,27 @@ export default function Sportsbook() {
 
           {best.length > 0 && (
             <section className="sbbest">
-              <h2>Best prices right now</h2>
-              <small className="muted">Sides where one book is paying more than the fair chance is worth.</small>
+              <h2>Best bets right now</h2>
+              <small className="muted">Sides where one book pays more than the fair chance is worth, or where LayLock&apos;s team model leans past the market.</small>
               {best.map(({ g, m, s }) => {
                 const leg = gameLeg(g, m.key, s);
                 const on = legs.some((l) => l.id === leg.id);
                 return (
                   <div key={leg.id} className="sbrow">
                     <div>
+                      <span className="edgetags">
+                        {s.ev >= EDGE_EV && !leans(s) && <span className="edgetag soft">Best price</span>}
+                        {leans(s) && <span className="edgetag ripple">Model lean</span>}
+                      </span>
                       <strong>
                         {sideLabel(m.key, s)} <span className="muted">{MARKET_LABEL[m.key]}</span>
                       </strong>
                       <small>
-                        {fmtAmerican(s.best.price)} at {s.best.book} · fair {fmtAmerican(s.fairPrice)} ({pct(s.fair)}) · {short(g.away)} @ {short(g.home)}, {when(g.start)}
+                        {fmtAmerican(s.best.price)} at {s.best.book} · fair {pct(s.fair)}
+                        {s.model !== undefined ? ` · model ${pct(s.model)}` : ""} · {short(g.away)} @ {short(g.home)}, {when(g.start)}
                       </small>
                     </div>
-                    <span className="sbev pos">{evText(s.ev)}</span>
+                    <span className="sbev pos">{evText(edgeOf(s))}</span>
                     <button className={on ? "ghost small" : "small"} onClick={() => toggle(leg)}>
                       {on ? "Added ✓" : "Parlay"}
                     </button>
@@ -168,7 +186,10 @@ export default function Sportsbook() {
                   <strong>
                     {g.away} <span className="muted">@</span> {g.home}
                   </strong>
-                  <small>{when(g.start)}</small>
+                  <small>
+                    {g.projected && `LayLock: ${short(g.away)} ${fmtScore(g.projected.away)}, ${short(g.home)} ${fmtScore(g.projected.home)} · `}
+                    {when(g.start)}
+                  </small>
                 </div>
                 {g.markets.map((m) => (
                   <div key={m.key} className="sbmarket">
@@ -182,15 +203,16 @@ export default function Sportsbook() {
                     {m.sides.map((s) => {
                       const leg = gameLeg(g, m.key, s);
                       const on = legs.some((l) => l.id === leg.id);
-                      const edge = m.books >= MIN_BOOKS && s.ev >= EDGE_EV;
+                      const edge = m.books >= MIN_BOOKS && edgeOf(s) >= EDGE_EV;
                       return (
                         <button key={s.name} className={`sbside ${on ? "on" : ""} ${edge ? "edge" : ""}`} onClick={() => toggle(leg)} aria-pressed={on}>
                           <span>{sideLabel(m.key, s)}</span>
                           <strong>{fmtAmerican(s.best.price)}</strong>
                           <small>
                             {s.best.book} · fair {pct(s.fair)}
+                            {s.model !== undefined && ` · model ${pct(s.model)}`}
                           </small>
-                          {edge && <b className="sbev pos">{evText(s.ev)}</b>}
+                          {edge && <b className="sbev pos">{evText(edgeOf(s))}</b>}
                         </button>
                       );
                     })}
@@ -244,7 +266,9 @@ export default function Sportsbook() {
       <Parlay legs={legs} offered={offered} setOffered={setOffered} onRemove={(id) => setLegs((ls) => ls.filter((l) => l.id !== id))} onClear={() => setLegs([])} />
 
       <p className="fine">
-        Fair chances are the books&apos; own prices with the margin removed, Pinnacle and BetOnline counting double. Prop chances are LayLock&apos;s model.
+        Fair chances are the books&apos; own prices with the margin removed, Pinnacle and BetOnline counting double. The model chance comes from team
+        ratings fitted to this season&apos;s scores; it moves the fair price a quarter of the way at most, since the books know more. Prop chances are
+        LayLock&apos;s player model.
         Lines move; check the price at the book before you bet. 21+.
       </p>
     </div>

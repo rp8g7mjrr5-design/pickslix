@@ -144,6 +144,7 @@ export default function Slip({
             <strong>{l.player}</strong>
             <small>
               {l.line} {STATS[l.stat].label}
+              {l.tier && app.alt && <b className={`alttag ${l.tier}`}>{l.tier === "below" ? app.alt.below : app.alt.above}</b>}
             </small>
           </div>
           <span className="num">{pct(l.prob)}</span>
@@ -238,6 +239,12 @@ export default function Slip({
               {/* Flex: sized as a power play with the same average return, close enough for a quarter-Kelly stake. */}
               <EntryCoach hit={mode === "flex" ? ret / mult : hit} mult={mult} entry={entry} onUse={setEntry} />
             </>
+          )}
+          {legs.some((l) => l.tier) && (
+            <p className="note">
+              {app.alt ? `${app.alt.below}s pay less and ${app.alt.above}s pay more than standard picks.` : "Alternate lines change the payout."} Set the payout{" "}
+              {app.name} shows for this slip.
+            </p>
           )}
           {outLegs.length > 0 && (
             <p className="warn">{outLegs.map((l) => l.player).join(", ")} is listed out. That pick will likely be voided.</p>
