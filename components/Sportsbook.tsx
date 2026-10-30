@@ -17,6 +17,8 @@ const BOOK_SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CFB", "CBB", "UFC"];
 interface Data {
   enabled: boolean;
   sample?: boolean;
+  /** Why the lines are missing, when they are. */
+  problem?: string;
   games: GameBoard[];
   props: PropEdge[];
   propCount: number;
@@ -69,7 +71,7 @@ export default function Sportsbook() {
       fetch(`/api/sportsbook?sport=${sport}`, { headers: proHeaders() })
         .then((r) => r.json() as Promise<Data>)
         .then((d) => live && setData(d))
-        .catch(() => live && setData({ enabled: true, games: [], props: [], propCount: 0, locked: false }));
+        .catch(() => live && setData({ enabled: true, problem: "Couldn't reach LayLock's server. Check your connection and reload.", games: [], props: [], propCount: 0, locked: false }));
     load();
     let key = getProKey();
     const onChange = () => {
@@ -169,6 +171,11 @@ export default function Sportsbook() {
       ) : (
         <>
           {data.sample && <p className="fine">Demo odds. Set DATA_SOURCE=espn and an Odds API key for live prices.</p>}
+          {data.problem && (
+            <p className="note">
+              {data.problem} <Link href="/setup">Setup check</Link>
+            </p>
+          )}
 
           {best.length > 0 && (
             <section className="sbbest">
