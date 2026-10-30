@@ -37,9 +37,10 @@ The board, game picker and slip follow the app picked under "Playing on" (saved 
   stands in and the card says so. Sleeper isn't in the API, so its lines start from the books'.
 - **Payouts:** each app's standard power table, plus flex tables (PrizePicks Flex Play, Underdog and Betr Flex).
   Every number can be edited in the slip, since apps change them and vary them for boosted picks.
-- **Goblins and demons:** for PrizePicks players, opening a game also loads its alternate lines (the API's
+- **Safety and stretch lines:** for PrizePicks players, opening a game also loads its alternate lines (the API's
   `*_alternate` markets, one credit per stat, cached six hours, Pro). Each shows as a chip with the model's chance of
-  More at that line; goblins and demons are More only, and the slip asks for the app's payout when one is in it.
+  More at that line: safety lines sit below the standard one, stretch lines above. They're More only, and the slip
+  asks for the app's payout when one is in it.
 - **Flex math:** the slip simulates how many picks hit (same-game picks still move together, `lib/correlation.ts`)
   and pays each count from the table, so expected profit, break-even per pick and the bankroll coach all work for
   flex entries. Saved slips remember the app and table, and the tracker, profile and leaderboard pay them that way
@@ -63,6 +64,9 @@ The board, game picker and slip follow the app picked under "Playing on" (saved 
 - **Player props, bet straight:** every scored prop on today's slate that the books deal, priced with the model's
   chance at the books' line (restated with the model's distribution when it differs from the pick'em line) against
   the best over and under price. Ranked by EV; Pro sees the full list.
+- **Promo calculator:** profit boosts (with a max stake), odds boosts, bonus bets (with a hedge calculator that
+  locks in cash on the other side) and no-sweat bets, each priced at LayLock's chance. Tapping any price on the page
+  fills it in (`lib/promos.ts`).
 - **Parlay / SGP pricer:** tap any price to add it. Shows the fair chance and odds, what the prices parlay to, and EV
   at the book's quoted price. Same-game props use the correlation model; game lines are treated as unrelated.
 

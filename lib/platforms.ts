@@ -22,7 +22,10 @@ export interface Platform {
   flex?: Record<number, PayoutTiers>;
   /** What the app calls its flex play. */
   flexName?: string;
-  /** What the app calls its alternate lines below and above the standard one, when the API carries them. */
+  /**
+   * LayLock's names for this app's alternate lines below and above its standard one, when the API carries them
+   * (PrizePicks' goblins and demons). Our own words, not the app's.
+   */
   alt?: { below: string; above: string };
   /** What the app calls the two sides. */
   over: string;
@@ -57,10 +60,10 @@ export const PLATFORMS: Record<PlatformId, Platform> = {
       6: { 6: 25, 5: 2, 4: 0.4 },
     },
     flexName: "Flex Play",
-    alt: { below: "Goblin", above: "Demon" },
+    alt: { below: "Safety", above: "Stretch" },
     over: "More",
     under: "Less",
-    payoutNote: "Standard lines shown. Goblins and demons pay less or more; edit the payout to match.",
+    payoutNote: "Standard lines shown. Safety lines pay less and stretch lines pay more; edit the payout to match.",
   },
   underdog: {
     id: "underdog",

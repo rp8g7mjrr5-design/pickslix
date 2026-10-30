@@ -8,6 +8,7 @@ import { correlatedHitProbability, type CorrLeg } from "@/lib/correlation.ts";
 import { pct } from "@/lib/format.ts";
 import { getProKey, proHeaders } from "@/lib/proClient.ts";
 import { STATS, type Sport } from "@/lib/types.ts";
+import PromoCalc, { type PromoSeed } from "@/components/PromoCalc";
 
 const BOOK_SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CFB", "CBB", "UFC"];
 
@@ -77,7 +78,12 @@ export default function Sportsbook() {
     };
   }, [sport]);
 
-  const toggle = (leg: Leg) => setLegs((ls) => (ls.some((l) => l.id === leg.id) ? ls.filter((l) => l.id !== leg.id) : [...ls, leg]));
+  const [seed, setSeed] = useState<PromoSeed>();
+  // Tapping a price adds it to the parlay and loads it into the promo calculator.
+  const toggle = (leg: Leg) => {
+    if (!legs.some((l) => l.id === leg.id)) setSeed({ label: `${leg.label} (${leg.sub})`, price: leg.price, fair: leg.fair });
+    setLegs((ls) => (ls.some((l) => l.id === leg.id) ? ls.filter((l) => l.id !== leg.id) : [...ls, leg]));
+  };
 
   const best = useMemo(() => {
     if (!data) return [];
@@ -262,6 +268,8 @@ export default function Sportsbook() {
           </section>
         </>
       )}
+
+      <PromoCalc seed={seed} />
 
       <Parlay legs={legs} offered={offered} setOffered={setOffered} onRemove={(id) => setLegs((ls) => ls.filter((l) => l.id !== id))} onClear={() => setLegs([])} />
 

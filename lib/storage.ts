@@ -16,7 +16,7 @@ export interface SlipLeg {
   closePrice?: { line: number; pOver: number };
   /** The model's spread-to-mean ratio for the player, to compare prices at different lines. */
   dispersion?: number;
-  /** An alternate line (PrizePicks goblin or demon), which pays differently from a standard pick. */
+  /** An alternate line (our safety or stretch line), which pays differently from a standard pick. */
   tier?: "below" | "above";
   result?: "hit" | "miss" | "push";
   /** What the player actually put up, when graded from the box score. */
@@ -40,6 +40,8 @@ export interface SavedSlip {
   play?: Play;
   /** Flex: hits → multiplier, as set when saved. */
   tiers?: PayoutTiers;
+  /** When the entry or payout was last changed after saving. */
+  editedAt?: string;
   legs: SlipLeg[];
 }
 

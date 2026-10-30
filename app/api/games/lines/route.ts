@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const sport = toSport(q.get("sport"));
     const date = q.get("date") ?? new Date().toISOString();
     let lines = await fetchGameLines(sport, home, away, date);
-    // ?alt=prizepicks adds that app's goblin and demon lines.
+    // ?alt=prizepicks adds that app's alternate lines (our safety and stretch lines).
     const alt = q.get("alt");
     if (alt) lines = await withAltLines(sport, home, away, date, alt, lines).catch(() => lines);
     return NextResponse.json({ enabled: true, lines });

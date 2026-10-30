@@ -257,7 +257,7 @@ function GameView({
         .catch(() => setPlayers((p) => ({ ...p, [t.abbr]: "error" })));
     }
     const q = new URLSearchParams({ sport, home: home?.name ?? home?.abbr ?? "", away: away?.name ?? away?.abbr ?? "", date: game.date });
-    // PrizePicks players get its goblin and demon lines too.
+    // PrizePicks players get its alternate lines too (our safety and stretch lines).
     const app = PLATFORMS[platform];
     const lq = new URLSearchParams(q);
     if (app.alt && app.book) lq.set("alt", app.book);
@@ -528,7 +528,7 @@ function PickCard({
   const projAt = (p: Prop) =>
     data ? project({ prop: p, logs: data.logs, defense: data.defense, news: data.news, market: postedLine?.market, env, adjust: data.nfl ? nflAdjust(p, data.nfl) : data.mlb ? mlbAdjust(p.stat, data.mlb) : usageAdjust(p.stat, data.usage), ufc: data.ufc ?? undefined, calibration: data.calibration }) : null;
   const proj = prop ? projAt(prop) : null;
-  // PrizePicks' goblins (below the standard line) and demons (above): More only, and they pay differently.
+  // Alternate lines: safety below the standard line, stretch above. More only, and they pay differently.
   const alts = app.alt && shown?.own ? (postedLine?.alts ?? []) : [];
   const tier = line !== undefined && alts.includes(line) && shown ? (line < shown.line ? "below" : "above") : undefined;
   const split = prop && data ? splits(prop, data.logs, { home: team.home, gameTime }) : [];
@@ -606,18 +606,18 @@ function PickCard({
         {shown
           ? shown.own
             ? tier && app.alt
-              ? `${tier === "below" ? app.alt.below : app.alt.above} at ${line}. ${app.name}'s standard line is ${shown.line}.`
+              ? `${tier === "below" ? app.alt.below : app.alt.above} line at ${line}. ${app.name}'s standard line is ${shown.line}.`
               : `${app.name} line: ${shown.line}${line !== shown.line ? " (you changed it)" : ""}`
             : `${shown.book} line: ${shown.line}. ${app.name} hasn't posted this one; adjust if theirs differs.`
           : `No posted line found. We started it at the season average; match it to ${app.name}.`}
       </small>
       {alts.length > 0 && shown && prop && (
-        <div className="altlines" aria-label={`${app.alt!.below}s and ${app.alt!.above}s`}>
+        <div className="altlines" aria-label={`${app.alt!.below} and ${app.alt!.above.toLowerCase()} lines`}>
           {[shown.line, ...alts].sort((a, b) => a - b).map((x) => {
             const p = projAt({ ...prop, line: x });
             const kind = x === shown.line ? "Standard" : x < shown.line ? app.alt!.below : app.alt!.above;
             return (
-              <button key={x} className={`altline ${kind.toLowerCase()} ${line === x ? "on" : ""}`} onClick={() => setLine(x)} aria-pressed={line === x}>
+              <button key={x} className={`altline ${x === shown.line ? "standard" : x < shown.line ? "below" : "above"} ${line === x ? "on" : ""}`} onClick={() => setLine(x)} aria-pressed={line === x}>
                 <span>{kind}</span>
                 <strong>{x}</strong>
                 {p && <small>{app.over} {pct(p.pOver)}</small>}
@@ -637,7 +637,7 @@ function PickCard({
               className={`bigside ${side.toLowerCase()} ${leg?.side === side ? "selected" : ""} ${best ? "best" : ""}`}
               aria-pressed={leg?.side === side}
               disabled={!prop || (tier !== undefined && side === "UNDER")}
-              title={tier !== undefined && side === "UNDER" ? `${app.name} only offers ${app.over} on ${tier === "below" ? app.alt?.below : app.alt?.above}s` : undefined}
+              title={tier !== undefined && side === "UNDER" ? `${app.name} only offers ${app.over} on ${(tier === "below" ? app.alt?.below : app.alt?.above)?.toLowerCase()} lines` : undefined}
               onClick={() => prop && onPick(prop, side, prob, { tier })}
             >
               <span>

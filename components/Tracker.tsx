@@ -155,6 +155,10 @@ export default function Tracker() {
       ),
     );
 
+  /** Fix the entry and payout on a saved ticket (forgot to change them, or the app paid something else). */
+  const setTerms = (slipId: string, terms: Pick<SavedSlip, "entry" | "multiplier" | "tiers">) =>
+    update(slips.map((s) => (s.id !== slipId ? s : { ...s, ...terms, editedAt: new Date().toISOString() })));
+
   const settledLegs = slips.flatMap((s) => s.legs).filter((l) => l.result === "hit" || l.result === "miss");
   const hits = settledLegs.filter((l) => l.result === "hit").length;
   const expected = settledLegs.reduce((a, l) => a + l.prob, 0);
@@ -237,7 +241,7 @@ export default function Tracker() {
       )}
       {slips.length > 0 && !shown.length && <p className="muted empty">No {filter} slips.</p>}
       {shown.map((s) => (
-        <SavedSlipCard key={s.id} slip={s} onMark={mark} onRemove={remove} />
+        <SavedSlipCard key={s.id} slip={s} onMark={mark} onTerms={setTerms} onRemove={remove} />
       ))}
       {pushNote && (
         <p className="fine">
@@ -533,13 +537,16 @@ const RESULT_LABEL: Record<NonNullable<SlipLeg["result"]>, string> = { hit: "✓
 function SavedSlipCard({
   slip: s,
   onMark,
+  onTerms,
   onRemove,
 }: {
   slip: SavedSlip;
   onMark: (slipId: string, propId: string, result: SlipLeg["result"]) => void;
+  onTerms: (slipId: string, terms: Pick<SavedSlip, "entry" | "multiplier" | "tiers">) => void;
   onRemove: (s: SavedSlip) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [terms, setTerms] = useState(false);
   const o = outcome(s);
   const done = s.legs.filter((l) => l.result).length;
   return (
@@ -582,8 +589,12 @@ function SavedSlipCard({
         </div>
       ))}
       {settled(s.legs) && <p className="recapline">{recapLine(s.legs)}</p>}
+      {terms && <TermsEditor slip={s} onSave={(t) => (onTerms(s.id, t), setTerms(false))} onCancel={() => setTerms(false)} />}
       <div className="savedfoot">
         {settled(s.legs) ? <RecapButton slip={s} /> : <ShareButton slip={s} />}
+        <button className="linkish" onClick={() => setTerms((v) => !v)}>
+          Edit amount
+        </button>
         <button className="linkish" onClick={() => setEditing((v) => !v)}>
           {editing ? "Done" : "Fix a result"}
         </button>
@@ -593,6 +604,63 @@ function SavedSlipCard({
       </div>
       {editing && <small className="muted">Picks you change by hand don&apos;t count on the leaderboard.</small>}
     </div>
+  );
+}
+
+/** Entry, all-hit payout and (flex) payouts by hits, editable after saving. */
+function TermsEditor({ slip: s, onSave, onCancel }: { slip: SavedSlip; onSave: (t: Pick<SavedSlip, "entry" | "multiplier" | "tiers">) => void; onCancel: () => void }) {
+  const n = s.legs.length;
+  const [entry, setEntry] = useState(String(s.entry));
+  const [mult, setMult] = useState(String(s.multiplier));
+  const [tiers, setTiers] = useState<Record<number, string>>(() =>
+    Object.fromEntries(Object.entries(s.tiers ?? {}).filter(([k]) => Number(k) !== n).map(([k, v]) => [Number(k), String(v)])),
+  );
+  const num = (v: string) => Math.max(0, Number(v) || 0);
+  const started = s.legs.some((l) => l.gameTime && Date.parse(l.gameTime) <= Date.now());
+  return (
+    <form
+      className="termsedit"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!(num(entry) > 0) || !(num(mult) > 0)) return;
+        const flex = s.play === "flex" ? { ...Object.fromEntries(Object.entries(tiers).map(([k, v]) => [Number(k), num(v)])), [n]: num(mult) } : undefined;
+        onSave({ entry: num(entry), multiplier: num(mult), ...(flex ? { tiers: flex } : {}) });
+      }}
+    >
+      <div className="inputs">
+        <label>
+          Entry $
+          <input type="number" inputMode="decimal" min={0.01} step="any" value={entry} onChange={(e) => setEntry(e.target.value)} />
+        </label>
+        <label>
+          {s.play === "flex" ? `${n}/${n} pays ×` : "Payout ×"}
+          <input type="number" inputMode="decimal" min={0.01} step="any" value={mult} onChange={(e) => setMult(e.target.value)} />
+        </label>
+      </div>
+      {s.play === "flex" && Object.keys(tiers).length > 0 && (
+        <div className="tiers">
+          {Object.keys(tiers)
+            .map(Number)
+            .sort((a, b) => b - a)
+            .map((k) => (
+              <label key={k}>
+                {k}/{n} ×
+                <input type="number" inputMode="decimal" min={0} step="any" value={tiers[k]} onChange={(e) => setTiers((t) => ({ ...t, [k]: e.target.value }))} />
+              </label>
+            ))}
+        </div>
+      )}
+      <p className="fine">
+        Pays ${(num(entry) * num(mult)).toFixed(2)} if every pick hits.
+        {started ? " A game has started, so this ticket's profit won't count on the leaderboard." : ""}
+      </p>
+      <div className="actions">
+        <button type="submit">Save</button>
+        <button type="button" className="ghost" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
