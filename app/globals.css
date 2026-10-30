@@ -1536,3 +1536,4 @@ button.ghost { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02
 .promoinputs { flex-wrap: wrap; }
 .promoinputs label { flex: 1 1 140px; }
 .promoinputs input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.betswrap { margin-top: 18px; }

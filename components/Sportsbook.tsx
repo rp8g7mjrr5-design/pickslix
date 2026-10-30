@@ -3,12 +3,14 @@
 // player props bet straight ranked by EV, and a parlay / same-game parlay pricer that knows which legs move together.
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { EDGE_EV, MARKET_LABEL, MIN_BOOKS, MODEL_LEAN, fmtAmerican, priceParlay, type GameBoard, type MarketKey, type PropEdge, type SideQuote } from "@/lib/books.ts";
+import { EDGE_EV, MARKET_LABEL, MIN_BOOKS, MODEL_LEAN, decimalOdds, fmtAmerican, priceParlay, type GameBoard, type MarketKey, type PropEdge, type SideQuote } from "@/lib/books.ts";
 import { correlatedHitProbability, type CorrLeg } from "@/lib/correlation.ts";
 import { pct } from "@/lib/format.ts";
 import { getProKey, proHeaders } from "@/lib/proClient.ts";
 import { STATS, type Sport } from "@/lib/types.ts";
 import PromoCalc, { type PromoSeed } from "@/components/PromoCalc";
+import type { BetLeg, SavedBet } from "@/lib/bets.ts";
+import { addBet } from "@/lib/betStorage.ts";
 
 const BOOK_SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CFB", "CBB", "UFC"];
 
@@ -31,6 +33,10 @@ interface Leg {
   /** Same game id for game lines; props use team/opponent. */
   game?: string;
   prop?: CorrLeg;
+  /** The book with the best price, where the bet would go. */
+  book: string;
+  /** What the tracker needs to settle this leg later. */
+  bet: Omit<BetLeg, "id" | "label" | "sub" | "price" | "fair">;
 }
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -106,6 +112,17 @@ export default function Sportsbook() {
     fair: s.chance ?? s.fair,
     price: s.best.price,
     game: g.id,
+    book: s.best.book,
+    bet: {
+      kind: "game",
+      sport: g.sport,
+      start: g.start,
+      market: key,
+      side: key === "totals" ? (s.name.toLowerCase() === "over" ? "over" : "under") : s.name === g.home ? "home" : "away",
+      point: s.point,
+      home: g.home,
+      away: g.away,
+    },
   });
 
   const propLeg = (e: PropEdge): Leg => ({
@@ -115,6 +132,8 @@ export default function Sportsbook() {
     fair: e.prob / Math.max(1 - e.push, 1e-9),
     price: e.best.price,
     prop: { player: e.player, stat: e.stat, side: e.side, prob: e.prob, sport: e.sport, team: e.team, opponent: e.opponent },
+    book: e.best.book,
+    bet: { kind: "prop", sport: e.sport, start: e.gameTime, player: e.player, stat: e.stat, line: e.line, pick: e.side, team: e.team, opponent: e.opponent },
   });
 
   return (
@@ -284,6 +303,10 @@ export default function Sportsbook() {
 }
 
 function Parlay({ legs, offered, setOffered, onRemove, onClear }: { legs: Leg[]; offered: string; setOffered: (v: string) => void; onRemove: (id: string) => void; onClear: () => void }) {
+  const [stake, setStake] = useState("10");
+  const [book, setBook] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => setSaved(false), [legs, offered, stake]);
   if (!legs.length) {
     return (
       <section className="sbparlay empty">
@@ -301,10 +324,25 @@ function Parlay({ legs, offered, setOffered, onRemove, onClear }: { legs: Leg[];
   // Two game lines from one game (a side and the total) are linked too, but the pricer treats them as unrelated.
   const games = others.map((l) => l.game);
   const sameGameLines = games.some((g, i) => g && games.indexOf(g) !== i);
+  const takenOdds = offered && Number.isFinite(offer) && Math.abs(offer) >= 100 ? offer : legs.length === 1 ? legs[0].price : r.straightPrice;
+  const save = async () => {
+    const amount = Number(stake);
+    if (!(amount > 0)) return;
+    const bet: SavedBet = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      stake: amount,
+      odds: takenOdds,
+      book: book || legs[0].book,
+      legs: legs.map((l) => ({ ...l.bet, id: l.id, label: l.label, sub: l.sub, price: l.price, fair: l.fair })),
+    };
+    await addBet(bet);
+    setSaved(true);
+  };
   return (
     <section className="sbparlay">
       <div className="sliphead">
-        <h2>Parlay</h2>
+        <h2>{legs.length === 1 ? "Straight bet" : "Parlay"}</h2>
         <span className="count">{legs.length} legs</span>
       </div>
       {legs.map((l) => (
@@ -333,7 +371,7 @@ function Parlay({ legs, offered, setOffered, onRemove, onClear }: { legs: Leg[];
       </div>
       <div className="inputs">
         <label>
-          Book&apos;s price (SGPs are priced their own way)
+          {legs.length === 1 ? "Price you got" : "Book's price (SGPs are priced their own way)"}
           <input inputMode="numeric" placeholder={fmtAmerican(r.straightPrice)} value={offered} onChange={(e) => setOffered(e.target.value)} />
         </label>
       </div>
@@ -347,7 +385,30 @@ function Parlay({ legs, offered, setOffered, onRemove, onClear }: { legs: Leg[];
         </p>
       )}
       {sameGameLines && <p className="warn">Two lines from the same game are treated as unrelated here; a favorite and the over usually move together.</p>}
+      <div className="inputs">
+        <label>
+          Stake $
+          <input type="number" inputMode="decimal" min={0} value={stake} onChange={(e) => setStake(e.target.value)} />
+        </label>
+        <label>
+          Book
+          <input value={book} placeholder={legs[0].book} onChange={(e) => setBook(e.target.value)} />
+        </label>
+      </div>
+      <p className="fine">
+        Saves at {fmtAmerican(takenOdds)}: ${(Number(stake) || 0).toFixed(2)} to win ${((Number(stake) || 0) * (decimalOdds(takenOdds) - 1)).toFixed(2)}. Change the
+        odds above if the book gave you something else.
+      </p>
       <div className="actions">
+        {saved ? (
+          <a className="button" href="/tracker#bets">
+            Saved ✓ View
+          </a>
+        ) : (
+          <button onClick={save} disabled={!(Number(stake) > 0)}>
+            Save {legs.length === 1 ? "bet" : "parlay"} to tracker
+          </button>
+        )}
         <button className="ghost" onClick={onClear}>
           Clear
         </button>

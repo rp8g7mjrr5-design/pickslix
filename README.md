@@ -70,6 +70,12 @@ The board, game picker and slip follow the app picked under "Playing on" (saved 
 - **Parlay / SGP pricer:** tap any price to add it. Shows the fair chance and odds, what the prices parlay to, and EV
   at the book's quoted price. Same-game props use the correlation model; game lines are treated as unrelated.
 
+- **Bet tracking** (`lib/bets.ts`, `lib/betGrade.ts`, `components/Bets.tsx`): save a straight bet or parlay from the
+  pricer with your stake, the price you got and the book. Bets live on the Tracker under "Sportsbook bets", synced
+  like slips (`/api/bets`), and settle themselves: game lines from ESPN's final scores, props from the box score. A
+  pushed parlay leg drops out at its own odds. The record shows profit, ROI and what the bets were expected to make
+  at LayLock's chance when placed; stake, odds and book can be edited.
+
 `DATA_SOURCE=sample` shows demo sportsbook odds (`lib/sampleBooks.ts`) through the same parser.
 
 ## Today's slate and what's built on it
