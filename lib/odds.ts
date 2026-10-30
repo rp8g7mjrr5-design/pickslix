@@ -188,7 +188,12 @@ export async function oddsJson(path: string, revalidate: number): Promise<any> {
     // Out of credits (or rate limited): stop asking for an hour instead of failing on every game opened.
     await kvSet(PAUSE_KEY, { status: res.status, at: new Date().toISOString() }, 3600).catch(() => {});
   }
-  if (!res.ok) throw new Error(`Odds API ${res.status} for ${path}`);
+  if (!res.ok) {
+    // The body says what was wrong ({ message, error_code }); keep it for the error shown on the page.
+    const body = await res.json().catch(() => null);
+    const why = [body?.error_code, body?.message].filter(Boolean).join(": ").slice(0, 200);
+    throw new Error(`Odds API ${res.status}${why ? ` (${why})` : ""} for ${path}`);
+  }
   // Credits left this month, for the setup page.
   const remaining = res.headers.get("x-requests-remaining");
   if (remaining !== null) kvSet("odds:remaining", { remaining: Number(remaining), at: new Date().toISOString() }).catch(() => {});

@@ -27,7 +27,7 @@ export async function GET(req: Request) {
       ? { games: parseGameMarkets(sampleOddsJson(sport), sport) }
       : fetchGameMarkets(sport).catch((e) => {
           console.error(e);
-          failed = e instanceof Error ? e.message.replace(/ for .*/, "") : "Odds API error";
+          failed = e instanceof Error ? e.message.replace(/ for \/.*/, "") : "Odds API error";
           return null;
         }),
     todaysSlate().catch(() => null),
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     : hold?.reason === "credits"
       ? `Odds API credits are used up for the month (${hold.remaining} left). Lines come back when they reset or the plan is upgraded.`
       : failed
-        ? `The Odds API call failed (${failed}). It will try again on the next load.`
+        ? `The Odds API call failed: ${failed}. It will try again on the next load.`
         : undefined;
   const locked = proRequired() && !(await checkPass(req.headers.get("x-pro-key")));
   return NextResponse.json({
