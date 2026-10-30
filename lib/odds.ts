@@ -339,6 +339,17 @@ export function withOpeners(lines: GameLines, openers: Record<string, number>): 
 }
 
 /** Can we afford a call costing this many credits right now? */
+/** Why odds calls are on hold, for pages that come back empty: a 401/429 pause, or credits down to the reserve. */
+export async function oddsHold(): Promise<{ reason: "paused" | "credits"; status?: number; remaining?: number } | null> {
+  const [paused, left] = await Promise.all([
+    kvGet<{ status: number }>(PAUSE_KEY).catch(() => null),
+    kvGet<{ remaining: number }>("odds:remaining").catch(() => null),
+  ]);
+  if (paused) return { reason: "paused", status: paused.status, remaining: left?.remaining };
+  if (left && left.remaining - 3 < CREDIT_RESERVE) return { reason: "credits", remaining: left.remaining };
+  return null;
+}
+
 export async function canSpend(cost: number): Promise<boolean> {
   if (await kvGet(PAUSE_KEY).catch(() => null)) return false;
   const left = await kvGet<{ remaining: number }>("odds:remaining").catch(() => null);
