@@ -14,6 +14,7 @@ export interface LeaderSlip {
   platform?: PlatformId;
   play?: Play;
   tiers?: PayoutTiers;
+  editedAt?: string;
   legs: LeaderLeg[];
 }
 
@@ -47,6 +48,8 @@ export function leaderStats(slips: LeaderSlip[]): LeaderStats {
     }
     const entry = Number(s.entry) || 0;
     if (!s.legs.length || !s.legs.every((l) => counts(s, l)) || entry <= 0) continue;
+    // An entry or payout changed after a game started can't count toward profit.
+    if (s.editedAt && s.legs.some((l) => l.gameTime && Date.parse(s.editedAt!) >= Date.parse(l.gameTime))) continue;
     settled++;
     staked += entry;
     profit += slipProfit(s);

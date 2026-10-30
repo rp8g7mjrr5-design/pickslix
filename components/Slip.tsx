@@ -242,7 +242,7 @@ export default function Slip({
           )}
           {legs.some((l) => l.tier) && (
             <p className="note">
-              {app.alt ? `${app.alt.below}s pay less and ${app.alt.above}s pay more than standard picks.` : "Alternate lines change the payout."} Set the payout{" "}
+              {app.alt ? `${app.alt.below} lines pay less and ${app.alt.above.toLowerCase()} lines pay more than standard picks.` : "Alternate lines change the payout."} Set the payout{" "}
               {app.name} shows for this slip.
             </p>
           )}

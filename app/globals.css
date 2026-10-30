@@ -1516,15 +1516,23 @@ button.ghost { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02
 .platformrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
 .platformrow .linkish { font-size: 13px; color: var(--muted); text-decoration: underline; }
 
-/* ---------- Goblins and demons ---------- */
+/* ---------- Safety and stretch lines ---------- */
 .altlines { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 8px 0 2px; }
 .altline { flex: none; display: grid; gap: 0; text-align: left; padding: 6px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); box-shadow: none; }
 .altline span { font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
-.altline.goblin span { color: var(--over); }
-.altline.demon span { color: var(--under); }
+.altline.below span { color: var(--over); }
+.altline.above span { color: var(--under); }
 .altline strong { font-size: 15px; font-variant-numeric: tabular-nums; }
 .altline small { font-size: 11px; }
 .altline.on { border-color: var(--text); background: var(--panel-3); }
 .alttag { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
 .alttag.below { color: var(--over); }
 .alttag.above { color: var(--under); }
+.termsedit { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+.termsedit .inputs input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.sbpromo { padding: 14px 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); display: grid; gap: 10px; }
+.sbpromo .seg { justify-self: start; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.sbpromo .seg button { flex-shrink: 0; }
+.promoinputs { flex-wrap: wrap; }
+.promoinputs label { flex: 1 1 140px; }
+.promoinputs input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }

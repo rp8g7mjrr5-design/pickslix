@@ -27,3 +27,12 @@ test("ranks by hit rate with a minimum number of picks", () => {
   ];
   assert.deepEqual(rank(rows).map((r) => r.name), ["c", "a"]);
 });
+
+test("a ticket whose entry or payout was changed after its game started doesn't count toward profit", () => {
+  const legs = [{ result: "hit" as const, auto: true, gameTime: later }, { result: "hit" as const, auto: true, gameTime: later }];
+  const before = leaderStats([{ createdAt: saved, entry: 10, multiplier: 3, legs, editedAt: saved }]);
+  assert.equal(before.slips, 1);
+  const after = leaderStats([{ createdAt: saved, entry: 10, multiplier: 30, legs, editedAt: "2026-10-21T01:00:00Z" }]);
+  assert.equal(after.slips, 0);
+  assert.equal(after.picks, 2);
+});
