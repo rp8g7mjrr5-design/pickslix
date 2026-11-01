@@ -101,7 +101,7 @@ export function tuneReason(before: number, after: number, tune: Tune, pick: "OVE
   if (Math.abs(to - from) < 0.005) return undefined;
   const why =
     Math.abs(tune.a - 1) * 2 >= Math.abs(tune.b)
-      ? tune.a < 1 ? "has been a little too sure" : "has been underselling its picks"
-      : tune.b > 0 ? "has been short on overs" : "has been short on unders";
-  return `Tuned on ${tune.n} graded ${tune.sport ? `${tune.sport} ` : ""}picks (the model ${why}): ${(from * 100).toFixed(0)}% → ${(to * 100).toFixed(0)}%`;
+      ? tune.a < 1 ? "has been a little too sure of itself" : "has been a little too cautious"
+      : tune.b > 0 ? "has been picking too few overs" : "has been picking too few unders";
+  return `Adjusted from ${(from * 100).toFixed(0)}% to ${(to * 100).toFixed(0)}%: in ${tune.n} past ${tune.sport ? `${tune.sport} ` : ""}picks we graded, the model ${why}`;
 }

@@ -6,6 +6,7 @@
 import type { Adjustment } from "./nflverse.ts";
 import { statValue } from "./model.ts";
 import { normName } from "./names.ts";
+import { nudge } from "./format.ts";
 import { STATS, type GameLog, type NewsItem, type StatKey } from "./types.ts";
 
 const NBA_STATS = (Object.keys(STATS) as StatKey[]).filter((k) => STATS[k].sport === "NBA");
@@ -112,17 +113,17 @@ export function usageAdjust(stat: StatKey, slice: UsageSlice | null | undefined)
     const w = m.with.avg[stat] ?? 0;
     const wo = m.without.avg[stat];
     let boost = prior;
-    let how = `${(share * 100).toFixed(0)}% of the team's ${STATS[stat].label.toLowerCase()} to go around`;
+    let how = `they take ${(share * 100).toFixed(0)}% of the team's ${STATS[stat].label.toLowerCase()}`;
     if (wo !== undefined && m.without.n >= 1 && m.with.n >= 3 && w > 0) {
       const seen = wo / w - 1;
       const weight = m.without.n / (m.without.n + WITHOUT_HALF);
       boost = weight * seen + (1 - weight) * prior;
-      how = `${wo.toFixed(1)} in ${m.without.n} game${m.without.n === 1 ? "" : "s"} without, ${w.toFixed(1)} with`;
+      how = `${wo.toFixed(1)} a game without them in ${m.without.n} game${m.without.n === 1 ? "" : "s"}, ${w.toFixed(1)} with them`;
     }
     boost = clamp(boost, MATE_CAP);
     if (Math.abs(boost) < 0.01) continue;
     factor *= 1 + boost;
-    reasons.push(`${m.name} is out: ${boost > 0 ? "+" : ""}${(boost * 100).toFixed(0)}% (${how})`);
+    reasons.push(boost > 0 ? `${m.name} is out, so more chances for this player: ${nudge(boost)} (${how})` : `${m.name} is out: ${nudge(boost)} (${how})`);
   }
   if (!reasons.length) return undefined;
   return { factor: clamp(factor, TOTAL_CAP), reasons };

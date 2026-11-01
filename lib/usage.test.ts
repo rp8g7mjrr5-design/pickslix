@@ -36,7 +36,7 @@ test("with/without splits this player's season by the dates the teammate played"
   const adj = usageAdjust("PTS", slice)!;
   // Five games without: weight 5/11 on +40%, the rest on the share prior (0.35 * 3/7 / (4/7) ≈ 0.26), capped at +20%.
   assert.equal(adj.factor, 1.2);
-  assert.match(adj.reasons[0], /Star Guard is out: \+20% \(28\.0 in 5 games without, 20\.0 with\)/);
+  assert.match(adj.reasons[0], /Star Guard is out, so more chances for this player: our guess goes up 20% \(28\.0 a game without them in 5 games, 20\.0 with them\)/);
 });
 
 test("thin samples lean on the share of production left behind", () => {
@@ -45,7 +45,7 @@ test("thin samples lean on the share of production left behind", () => {
   const adj = usageAdjust("REB", slice)!;
   // Big Man has 10 of 23 rebounds: 0.35 * (10/23) / (13/23) ≈ +27%, capped at +20%. No games without them yet.
   assert.equal(adj.factor, 1.2);
-  assert.match(adj.reasons[0], /43% of the team's rebounds to go around/);
+  assert.match(adj.reasons[0], /they take 43% of the team's rebounds/);
   const pts = usageAdjust("PTS", slice)!;
   assert.ok(Math.abs(pts.factor - (1 + (0.35 * (10 / 70)) / (60 / 70))) < 1e-9);
 });

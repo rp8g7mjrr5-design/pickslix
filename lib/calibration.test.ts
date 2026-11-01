@@ -33,7 +33,7 @@ test("overs hitting more than expected lean the tune toward overs", () => {
   const t = fitTune([...batch(300, 0.58, 0.64), ...batch(300, 0.58, 0.52, "UNDER")]);
   assert.ok(t.b > 0.05, String(t.b));
   assert.ok(applyTune(0.5, t) > 0.5);
-  assert.match(tuneReason(0.5, applyTune(0.5, t), t, "OVER") ?? "", /short on overs/);
+  assert.match(tuneReason(0.5, applyTune(0.5, t), t, "OVER") ?? "", /too few overs/);
 });
 
 test("a sport needs enough picks for its own tune, and starts from the all-sports one", () => {
@@ -50,5 +50,5 @@ test("project applies the tune and says so", () => {
   const tuned = project({ prop, logs, defense: {}, news: [], calibration: cal });
   assert.ok(tuned.pickProb < base.pickProb);
   assert.equal(tuned.rawPOver, base.pOver);
-  assert.ok(tuned.reasons.some((r) => r.startsWith("Tuned on 800 graded picks")));
+  assert.ok(tuned.reasons.some((r) => /^Adjusted from \d+% to \d+%: in 800 past picks we graded/.test(r)));
 });

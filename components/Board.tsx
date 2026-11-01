@@ -403,12 +403,11 @@ export default function Board() {
                   {open === r.id && (
                     <div className="detail">
                       <div className="detailhead">
-                        <span className={`conf ${p.confidence}`}>{p.confidence} confidence</span>
+                        <span className={`conf ${p.confidence}`}>{p.confidence === "high" ? "Strong pick" : p.confidence === "medium" ? "Decent pick" : "Shaky pick"}</span>
                         <span className="muted">
-                          Lean {p.pick === "OVER" ? "More" : "Less"} {pct(p.pickProb)}
-                          {p.marketProb !== undefined ? ` · books ${pct(p.marketProb)}` : ""} · hits {pct(p.hitRateLast10)} lately ·{" "}
+                          {p.marketProb !== undefined ? `Sportsbooks say ${pct(p.marketProb)} · ` : ""}based on{" "}
                           {p.thisSeason !== undefined && p.thisSeason < p.sampleSize
-                            ? `${p.thisSeason} games this season + ${p.sampleSize - p.thisSeason} last season`
+                            ? `${p.thisSeason} games this season + ${p.sampleSize - p.thisSeason} from last season`
                             : `${p.sampleSize} games`}
                         </span>
                         {r.id.startsWith("custom-") && (
@@ -417,6 +416,12 @@ export default function Board() {
                           </button>
                         )}
                       </div>
+                      <p className="plain">
+                        <strong>
+                          {p.pick === "OVER" ? "More" : "Less"} than {r.line}: {pct(p.pickProb)} chance.
+                        </strong>{" "}
+                        We expect about {p.mean.toFixed(1)} {STATS[r.stat].label.toLowerCase()}. Here&apos;s why:
+                      </p>
                       <ul>
                         {p.reasons.map((x) => (
                           <li key={x}>{x}</li>

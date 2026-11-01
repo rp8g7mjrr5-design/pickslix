@@ -106,7 +106,7 @@ test("books dealing above Pick 6's line push toward the over", () => {
   assert.ok(withBooks.pOver > plain.pOver);
   assert.equal(withBooks.pick, "OVER");
   assert.ok(withBooks.marketProb! > 0.6, String(withBooks.marketProb));
-  assert.ok(withBooks.reasons.some((r) => /2 below Pick 6|above Pick 6/.test(r)));
+  assert.ok(withBooks.reasons.some((r) => /2 (higher|lower) than here/.test(r)));
   assert.equal(plain.marketProb, undefined);
 });
 
@@ -116,7 +116,7 @@ test("a high implied team total lifts points; a blowout spread trims starters", 
   const env = { total: 236, avgTotal: 226, spread: -4, teamTotal: 120, oppTotal: 116 };
   const shootout = project({ prop, logs, defense: {}, news: [], env });
   assert.ok(shootout.pOver > base.pOver);
-  assert.ok(shootout.reasons.some((r) => r.startsWith("Implied team total 120")));
+  assert.ok(shootout.reasons.some((r) => r.startsWith("Vegas expects this team to score about 120")));
   const blowout = project({ prop, logs, defense: {}, news: [], env: { total: 226, avgTotal: 226, spread: -14, teamTotal: 120, oppTotal: 106 } });
   assert.ok(blowout.reasons.some((r) => /blowout/.test(r)));
 });

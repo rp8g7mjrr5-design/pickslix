@@ -9,6 +9,7 @@
 // Pure: fetching is in mlbData.ts.
 import type { Adjustment } from "./nflverse.ts";
 import type { StatKey } from "./types.ts";
+import { nudge } from "./format.ts";
 
 /** League rates the shrinkage pulls toward (recent MLB seasons). */
 export const LEAGUE = { avg: 0.245, slg: 0.405, obp: 0.315, k: 0.225 };
@@ -214,7 +215,8 @@ function parkFactor(p: Park, kind: Kind | "hitsAllowed" | "outs"): number {
   return p.runs;
 }
 
-const signed = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
+const avg3 = (x: number) => x.toFixed(3).replace(/^0/, "");
+const hand = (t: string) => (t === "L" ? "lefty" : "righty");
 
 /** The matchup multiplier for one MLB prop, with the reasons. Undefined when nothing moves it. */
 export function mlbAdjust(stat: StatKey, s: MlbSlice | null | undefined): Adjustment | undefined {
@@ -224,7 +226,7 @@ export function mlbAdjust(stat: StatKey, s: MlbSlice | null | undefined): Adjust
   const apply = (f: number, why: string) => {
     if (!Number.isFinite(f) || Math.abs(f - 1) < 0.01) return;
     factor *= f;
-    reasons.push(`${why}: ${signed(f - 1)}`);
+    reasons.push(`${why}, so ${nudge(f - 1)}`);
   };
   const kind = KIND[stat];
   const pitcherKind = stat === "K" ? "k" : stat === "HITS_ALLOWED" ? "hitsAllowed" : stat === "OUTS" ? "outs" : undefined;
@@ -232,12 +234,12 @@ export function mlbAdjust(stat: StatKey, s: MlbSlice | null | undefined): Adjust
   if (kind && s.starter) {
     const st = s.starter;
     const r = ratio(st.against, kind, PITCHER_PRIOR_AB);
-    apply(1 + STARTER_SHARE * (r - 1), `Facing ${st.name}${st.throws ? ` (${st.throws}HP)` : ""}, who has allowed ${(st.against.ab ? st.against.h / st.against.ab : 0).toFixed(3).replace(/^0/, "")} AVG / ${(st.against.ab ? st.against.tb / st.against.ab : 0).toFixed(3).replace(/^0/, "")} SLG`);
+    apply(1 + STARTER_SHARE * (r - 1), `Facing ${st.throws ? `${hand(st.throws)} ` : ""}${st.name}: batters hit ${avg3(st.against.ab ? st.against.h / st.against.ab : 0)} against this pitcher (league average ${avg3(LEAGUE.avg)})`);
     const b = s.batter;
     if (b && st.throws && b.bats && b.bats !== "S" && b.all.ab > 0) {
       const split = st.throws === "L" ? b.vsL : b.vsR;
       const pr = ratio(split, kind, PLATOON_PRIOR_AB, ownBase(b.all));
-      apply(1 + STARTER_SHARE * (pr - 1), `Bats ${b.bats} vs a ${st.throws === "L" ? "lefty" : "righty"}: ${(split.ab ? split.tb / split.ab : 0).toFixed(3).replace(/^0/, "")} SLG in ${split.ab} AB vs ${(b.all.tb / b.all.ab).toFixed(3).replace(/^0/, "")} overall`);
+      apply(1 + STARTER_SHARE * (pr - 1), `${pr > 1 ? "Hits better" : "Hits worse"} against ${hand(st.throws)} pitchers (${avg3(split.ab ? split.tb / split.ab : 0)} slugging in ${split.ab} at-bats vs ${avg3(b.all.tb / b.all.ab)} overall)`);
     }
   }
 
@@ -250,7 +252,12 @@ export function mlbAdjust(stat: StatKey, s: MlbSlice | null | undefined): Adjust
         : pitcherKind === "hitsAllowed"
           ? shrunk(l.h, l.ab, LEAGUE.avg, LINEUP_PRIOR_PA) / LEAGUE.avg
           : 1 - 0.5 * (shrunk(l.h + l.bb + l.hbp, n, LEAGUE.obp, LINEUP_PRIOR_PA) / LEAGUE.obp - 1);
-    const what = pitcherKind === "k" ? `strikes out ${n ? ((l.so / n) * 100).toFixed(1) : "?"}% of the time` : pitcherKind === "hitsAllowed" ? `hits ${(l.ab ? l.h / l.ab : 0).toFixed(3).replace(/^0/, "")}` : `gets on base at ${(n ? (l.h + l.bb + l.hbp) / n : 0).toFixed(3).replace(/^0/, "")}`;
+    const what =
+      pitcherKind === "k"
+        ? `strikes out ${n ? ((l.so / n) * 100).toFixed(0) : "?"}% of the time (average ${(LEAGUE.k * 100).toFixed(0)}%)`
+        : pitcherKind === "hitsAllowed"
+          ? `bats ${avg3(l.ab ? l.h / l.ab : 0)} (average ${avg3(LEAGUE.avg)})`
+          : `gets on base ${avg3(n ? (l.h + l.bb + l.hbp) / n : 0)} of the time (average ${avg3(LEAGUE.obp)})`;
     apply(f, `${s.lineup.team}'s lineup ${what}`);
   }
 
@@ -260,14 +267,15 @@ export function mlbAdjust(stat: StatKey, s: MlbSlice | null | undefined): Adjust
   const parkKind = kind ?? (pitcherKind === "hitsAllowed" || pitcherKind === "outs" ? pitcherKind : undefined);
   if (venue && parkKind) {
     const usual = home ? (parkFactor(home, parkKind) + 1) / 2 : 1;
-    apply(parkFactor(venue, parkKind) / usual, `${s.venue} park${s.venue === s.team ? " (home)" : ""}`);
+    const pf = parkFactor(venue, parkKind) / usual;
+    apply(pf, `${s.venue === s.team ? "Home" : `${s.venue}'s`} ballpark ${pf > 1 ? "helps" : "hurts"} here`);
   }
 
   if (venue && !venue.roof && s.weather && (kind || pitcherKind === "hitsAllowed")) {
     const d = s.weather.tempF - 70;
     const per = kind === "power" ? 0.005 : kind === "runs" ? 0.003 : 0.0015;
     const f = Math.min(1.08, Math.max(0.92, 1 + per * d));
-    apply(f, `${Math.round(s.weather.tempF)}°F at first pitch${s.weather.windMph >= 15 ? `, wind ${Math.round(s.weather.windMph)} mph` : ""}`);
+    apply(f, `${Math.round(s.weather.tempF)}°F at first pitch${s.weather.windMph >= 15 ? ` with ${Math.round(s.weather.windMph)} mph wind` : ""}: ${d > 0 ? "warm air helps the ball carry" : "cold air keeps the ball in the park"}`);
   }
 
   if (!reasons.length) return undefined;
