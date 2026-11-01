@@ -10,7 +10,27 @@ import { normName } from "./names.ts";
 import { DFS_BOOKS, PLATFORMS, type PlatformId } from "./platforms.ts";
 import type { Sport, StatKey } from "./types.ts";
 
-export const oddsEnabled = () => Boolean(process.env.ODDS_API_KEY);
+export const oddsEnabled = () => Boolean(oddsKey());
+
+/**
+ * The Odds API key, cleaned up: keys are 32 letters and numbers, so quotes, spaces, a pasted "ODDS_API_KEY=" or a
+ * whole URL around one are dropped. A value with no such key in it is used as typed (and `oddsKeyProblem` says why).
+ */
+export function oddsKey(raw = process.env.ODDS_API_KEY ?? ""): string {
+  const v = raw.trim();
+  if (/^[a-f0-9]{32}$/i.test(v)) return v;
+  return /(?:^|[^a-f0-9])([a-f0-9]{32})(?![a-f0-9])/i.exec(v)?.[1] ?? v.replace(/^["']|["']$/g, "");
+}
+
+/** What's wrong with ODDS_API_KEY as set, in words for the setup page, or undefined when it looks right. */
+export function oddsKeyProblem(raw = process.env.ODDS_API_KEY ?? ""): string | undefined {
+  const v = raw.trim();
+  if (!v || /^[a-f0-9]{32}$/i.test(v)) return undefined;
+  const key = oddsKey(raw);
+  if (/^[a-f0-9]{32}$/i.test(key))
+    return `ODDS_API_KEY has extra text around the key (${v.length} characters instead of 32). LayLock is using the key found inside it, but set it to just the key to be safe.`;
+  return `ODDS_API_KEY doesn't look like an Odds API key: it's ${v.length} characters, and a key is 32 letters and numbers. Copy it again from your account at the-odds-api.com.`;
+}
 
 const BASE = "https://api.the-odds-api.com/v4";
 export const SPORT_KEYS: Record<Sport, string> = {
@@ -183,7 +203,7 @@ export interface OddsEvent {
 
 export async function oddsJson(path: string, revalidate: number): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(`${BASE}${path}${sep}apiKey=${process.env.ODDS_API_KEY}`, { next: { revalidate } } as RequestInit);
+  const res = await fetch(`${BASE}${path}${sep}apiKey=${encodeURIComponent(oddsKey())}`, { next: { revalidate } } as RequestInit);
   if (res.status === 401 || res.status === 429) {
     // Out of credits (or rate limited): stop asking for an hour instead of failing on every game opened.
     await kvSet(PAUSE_KEY, { status: res.status, at: new Date().toISOString() }, 3600).catch(() => {});

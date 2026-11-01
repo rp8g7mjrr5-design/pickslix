@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { fetchGameMarkets, parseGameMarkets, propEdges, withModel } from "@/lib/books.ts";
 import { loadRatings } from "@/lib/ratingsData.ts";
 import { sampleRatings } from "@/lib/sampleBooks.ts";
-import { oddsEnabled, oddsHold } from "@/lib/odds.ts";
+import { oddsEnabled, oddsHold, oddsKeyProblem } from "@/lib/odds.ts";
 import { checkPass, proRequired } from "@/lib/pro.ts";
 import { getProvider } from "@/lib/providers.ts";
 import { sampleOddsJson } from "@/lib/sampleBooks.ts";
@@ -42,7 +42,9 @@ export async function GET(req: Request) {
     ? `The Odds API turned LayLock away (${hold.status === 401 ? "key rejected or monthly credits used up" : "too many requests"}), so odds calls are paused for an hour.`
     : hold?.reason === "credits"
       ? `Odds API credits are used up for the month (${hold.remaining} left). Lines come back when they reset or the plan is upgraded.`
-      : failed
+      : failed?.includes("414")
+        ? (oddsKeyProblem() ?? "The Odds API says the request is too long, which usually means ODDS_API_KEY holds more than the key.")
+        : failed
         ? `The Odds API call failed: ${failed}. It will try again on the next load.`
         : undefined;
   const locked = proRequired() && !(await checkPass(req.headers.get("x-pro-key")));

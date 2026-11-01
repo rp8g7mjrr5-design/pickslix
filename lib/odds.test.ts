@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { marketPrice, matchEvent, parseEventLines, sameTeam, withOpeners } from "./odds.ts";
+import { marketPrice, oddsKey, oddsKeyProblem, matchEvent, parseEventLines, sameTeam, withOpeners } from "./odds.ts";
 
 const outcome = (name: string, description: string, point: number, price = -110) => ({ name, description, point, price });
 
@@ -147,4 +147,15 @@ test("PrizePicks' alternate lines are read per player and stat, sorted", async (
     "NBA",
   );
   assert.deepEqual(alts, { "jayson tatum": { PTS: [22.5, 31.5] } });
+});
+
+test("the Odds API key is found inside whatever was pasted", () => {
+  const k = "0123456789abcdef0123456789abcdef";
+  assert.equal(oddsKey(k), k);
+  assert.equal(oddsKey(` "${k}"\n`), k);
+  assert.equal(oddsKey(`ODDS_API_KEY=${k}`), k);
+  assert.equal(oddsKey(`https://api.the-odds-api.com/v4/sports?apiKey=${k}&regions=us`), k);
+  assert.equal(oddsKeyProblem(k), undefined);
+  assert.match(oddsKeyProblem(`ODDS_API_KEY=${k}`) ?? "", /using the key found inside it/);
+  assert.match(oddsKeyProblem("x".repeat(9000)) ?? "", /9000 characters/);
 });
