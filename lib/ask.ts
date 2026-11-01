@@ -94,7 +94,7 @@ export function answerFor(row: PropWithProjection, asked?: "OVER" | "UNDER"): An
     const agree = p.marketProb >= 0.5;
     lines.push(agree ? `The sportsbooks agree, pricing ${sideWord(p.pick)} at ${pc(p.marketProb)}.` : `The sportsbooks lean the other way (${sideWord(p.pick)} only ${pc(p.marketProb)}).`);
   }
-  const why = p.reasons.filter((r) => !/^Hit the (over|under) in/.test(r)).slice(0, 2);
+  const why = p.reasons.filter((r) => !/^Went (over|under) [\d.]+ in/.test(r)).slice(0, 2);
   if (why.length) lines.push(`Why: ${why.join(". ")}.`);
   if (p.injury === "questionable") lines.push(`${last} is questionable, so check the injury news before lock.`);
   if (p.confidence === "low") lines.push(`Small sample (${p.sampleSize} games), so treat this as rough.`);

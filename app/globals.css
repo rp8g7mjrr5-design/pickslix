@@ -161,6 +161,7 @@ button.icon { padding: 8px 12px; font-size: 16px; line-height: 1; }
 .detailhead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .detailhead button { margin-left: auto; }
 .detail ul { margin: 0; padding-left: 18px; color: #c9d1d9; display: grid; gap: 3px; }
+.detail .plain { margin: 0; color: #e6edf3; line-height: 1.45; }
 .conf { font-size: 11px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
 .conf.high { color: var(--over); }
 .conf.medium { color: var(--warn); }

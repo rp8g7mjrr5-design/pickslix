@@ -69,5 +69,5 @@ test("a saves prop on a goalie who isn't starting is flagged", () => {
   assert.equal(probable.status, "ok");
   assert.equal(probable.confidence, "low");
   const starter = project({ prop: { ...prop, player: "Spencer Knight" }, logs, defense: {}, news: news(true) });
-  assert.ok(starter.reasons.includes("Confirmed starting goalie"));
+  assert.ok(starter.reasons.includes("Confirmed to start in goal tonight"));
 });

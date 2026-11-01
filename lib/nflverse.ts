@@ -3,6 +3,7 @@
 // what each defense allows to WRs, TEs and RBs. That's what lets the model see a role change before the box
 // scores average it in, and a matchup down to the position instead of the whole team.
 import { canonTeam, normName } from "./names.ts";
+import { nudge } from "./format.ts";
 import type { Prop, StatKey } from "./types.ts";
 
 /** Games counted as "recent" for share trends. */
@@ -223,7 +224,8 @@ const PASSING: StatKey[] = ["PASS_YDS", "PASS_TD", "PASS_ATT"];
 /** How much of a share trend carries into the projection (recent form is already weighted in the game logs). */
 const TREND_WEIGHT = 0.4;
 const pctTxt = (x: number) => `${Math.round(x * 100)}%`;
-const signed = (x: number) => `${x >= 0 ? "+" : ""}${Math.round(x * 100)}%`;
+/** Rank 1 allows the most: "5th-easiest to throw on in the league" or "3rd-hardest to run on in the league". */
+const rankTxt = (rank: number, verb: string) => (rank <= 16 ? `${rank === 1 ? "" : ord(rank)}${rank === 1 ? "easiest" : "-easiest"} to ${verb} in the league` : `${rank === 32 ? "" : ord(33 - rank)}${rank === 32 ? "hardest" : "-hardest"} to ${verb} in the league`);
 const ord = (k: number) => `${k}${k % 10 === 1 && k !== 11 ? "st" : k % 10 === 2 && k !== 12 ? "nd" : k % 10 === 3 && k !== 13 ? "rd" : "th"}`;
 
 export interface Adjustment {
@@ -247,12 +249,12 @@ export function nflAdjust(prop: Prop, s: NflSlice): Adjustment {
     const f = 1 + (ratio - 1) * TREND_WEIGHT;
     if (Math.abs(f - 1) < 0.02) return;
     factor *= f;
-    reasons.push(`${label} ${pctTxt(recent)} over the last ${RECENT} games vs ${pctTxt(season)} on the season: ${signed(f - 1)}`);
+    reasons.push(`Getting ${f > 1 ? "more" : "fewer"} ${label} lately: ${pctTxt(recent)} of the team's ${label} in the last ${RECENT} games vs ${pctTxt(season)} all season, so ${nudge(f - 1)}`);
   };
-  if (RECEIVING.includes(prop.stat) || prop.stat === "RUSH_REC_YDS") trend(p?.tgtRecent, p?.tgtSeason, "Target share");
-  if (prop.stat === "RUSH_YDS" || prop.stat === "RUSH_REC_YDS") trend(p?.carryRecent, p?.carrySeason, "Carry share");
+  if (RECEIVING.includes(prop.stat) || prop.stat === "RUSH_REC_YDS") trend(p?.tgtRecent, p?.tgtSeason, "targets");
+  if (prop.stat === "RUSH_YDS" || prop.stat === "RUSH_REC_YDS") trend(p?.carryRecent, p?.carrySeason, "carries");
   if (p?.snapRecent !== undefined && p.snapSeason && Math.abs(p.snapRecent - p.snapSeason) >= 0.1 && prop.stat !== "PASS_YDS") {
-    reasons.push(`Snap share ${pctTxt(p.snapRecent)} lately vs ${pctTxt(p.snapSeason)} on the season`);
+    reasons.push(`On the field ${p.snapRecent > p.snapSeason ? "more" : "less"} lately: ${pctTxt(p.snapRecent)} of plays recently vs ${pctTxt(p.snapSeason)} all season`);
   }
 
   // Matchup by position: what this defense allows to WRs, TEs or RBs, not just through the air overall.
@@ -262,7 +264,7 @@ export function nflAdjust(prop: Prop, s: NflSlice): Adjustment {
     const f = 1 + (pos - 1) * 0.6;
     factor *= f;
     replacesDefense = true;
-    reasons.push(`${prop.opponent} allows ${signed(pos - 1)} ${prop.stat === "REC" ? "catches" : "receiving yards"} to ${g}s vs league average`);
+    reasons.push(`${prop.opponent} gives up ${pctTxt(Math.abs(pos - 1))} ${pos > 1 ? "more" : "fewer"} ${prop.stat === "REC" ? "catches" : "receiving yards"} to ${g}s than an average defense`);
   }
 
   // EPA allowed: fills the passing-TD gap, and gives the QB-level matchup context.
@@ -272,13 +274,13 @@ export function nflAdjust(prop: Prop, s: NflSlice): Adjustment {
       const f = 1 + Math.max(-0.12, Math.min(0.12, gap * 1.2));
       factor *= f;
       replacesDefense = true;
-      reasons.push(`${prop.opponent} allows ${s.defense.passEpa >= 0 ? "+" : ""}${s.defense.passEpa.toFixed(2)} EPA per dropback (${ord(s.passRank ?? 0)}-most): ${signed(f - 1)}`);
+      reasons.push(`${prop.opponent}'s pass defense is the ${rankTxt(s.passRank ?? 16, "throw on")}, so ${nudge(f - 1)}`);
     } else if (s.passRank) {
-      reasons.push(`${prop.opponent} pass defense: ${s.defense.passEpa >= 0 ? "+" : ""}${s.defense.passEpa.toFixed(2)} EPA per dropback allowed, ${ord(s.passRank)}-most in the league`);
+      reasons.push(`${prop.opponent}'s pass defense is the ${rankTxt(s.passRank, "throw on")}`);
     }
   }
   if (s.defense && prop.stat === "RUSH_YDS" && s.rushRank) {
-    reasons.push(`${prop.opponent} run defense: ${s.defense.rushEpa >= 0 ? "+" : ""}${s.defense.rushEpa.toFixed(2)} EPA per carry allowed, ${ord(s.rushRank)}-most in the league`);
+    reasons.push(`${prop.opponent}'s run defense is the ${rankTxt(s.rushRank, "run on")}`);
   }
   return { factor: Math.max(0.8, Math.min(1.2, factor)), reasons, replacesDefense };
 }

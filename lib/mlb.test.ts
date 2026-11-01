@@ -78,7 +78,7 @@ test("a tough starter lowers a hitter's hits, scaled by the share of plate appea
   const ace: MlbSlice = { venue: "WSH", team: "WSH", pitcherProp: false, starter: { name: "Ace", throws: "R", against: line(600, 0.18, 0.28), ip: 170 } };
   const adj = mlbAdjust("HITS", ace)!;
   assert.ok(adj.factor < 0.9 && adj.factor > 0.8);
-  assert.match(adj.reasons[0], /Facing Ace \(RHP\), who has allowed \.180 AVG/);
+  assert.match(adj.reasons[0], /Facing righty Ace: batters hit \.180 against this pitcher/);
   // Same rates over a handful of batters barely moves it.
   const rookie = mlbAdjust("HITS", { ...ace, starter: { ...ace.starter!, against: line(20, 0.18, 0.28) } });
   assert.ok(!rookie || rookie.factor > 0.97);
@@ -96,7 +96,7 @@ test("platoon: a lefty who crushes righties gets a bump against one", () => {
   };
   const tb = mlbAdjust("TB", s)!;
   assert.ok(tb.factor > 1.03);
-  assert.match(tb.reasons[0], /Bats L vs a righty/);
+  assert.match(tb.reasons[0], /^Hits better against righty pitchers/);
   // Switch hitters skip it.
   assert.equal(mlbAdjust("TB", { ...s, batter: { ...s.batter!, bats: "S" } }), undefined);
 });
@@ -105,7 +105,7 @@ test("parks count against the player's usual mix; Coors helps a visitor more tha
   const visitor = mlbAdjust("TB", { venue: "COL", team: "SF", pitcherProp: false })!;
   const rockie = mlbAdjust("TB", { venue: "COL", team: "COL", pitcherProp: false })!;
   assert.ok(visitor.factor > rockie.factor && rockie.factor > 1);
-  assert.match(visitor.reasons[0], /^COL park: \+/);
+  assert.match(visitor.reasons[0], /^COL's ballpark helps here, so our guess goes up/);
   // Pitchers: hits allowed follow the park too.
   assert.ok(mlbAdjust("HITS_ALLOWED", { venue: "COL", team: "SF", pitcherProp: true })!.factor > 1);
 });
@@ -123,7 +123,7 @@ test("pitcher props follow the lineup they face", () => {
   const whiffy: MlbSlice = { venue: "WSH", team: "WSH", pitcherProp: true, lineup: { team: "COL", line: line(5500, 0.235, 0.39, 1600, 450) } };
   const k = mlbAdjust("K", whiffy)!;
   assert.ok(k.factor > 1.1);
-  assert.match(k.reasons[0], /COL's lineup strikes out/);
+  assert.match(k.reasons[0], /COL's lineup strikes out \d+% of the time/);
   // Hitter stats ignore the lineup; pitcher stats ignore the starter.
   assert.equal(mlbAdjust("HITS", whiffy), undefined);
 });

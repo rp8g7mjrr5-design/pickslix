@@ -5,6 +5,7 @@ import type { Adjustment } from "./nflverse.ts";
 import type { TeamEnv } from "./odds.ts";
 import { ufcBase, type UfcInput } from "./ufc.ts";
 import { STATS, isCollege } from "./types.ts";
+import { nudge } from "./format.ts";
 import type {
   DefenseFactors,
   GameLog,
@@ -195,8 +196,8 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
     reasons.push(...fight.reasons);
   } else reasons.push(
     thisSeason === base.n
-      ? `Recency-weighted average ${base.mean.toFixed(1)} over last ${base.n} games vs line ${prop.line}`
-      : `Recency-weighted average ${base.mean.toFixed(1)} vs line ${prop.line}: ${thisSeason} game${thisSeason === 1 ? "" : "s"} this season, plus ${base.n - thisSeason} from last season counted for less`,
+      ? `Typical game lately: ${base.mean.toFixed(1)}, and the line is ${prop.line} (last ${base.n} games, newest count most)`
+      : `Typical game lately: ${base.mean.toFixed(1)}, and the line is ${prop.line} (${thisSeason} game${thisSeason === 1 ? "" : "s"} this season, plus ${base.n - thisSeason} from last season that count less)`,
   );
 
   // Matchup
@@ -206,7 +207,7 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
     mean *= factor;
     variance *= factor * factor;
     const rank = raw > 1 ? "soft" : "tough";
-    reasons.push(`${prop.opponent} is a ${rank} matchup for ${STATS[prop.stat].label.toLowerCase()} (${pct(raw - 1)} vs league avg)`);
+    reasons.push(`${rank === "soft" ? "Easy" : "Tough"} matchup: ${prop.opponent} gives up ${Math.round(Math.abs(raw - 1) * 100)}% ${raw > 1 ? "more" : "less"} ${STATS[prop.stat].label.toLowerCase()} than an average team`);
   }
 
   const avgPlaying =
@@ -232,7 +233,7 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   let otherGoalie: NewsItem | undefined;
   for (const n of news) {
     if (n.kind === "starting_goalie" && prop.stat === "SAVES" && n.team === prop.team) {
-      if (sameName(n.player, prop.player)) reasons.push(`${n.confirmed ? "Confirmed" : "Probable"} starting goalie`);
+      if (sameName(n.player, prop.player)) reasons.push(`${n.confirmed ? "Confirmed" : "Expected"} to start in goal tonight`);
       else otherGoalie = n;
       continue;
     }
@@ -243,22 +244,22 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
         const scale = Math.min(1, n.minutes / avgPlaying);
         mean *= scale;
         variance *= scale;
-        reasons.push(`Minutes limit (~${n.minutes} vs ${avgPlaying.toFixed(0)} avg): ${n.headline}`);
+        reasons.push(`On a minutes limit: about ${n.minutes} minutes instead of the usual ${avgPlaying.toFixed(0)}, so ${nudge(scale - 1)}. ${n.headline}`);
       }
     }
     if (n.kind === "teammate_out" && n.team === prop.team && n.affects?.some((a) => sameName(a, prop.player))) {
       const boost = n.usageBoost ?? 0.05;
       mean *= 1 + boost;
       variance *= (1 + boost) ** 2;
-      reasons.push(`${n.player} out, usage bump ${pct(boost)}: ${n.headline}`);
+      reasons.push(`${n.player} is out, so more chances for this player: ${nudge(boost)}. ${n.headline}`);
     }
     if (n.kind === "opponent_out" && n.team === prop.opponent && n.affects?.some((a) => sameName(a, prop.player))) {
       const boost = n.usageBoost ?? 0.03;
       mean *= 1 + boost;
-      reasons.push(`${n.player} (${n.team}) out, weaker defense ${pct(boost)}: ${n.headline}`);
+      reasons.push(`${n.player} is out for ${n.team}, so their defense is weaker: ${nudge(boost)}. ${n.headline}`);
     }
   }
-  if (questionable) reasons.push("Player is questionable; probability is less reliable");
+  if (questionable) reasons.push("Listed as questionable: might sit or play less, so this pick is shakier");
 
   const modelMean = mean;
   const dispersion = variance / Math.max(modelMean, 0.1);
@@ -290,12 +291,12 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   if (market && marketMean !== undefined) {
     const at = overUnder(marketMean, marketMean * dispersion, prop.line);
     marketProb = pick === "OVER" ? at.pOver : at.pUnder;
-    const who = `${market.books ?? 1} book${market.books === 1 ? "" : "s"}${market.sharp ? " incl. a sharp book" : ""}`;
+    const who = `${market.books ?? 1} sportsbook${market.books === 1 ? "" : "s"}${market.sharp ? ", including one of the sharpest" : ""}`;
     const gap = market.line - prop.line;
     reasons.push(
       gap === 0
-        ? `Sportsbooks (${who}) price the ${pick.toLowerCase()} at ${(marketProb * 100).toFixed(0)}% at the same line`
-        : `Sportsbooks deal ${market.line} (${who}), ${Math.abs(gap)} ${gap > 0 ? "above" : "below"} Pick 6: that puts the ${pick.toLowerCase()} at ${(marketProb * 100).toFixed(0)}% here`,
+        ? `The sportsbooks (${who}) give ${pick === "OVER" ? "more" : "less"} a ${(marketProb * 100).toFixed(0)}% chance at this same line`
+        : `The sportsbooks (${who}) set the line at ${market.line}, ${Math.abs(gap)} ${gap > 0 ? "higher" : "lower"} than here. That makes ${pick === "OVER" ? "more" : "less"} about ${(marketProb * 100).toFixed(0)}% likely here`,
     );
   }
 
@@ -305,13 +306,13 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   const last10 = (thisSeason >= EARLY_GAMES ? values.filter((_, i) => !recentLogs[i].prior) : values).slice(0, 10);
   const hits = last10.filter((v) => (pick === "OVER" ? v > prop.line : v < prop.line)).length;
   const hitRateLast10 = last10.length ? hits / last10.length : 0;
-  if (last10.length) reasons.push(`Hit the ${pick.toLowerCase()} in ${hits} of last ${last10.length}`);
+  if (last10.length) reasons.push(`Went ${pick === "OVER" ? "over" : "under"} ${prop.line} in ${hits} of the last ${last10.length} games`);
 
   const cv = Math.sqrt(variance) / Math.max(mean, 0.5);
   let confidence: Projection["confidence"] = "medium";
   if (base.n < 6 || questionable || cv > 0.7) confidence = "low";
   else if (base.n >= 12 && thisSeason >= EARLY_GAMES && cv < 0.4 && pickProb > 0.58) confidence = "high";
-  if (thisSeason < EARLY_GAMES && base.n > thisSeason) reasons.push("Early in the season: leans partly on last year");
+  if (thisSeason < EARLY_GAMES && base.n > thisSeason) reasons.push("Early in the season, so last season's games still count some");
 
   if (otherGoalie) {
     // A goalie who doesn't start usually doesn't play: on a confirmed backup the pick will likely be voided.

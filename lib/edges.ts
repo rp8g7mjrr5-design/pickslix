@@ -70,8 +70,8 @@ export function softLines(rows: SlateRow[], now = Date.now()): Edge[] {
   return out.sort((a, b) => b.booksProb! - a.booksProb!);
 }
 
-/** "Ja Morant is out: +12% (…)" from the usage model, or "Ja Morant out, usage bump 12%: …" from the news feed. */
-const OUT_REASON = /^(.+?)(?: is out: \+(\d+)%| out, usage bump (\d+)%)/;
+/** "Ja Morant is out, so more chances for this player: our guess goes up 12%…" from the usage model or the news feed. */
+const OUT_REASON = /^(.+?) is out, so more chances for this player: our guess goes up (\d+)%/;
 
 export function rippleLines(rows: SlateRow[], now = Date.now()): Edge[] {
   const out: Edge[] = [];
@@ -81,7 +81,7 @@ export function rippleLines(rows: SlateRow[], now = Date.now()): Edge[] {
     if (r.open !== undefined || p.pick !== "OVER" || p.pickProb < RIPPLE_MIN || !upcoming(r, now)) continue;
     const m = p.reasons.map((x) => OUT_REASON.exec(x)).find(Boolean);
     if (!m) continue;
-    const boost = Number(m[2] ?? m[3]) / 100;
+    const boost = Number(m[2]) / 100;
     if (!(boost >= 0.04)) continue;
     out.push({
       kind: "ripple",

@@ -47,12 +47,12 @@ test("softLines skips games about to start", () => {
 
 test("rippleLines finds teammates bumped by an absence whose line hasn't moved", () => {
   const rows = [
-    row("bane", {}, { pickProb: 0.63, pOver: 0.63, reasons: ["Averaging 22", "Ja Morant is out: +12% (4 games without)"] }),
-    row("news", {}, { pickProb: 0.6, pOver: 0.6, reasons: ["Ja Morant out, usage bump 7%: more touches"] }),
-    row("moved", { open: 24.5 }, { pickProb: 0.63, reasons: ["Ja Morant is out: +12% (x)"] }),
-    row("small", {}, { pickProb: 0.63, reasons: ["Ja Morant is out: +2% (x)"] }),
-    row("weak", {}, { pickProb: 0.54, reasons: ["Ja Morant is out: +12% (x)"] }),
-    row("under", {}, { pick: "UNDER", pickProb: 0.63, reasons: ["Ja Morant is out: +12% (x)"] }),
+    row("bane", {}, { pickProb: 0.63, pOver: 0.63, reasons: ["Averaging 22", "Ja Morant is out, so more chances for this player: our guess goes up 12% (4 games without)"] }),
+    row("news", {}, { pickProb: 0.6, pOver: 0.6, reasons: ["Ja Morant is out, so more chances for this player: our guess goes up 7%. More touches"] }),
+    row("moved", { open: 24.5 }, { pickProb: 0.63, reasons: ["Ja Morant is out, so more chances for this player: our guess goes up 12% (x)"] }),
+    row("small", {}, { pickProb: 0.63, reasons: ["Ja Morant is out, so more chances for this player: our guess goes up 2% (x)"] }),
+    row("weak", {}, { pickProb: 0.54, reasons: ["Ja Morant is out, so more chances for this player: our guess goes up 12% (x)"] }),
+    row("under", {}, { pick: "UNDER", pickProb: 0.63, reasons: ["Ja Morant is out, so more chances for this player: our guess goes up 12% (x)"] }),
   ];
   const ripple = rippleLines(rows, NOW);
   assert.deepEqual(ripple.map((e) => e.player), ["Player bane", "Player news"]);
@@ -63,7 +63,7 @@ test("rippleLines finds teammates bumped by an absence whose line hasn't moved",
 test("edgeAlert reads plainly", () => {
   const [soft] = softLines([row("jokic", { player: "Nikola Jokic" }, { market: { line: 28.5, pOver: 0.5 } })], NOW);
   assert.match(edgeAlert(soft).body, /^Pick 6 has 26.5 points, books are at 28.5. More is \d+% by the books.$/);
-  const [rip] = rippleLines([row("bane", { player: "Desmond Bane" }, { pickProb: 0.63, reasons: ["Ja Morant is out: +12% (x)"] })], NOW);
+  const [rip] = rippleLines([row("bane", { player: "Desmond Bane" }, { pickProb: 0.63, reasons: ["Ja Morant is out, so more chances for this player: our guess goes up 12% (x)"] })], NOW);
   assert.equal(edgeAlert(rip).title, "Ja Morant is out");
   assert.equal(edgeAlert(rip).body, "Desmond Bane's points line (26.5) hasn't moved. The model now has More at 63%.");
 });

@@ -31,11 +31,11 @@ test("context: target-share trends, position matchups and EPA by defense", () =>
   const prop: Prop = { id: "p", sport: "NFL", player: "Tight End", team: "KC", opponent: "BUF", stat: "REC_YDS", line: 49.5 };
   const adj = nflAdjust(prop, nflSlice(ctx, prop.player, "BUF"));
   assert.ok(adj.factor > 1);
-  assert.ok(adj.reasons.some((r) => r.startsWith("Target share 30%")));
+  assert.ok(adj.reasons.some((r) => r.startsWith("Getting more targets lately: 30%")));
   const td = nflAdjust({ ...prop, player: "Quarter Back", stat: "PASS_TD", line: 1.5 }, nflSlice(ctx, "Quarter Back", "BUF"));
   assert.equal(td.replacesDefense, true);
   assert.ok(td.factor > 1);
-  assert.match(td.reasons[0], /EPA per dropback \(1st-most\)/);
+  assert.match(td.reasons[0], /pass defense is the easiest to throw on in the league/);
 });
 
 test("season rolls over in August", () => {

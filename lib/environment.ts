@@ -4,6 +4,7 @@
 // already carry some of this, and the model still leans on the player's own games first.
 import type { TeamEnv } from "./odds.ts";
 import { statSport, type Sport, type StatKey } from "./types.ts";
+import { nudge } from "./format.ts";
 
 /** How much of the team-total gap (vs the slate average) carries into each stat. */
 const TEAM_WEIGHT: Partial<Record<StatKey, number>> = {
@@ -23,7 +24,6 @@ const STARTER_MINUTES: Partial<Record<Sport, number>> = { NBA: 28, CBB: 25 };
 const BLOWOUT_SPREAD: Partial<Record<Sport, number>> = { NBA: 10, CBB: 15 };
 const MAX_SWING = 0.15;
 
-const signed = (x: number) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(0)}%`;
 const fmt = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 
 /** Multiplier on the player's mean from the game environment, with the reasons behind it. */
@@ -38,15 +38,15 @@ export function envFactor(sport: Sport, stat: StatKey, env: TeamEnv, avgPlaying:
   if (team !== undefined) {
     const f = 1 + (env.teamTotal / avgTeam - 1) * team;
     if (Math.abs(f - 1) >= 0.01)
-      reasons.push(`Implied team total ${fmt(env.teamTotal)} vs ${fmt(avgTeam)} slate average: ${signed(f - 1)}`);
+      reasons.push(`Vegas expects this team to score about ${fmt(env.teamTotal)} (an average team today: ${fmt(avgTeam)}), so ${nudge(f - 1)}`);
     factor *= f;
   } else if (pace !== undefined) {
     const f = 1 + (env.total / env.avgTotal - 1) * pace;
-    if (Math.abs(f - 1) >= 0.01) reasons.push(`Game total ${fmt(env.total)} vs ${fmt(env.avgTotal)} slate average: ${signed(f - 1)}`);
+    if (Math.abs(f - 1) >= 0.01) reasons.push(`Vegas expects a ${f > 1 ? "high" : "low"}-scoring game: about ${fmt(env.total)} total vs ${fmt(env.avgTotal)} in an average game today, so ${nudge(f - 1)}`);
     factor *= f;
   } else if (opp !== undefined) {
     const f = 1 + (env.oppTotal / avgTeam - 1) * opp;
-    if (Math.abs(f - 1) >= 0.01) reasons.push(`Opponent implied for ${fmt(env.oppTotal)} vs ${fmt(avgTeam)} average: ${signed(f - 1)}`);
+    if (Math.abs(f - 1) >= 0.01) reasons.push(`Vegas expects the other team to score about ${fmt(env.oppTotal)} (an average team: ${fmt(avgTeam)}), so ${nudge(f - 1)}`);
     factor *= f;
   }
 
@@ -54,7 +54,7 @@ export function envFactor(sport: Sport, stat: StatKey, env: TeamEnv, avgPlaying:
   const blowout = BLOWOUT_SPREAD[sport];
   if (blowout !== undefined && gap >= blowout && avgPlaying >= (STARTER_MINUTES[sport] ?? 0)) {
     const f = 1 - Math.min(0.06, 0.012 * (gap - blowout + 1));
-    reasons.push(`${fmt(gap)}-point spread: blowout risk, starters may sit late (${signed(f - 1)})`);
+    reasons.push(`Could be a blowout (one team favored by ${fmt(gap)}), and starters often sit at the end of those: ${nudge(f - 1)}`);
     factor *= f;
   }
   if (statSport(sport) === "NFL" && gap >= 3) {
@@ -62,7 +62,7 @@ export function envFactor(sport: Sport, stat: StatKey, env: TeamEnv, avgPlaying:
     const lean = Math.max(-0.06, Math.min(0.06, 0.006 * env.spread));
     const f = NFL_PASSING.includes(stat) ? 1 + lean : stat === "RUSH_YDS" ? 1 - lean : 1;
     if (f !== 1) {
-      reasons.push(`Game script: ${env.spread > 0 ? `${fmt(gap)}-point underdog, likely throwing more` : `${fmt(gap)}-point favorite, likely running more`} (${signed(f - 1)})`);
+      reasons.push(`Game script: ${env.spread > 0 ? `a ${fmt(gap)}-point underdog usually throws more to catch up` : `a ${fmt(gap)}-point favorite usually runs more to kill the clock`}, so ${nudge(f - 1)}`);
       factor *= f;
     }
   }

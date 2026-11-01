@@ -1,5 +1,8 @@
 export const pct = (p: number, digits = 0) => `${(p * 100).toFixed(digits)}%`;
 
+/** How much one factor moves the projection, in words: "our guess goes up 6%". */
+export const nudge = (x: number) => `our guess goes ${x >= 0 ? "up" : "down"} ${Math.abs(Math.round(x * 100))}%`;
+
 /** Most picks one entry can hold (Pick 6 now goes up to 8). */
 export const MAX_PICKS = 8;
 
