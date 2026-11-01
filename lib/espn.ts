@@ -539,10 +539,21 @@ export async function fetchTeamPlayers(sport: EspnSport, teamId: string, name = 
   // A UFC "team" is one fighter.
   if (sport === "UFC") return fetchFighter(teamId, name);
   const base = `${SITE}/${PATHS[sport]}/teams/${encodeURIComponent(teamId)}`;
-  const withStats = parseTeamPlayers(await espnJson(`${base}/athletes/statistics`, TTL.players).catch(() => null), sport);
+  // ESPN has answered for the wrong team (the Eagles under the Vikings' id), and a cached answer sticks for hours:
+  // only keep one that names the team asked for, and ask again uncached when it doesn't.
+  const forTeam = async (path: string) => {
+    const json = await espnJson(`${base}/${path}`, TTL.players).catch(() => null);
+    if (sameTeamId(json, teamId)) return json;
+    const fresh = await espnJson(`${base}/${path}`, 0).catch(() => null);
+    return sameTeamId(fresh, teamId) ? fresh : null;
+  };
+  const withStats = parseTeamPlayers(await forTeam("athletes/statistics"), sport);
   if (withStats.length) return withStats;
-  return parseRoster(await espnJson(`${base}/roster`, TTL.players).catch(() => null), sport);
+  return parseRoster(await forTeam("roster"), sport);
 }
+
+/** The response is about this team (or doesn't say which, as older feeds didn't). */
+export const sameTeamId = (json: any, teamId: string) => Boolean(json) && (json?.team?.id === undefined || String(json.team.id) === teamId);
 
 // ---------- Team defense ----------
 
