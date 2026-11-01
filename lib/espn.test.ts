@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   defenseFactors,
+  sameTeamId,
   markPrior,
   nbaAllowed,
   nflAllowed,
@@ -165,4 +166,11 @@ test("markPrior flags games from before the offseason", () => {
   const g = (date: string) => ({ date, opponent: "X", playing: 30, stats: {} });
   const marked = markPrior([g("2026-10-25"), g("2026-10-22"), g("2026-04-10")], now);
   assert.deepEqual(marked.map((x) => Boolean(x.prior)), [false, false, true]);
+});
+
+test("a team feed that answers for another team is thrown out", () => {
+  assert.equal(sameTeamId({ team: { id: "16", abbreviation: "MIN" } }, "16"), true);
+  assert.equal(sameTeamId({ team: { id: "21", abbreviation: "PHI" } }, "16"), false);
+  assert.equal(sameTeamId({ results: [] }, "16"), true);
+  assert.equal(sameTeamId(null, "16"), false);
 });
