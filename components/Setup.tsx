@@ -7,6 +7,7 @@ interface Status {
   cron: boolean;
   odds: boolean;
   oddsRemaining: number | null;
+  oddsKeyProblem?: string | null;
   defenseUpdatedAt: string | null;
   dataSource: string;
   accounts: boolean;
@@ -35,10 +36,10 @@ export default function Setup() {
   const items = s
     ? [
         {
-          ok: s.odds,
+          ok: s.odds && !s.oddsKeyProblem,
           title: "Auto-filled lines",
           on: `Pick 6 lines load when you open a game.${s.oddsRemaining !== null ? ` ${s.oddsRemaining} Odds API credits left this month.` : ""}`,
-          off: "Add ODDS_API_KEY (free at the-odds-api.com). Until then lines start at the season average.",
+          off: s.oddsKeyProblem ?? "Add ODDS_API_KEY (free at the-odds-api.com). Until then lines start at the season average.",
         },
         {
           ok: s.alerts,

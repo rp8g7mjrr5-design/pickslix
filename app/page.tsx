@@ -1,5 +1,5 @@
-import Board from "@/components/Board";
+import AutoSlipPage from "@/components/AutoSlip";
 
 export default function Home() {
-  return <Board />;
+  return <AutoSlipPage />;
 }

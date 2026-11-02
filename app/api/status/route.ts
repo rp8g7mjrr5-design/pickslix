@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbEnabled, kvGet } from "@/lib/db.ts";
-import { oddsEnabled } from "@/lib/odds.ts";
+import { oddsEnabled, oddsKeyProblem } from "@/lib/odds.ts";
 import { accountsEnabled } from "@/lib/accounts.ts";
 import { lifetimeCodes, prices, stripeEnabled } from "@/lib/pro.ts";
 import { alertsEnabled } from "@/lib/alertsData.ts";
@@ -18,6 +18,7 @@ export async function GET() {
     cron: Boolean(process.env.CRON_SECRET),
     odds: oddsEnabled(),
     oddsRemaining: odds?.remaining ?? null,
+    oddsKeyProblem: oddsKeyProblem() ?? null,
     defenseUpdatedAt: nba?.updatedAt ?? null,
     accounts: accountsEnabled(),
     stripe: stripeEnabled(),
