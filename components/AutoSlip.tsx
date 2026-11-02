@@ -112,7 +112,7 @@ export default function AutoSlipPage() {
               {s.legs.length}-pick Power Play · pays {s.multiplier}x
             </h1>
             <p className="muted">
-              LayLock scanned today&apos;s Pick 6 lines and picked the two most likely to hit. It keeps checking until each game starts and swaps any pick that
+              LayLock scanned today&apos;s Pick 6 lines and picked these by itself. It keeps checking until each game starts and swaps any pick that
               stops holding up. Last checked {ago(s.updatedAt)}.
             </p>
           </>

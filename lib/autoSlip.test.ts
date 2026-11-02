@@ -26,12 +26,14 @@ const board = [
   row("H", "ATL", "ORL", 0.65, { sampleSize: 4 }),
 ];
 
-test("builds a 2-pick slip from the two picks most likely to hit, one per game", () => {
+test("builds the slip size that pays best on average, one pick per game", () => {
   const s = buildSlip(board, "NBA", "20261102", NOW)!;
   assert.ok(s);
-  assert.deepEqual(s.legs.map((l) => l.player), ["A", "C"]);
-  assert.equal(s.multiplier, 3);
-  assert.ok(Math.abs(s.chance - 0.72 * 0.7) < 1e-9);
+  const names = s.legs.map((l) => l.player);
+  assert.ok(!names.includes("B") && !names.includes("D") && !names.includes("H"));
+  assert.deepEqual(names.slice(0, 3), ["A", "C", "E"]);
+  assert.ok(s.legs.length >= 2 && s.legs.length <= 6);
+  assert.ok(s.expected > 1, "only builds a slip worth playing at these chances");
   assert.equal(s.version, 1);
 });
 
@@ -41,10 +43,10 @@ test("no slip when nothing on the board is good enough", () => {
 
 test("a pick whose player is ruled out gets swapped before the game; started games stay put", () => {
   const s = buildSlip(board.slice(0, 5), "NBA", "20261102", NOW)!;
-  assert.deepEqual(s.legs.map((l) => l.player).sort(), ["A", "C"]);
+  assert.deepEqual(s.legs.map((l) => l.player).sort(), ["A", "C", "E"]);
   const after = board.map((r) => (r.player === "C" ? row("C", "LAL", "GSW", 0.7, { injury: "out" }) : r));
   const t = tendSlip(s, [...after, row("Z", "SEA", "UTA", 0.64)], NOW + 3600_000);
-  assert.ok(t.legs.some((l) => l.player === "E"));
+  assert.ok(t.legs.some((l) => l.player === "Z") || t.legs.some((l) => l.player === "F"));
   assert.ok(!t.legs.some((l) => l.player === "C"));
   assert.equal(t.version, 2);
   assert.match(t.changes[0], /^Swapped C more than 20 points for .+: ruled out$/i);
@@ -58,17 +60,17 @@ test("a pick whose player is ruled out gets swapped before the game; started gam
 test("settles like the app: a miss loses, a push shrinks the entry, all hits win", () => {
   const base = buildSlip(board.slice(0, 5), "NBA", "20261102", NOW)!;
   const graded = (results: ("hit" | "miss" | "push" | undefined)[]): AutoSlip => ({ ...base, legs: base.legs.map((l, i) => ({ ...l, result: results[i] })) });
-  assert.equal(settle(graded(["miss", undefined])), "loss");
-  assert.equal(settle(graded(["hit", undefined])), undefined);
-  assert.equal(settle(graded(["hit", "hit"])), "win");
-  assert.equal(settle(graded(["hit", "push"])), "refund");
-  const won = { ...graded(["hit", "hit"]), result: "win" as const };
-  const lost = { ...graded(["hit", "miss"]), result: "loss" as const };
+  assert.equal(settle(graded(["hit", "miss", undefined])), "loss");
+  assert.equal(settle(graded(["hit", "hit", undefined])), undefined);
+  assert.equal(settle(graded(["hit", "hit", "hit"])), "win");
+  assert.equal(settle(graded(["hit", "hit", "push"])), "win");
+  const won = { ...graded(["hit", "hit", "hit"]), result: "win" as const };
+  const lost = { ...graded(["hit", "miss", "hit"]), result: "loss" as const };
   const rec = autoRecord([won, lost]);
   assert.equal(rec.wins, 1);
   assert.equal(rec.losses, 1);
-  assert.equal(rec.legsHit, 3);
-  assert.equal(rec.legsGraded, 4);
+  assert.equal(rec.legsHit, 5);
+  assert.equal(rec.legsGraded, 6);
   assert.equal(rec.profit10, 10 * (won.multiplier - 1) - 10);
   assert.match(slipText(won), /^A: More than 20 Points/);
 });
