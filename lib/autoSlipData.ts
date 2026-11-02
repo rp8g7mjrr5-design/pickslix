@@ -5,10 +5,11 @@ import { espnDate } from "./espn.ts";
 import { gradeLeg } from "./grade.ts";
 import { autoRecord, buildSlip, settle, tendSlip, type AutoSlip } from "./autoSlip.ts";
 import { getProvider } from "./providers.ts";
-import { SPORTS, sportSlate } from "./slateData.ts";
+import { sportSlate } from "./slateData.ts";
 import type { Sport } from "./types.ts";
 
-export const AUTO_SPORTS = SPORTS;
+/** Only NBA and NFL get an auto slip: the sports the model knows best, and the Odds API bill stays small. */
+export const AUTO_SPORTS: Sport[] = ["NBA", "NFL"];
 const dayKey = (sport: Sport, date: string) => `auto:${sport}:${date}`;
 const historyKey = (sport: Sport) => `auto:${sport}:history`;
 const KEEP_S = 400 * 86400;
