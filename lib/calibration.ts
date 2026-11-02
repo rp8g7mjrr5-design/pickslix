@@ -23,6 +23,8 @@ export interface Calibration {
   updatedAt: string;
   all: Tune;
   sports: Partial<Record<Sport, Tune>>;
+  /** Per stat ("NBA:PTS"), once a stat has enough graded picks: points and rebounds don't miss the same way. */
+  stats?: Record<string, Tune>;
 }
 
 /** How hard each number holds to its starting point, in the units of a pick's log-likelihood. About 200 picks move them halfway. */
@@ -32,6 +34,8 @@ const A_RANGE: [number, number] = [0.6, 1.4];
 const B_RANGE: [number, number] = [-0.3, 0.3];
 /** A sport needs this many graded picks for its own fit. */
 const MIN_SPORT = 30;
+/** A stat needs this many for its own fit, which starts from its sport's. */
+const MIN_STAT = 40;
 
 const logit = (p: number) => Math.log(p / (1 - p));
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
@@ -80,12 +84,20 @@ export function buildCalibration(picks: GradedPick[], now = new Date()): Calibra
   const bySport = new Map<Sport, GradedPick[]>();
   for (const p of picks) bySport.set(p.sport, [...(bySport.get(p.sport) ?? []), p]);
   for (const [sport, list] of bySport) if (list.length >= MIN_SPORT) sports[sport] = { ...fitTune(list, all.a, all.b), sport };
-  return { updatedAt: now.toISOString(), all, sports };
+  const stats: Record<string, Tune> = {};
+  const byStat = new Map<string, GradedPick[]>();
+  for (const p of picks) if (p.stat) byStat.set(`${p.sport}:${p.stat}`, [...(byStat.get(`${p.sport}:${p.stat}`) ?? []), p]);
+  for (const [key, list] of byStat) {
+    if (list.length < MIN_STAT) continue;
+    const from = sports[list[0].sport] ?? all;
+    stats[key] = { ...fitTune(list, from.a, from.b), sport: list[0].sport };
+  }
+  return { updatedAt: now.toISOString(), all, sports, stats };
 }
 
-/** The tune for a sport: its own once it has enough picks, else the all-sports one. */
-export function tuneFor(cal: Calibration | null | undefined, sport: Sport): Tune | undefined {
-  return cal ? cal.sports[sport] ?? cal.all : undefined;
+/** The tune for a stat or sport: the narrowest fit that has enough picks, else the all-sports one. */
+export function tuneFor(cal: Calibration | null | undefined, sport: Sport, stat?: string): Tune | undefined {
+  return cal ? (stat ? cal.stats?.[`${sport}:${stat}`] : undefined) ?? cal.sports[sport] ?? cal.all : undefined;
 }
 
 /** Recalibrated chance of the over (pushes left out of both). */

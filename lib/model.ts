@@ -35,6 +35,8 @@ const LINE_WEIGHT = 0.3;
  * instead. Books carry real money and injury news the model can't see, so they get more say than a bare line.
  */
 const MARKET_WEIGHT = 0.5;
+/** With Pinnacle or BetOnline in the price: the sharpest books, whose lines beat almost every model, get the most say. */
+const SHARP_WEIGHT = 0.7;
 
 export function statValue(g: GameLog, stat: StatKey): number {
   return STATS[stat].parts.reduce((sum, f) => sum + (g.stats[f] ?? 0), 0);
@@ -266,7 +268,8 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   let marketMean: number | undefined;
   if (market && market.pOver > 0 && market.pOver < 1 && market.line > 0) {
     marketMean = impliedMean(market, dispersion);
-    mean = (1 - MARKET_WEIGHT) * modelMean + MARKET_WEIGHT * marketMean;
+    const w = market.sharp ? SHARP_WEIGHT : MARKET_WEIGHT;
+    mean = (1 - w) * modelMean + w * marketMean;
   } else {
     mean = (1 - LINE_WEIGHT) * modelMean + LINE_WEIGHT * prop.line;
   }
@@ -275,7 +278,7 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   let { pOver, pPush, pUnder } = overUnder(mean, variance, prop.line);
   const rawPOver = pOver;
   const rawPUnder = pUnder;
-  const tune = tuneFor(calibration, prop.sport);
+  const tune = tuneFor(calibration, prop.sport, prop.stat);
   let tuned: string | undefined;
   if (tune) {
     const share = pOver / Math.max(pOver + pUnder, 1e-9);
