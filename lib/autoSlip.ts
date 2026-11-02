@@ -15,6 +15,8 @@ export interface AutoLeg {
   side: "OVER" | "UNDER";
   /** The model's chance for this side when it was last checked. */
   prob: number;
+  /** The model's chance before its self-tuning, which is what the tuning learns from. */
+  rawProb?: number;
   gameTime: string;
   /** Plain-English reasons, for the card. */
   reasons: string[];
@@ -47,6 +49,10 @@ export const MAX_LEGS = 8;
 /** A thin sample, a coin flip or a game about to start, and it isn't picked. */
 const MIN_GAMES = 8;
 const MIN_PROB = 0.56;
+/** With no sportsbook price to check the model against, a pick has to clear a higher bar. */
+const MIN_PROB_UNPRICED = 0.6;
+/** When the books have priced it, they have to agree with some conviction, not just barely. */
+const MIN_MARKET = 0.53;
 /** Below this a pick already on the slip gets swapped out. */
 const KEEP_PROB = 0.53;
 const LEAD_MS = 20 * 60_000;
@@ -62,14 +68,24 @@ export function candidates(rows: (PropWithProjection & { pick6?: boolean })[], n
       const p = r.projection;
       if (r.pick6 === false || p.status !== "ok" || p.injury || p.confidence === "low" || p.sampleSize < MIN_GAMES) return false;
       if (STATS[r.stat].sport === "UFC" || !r.gameTime || Date.parse(r.gameTime) - now <= LEAD_MS) return false;
-      if (p.marketProb !== undefined && p.marketProb < 0.5) return false;
-      return p.pickProb >= MIN_PROB;
+      if (p.marketProb === undefined) return p.pickProb >= MIN_PROB_UNPRICED;
+      return p.marketProb >= MIN_MARKET && p.pickProb >= MIN_PROB;
     })
     .sort((a, b) => score(b) - score(a));
 }
 
-// The model's chance, nudged toward picks the books agree with.
-const score = (r: PropWithProjection) => r.projection.pickProb + (r.projection.marketProb !== undefined ? 0.02 : 0);
+// The model's chance, nudged up by how strongly the books agree (and down a little when there's no price to check).
+const score = (r: PropWithProjection) => {
+  const m = r.projection.marketProb;
+  return r.projection.pickProb + (m !== undefined ? 0.25 * (m - 0.5) : -0.02);
+};
+
+const rawOf = (r: PropWithProjection) => {
+  const p = r.projection;
+  const raw = p.pick === "OVER" ? p.rawPOver : p.rawPUnder;
+  const other = p.pick === "OVER" ? p.rawPUnder : p.rawPOver;
+  return raw !== undefined && other !== undefined && raw + other > 0 ? Math.round((raw / (raw + other)) * 1000) / 1000 : undefined;
+};
 
 export const toLeg = (r: PropWithProjection): AutoLeg => ({
   sport: r.sport,
@@ -80,6 +96,7 @@ export const toLeg = (r: PropWithProjection): AutoLeg => ({
   line: r.line,
   side: r.projection.pick,
   prob: Math.round(r.projection.pickProb * 1000) / 1000,
+  rawProb: rawOf(r),
   gameTime: r.gameTime!,
   reasons: r.projection.reasons.slice(0, 3),
   marketProb: r.projection.marketProb,
@@ -162,7 +179,7 @@ export function tendSlip(prev: AutoSlip, rows: PropWithProjection[], now = Date.
     const reason = why(l, row);
     if (reason) out.push({ leg: l, reason });
     // Still good: keep it, at the line and chance Pick 6 shows now.
-    else legs.push({ ...l, line: row!.line, prob: Math.round(row!.projection.pickProb * 1000) / 1000, reasons: row!.projection.reasons.slice(0, 3), marketProb: row!.projection.marketProb });
+    else legs.push({ ...l, line: row!.line, prob: Math.round(row!.projection.pickProb * 1000) / 1000, rawProb: rawOf(row!), reasons: row!.projection.reasons.slice(0, 3), marketProb: row!.projection.marketProb });
   }
   if (!out.length) return { ...prev, legs, ...price(legs), updatedAt: new Date(now).toISOString() };
   const mine = rows.filter((r) => r.sport === prev.sport);

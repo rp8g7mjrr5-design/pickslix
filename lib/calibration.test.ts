@@ -52,3 +52,16 @@ test("project applies the tune and says so", () => {
   assert.equal(tuned.rawPOver, base.pOver);
   assert.ok(tuned.reasons.some((r) => /^Adjusted from \d+% to \d+%: in 800 past picks we graded/.test(r)));
 });
+
+test("a stat with enough graded picks gets its own tune; others fall back to the sport's", () => {
+  const picks: GradedPick[] = [];
+  // Points overs at 65% that hit only half the time: the model is too sure about points.
+  for (let i = 0; i < 120; i++) picks.push({ ...pick(0.65, i % 2 === 0), stat: "PTS" });
+  for (let i = 0; i < 20; i++) picks.push({ ...pick(0.6, i % 5 !== 0), stat: "REB" });
+  const cal = buildCalibration(picks);
+  assert.ok(cal.stats?.["NBA:PTS"]);
+  assert.equal(cal.stats?.["NBA:REB"], undefined);
+  assert.equal(tuneFor(cal, "NBA", "PTS"), cal.stats!["NBA:PTS"]);
+  assert.equal(tuneFor(cal, "NBA", "REB"), cal.sports.NBA ?? cal.all);
+  assert.ok(applyTune(0.65, tuneFor(cal, "NBA", "PTS")) < 0.65);
+});

@@ -2,7 +2,7 @@
 // model gave it. Same counting rules as the leaderboard (graded automatically, saved before the game started),
 // and each distinct pick counts once however many people played it, so a popular tail can't swamp the numbers.
 import type { SavedSlip } from "./storage.ts";
-import { STATS, type Sport } from "./types.ts";
+import { STATS, type Sport, type StatKey } from "./types.ts";
 
 export const BUCKETS: [number, number, string][] = [
   [0, 0.55, "Under 55%"],
@@ -37,6 +37,7 @@ export interface GradedPick {
   sport: Sport;
   side: "OVER" | "UNDER";
   date: string;
+  stat?: StatKey;
 }
 
 /** Each distinct pick graded from the box score and saved before its game, once (the first save wins). */
@@ -51,7 +52,21 @@ export function gradedPicks(slips: SavedSlip[]): GradedPick[] {
       const key = `${l.player.toLowerCase()}|${l.stat}|${l.line}|${l.side}|${l.gameTime.slice(0, 10)}`;
       // First save wins: that's the chance shown before anyone else piled on.
       if (!seen.has(key))
-        seen.set(key, { prob: l.prob, rawProb: l.rawProb && l.rawProb > 0 && l.rawProb < 1 ? l.rawProb : l.prob, hit: l.result === "hit", sport: l.sport ?? STATS[l.stat].sport, side: l.side, date: l.gameTime });
+        seen.set(key, { prob: l.prob, rawProb: l.rawProb && l.rawProb > 0 && l.rawProb < 1 ? l.rawProb : l.prob, hit: l.result === "hit", sport: l.sport ?? STATS[l.stat].sport, side: l.side, date: l.gameTime, stat: l.stat });
+    }
+  }
+  return [...seen.values()];
+}
+
+/** The auto slips' graded picks, in the same shape, so the model also tunes itself on its own slips. */
+export function autoGradedPicks(history: { legs: { player: string; stat: StatKey; line: number; side: "OVER" | "UNDER"; prob: number; rawProb?: number; gameTime: string; sport: Sport; result?: "hit" | "miss" | "push" }[] }[]): GradedPick[] {
+  const seen = new Map<string, GradedPick>();
+  for (const s of history) {
+    for (const l of s.legs ?? []) {
+      if (!l.result || l.result === "push" || !(l.prob > 0 && l.prob < 1) || !(l.stat in STATS)) continue;
+      const key = `${l.player.toLowerCase()}|${l.stat}|${l.line}|${l.side}|${l.gameTime.slice(0, 10)}`;
+      if (!seen.has(key))
+        seen.set(key, { prob: l.prob, rawProb: l.rawProb && l.rawProb > 0 && l.rawProb < 1 ? l.rawProb : l.prob, hit: l.result === "hit", sport: l.sport, side: l.side, date: l.gameTime, stat: l.stat });
     }
   }
   return [...seen.values()];

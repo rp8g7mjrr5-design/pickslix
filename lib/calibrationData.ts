@@ -1,5 +1,6 @@
 // Building and caching the model's tuning (server only). The daily refresh rebuilds it from every saved slip.
-import { gradedPicks } from "./accuracy.ts";
+import { autoGradedPicks, gradedPicks } from "./accuracy.ts";
+import type { AutoSlip } from "./autoSlip.ts";
 import { buildCalibration, type Calibration } from "./calibration.ts";
 import { kvGet, kvKeys, kvSet } from "./db.ts";
 import type { SavedSlip } from "./storage.ts";
@@ -11,7 +12,10 @@ let memo: { at: number; cal: Calibration | null } | null = null;
 export async function refreshCalibration(): Promise<Calibration> {
   const keys = await kvKeys("slips:");
   const lists = await Promise.all(keys.map((k) => kvGet<SavedSlip[]>(k).catch(() => null)));
-  const cal = buildCalibration(gradedPicks(lists.flatMap((l) => (Array.isArray(l) ? l : []))));
+  // The auto slips' own graded picks count too, so the model learns from every slip it builds.
+  const auto = await Promise.all(["NBA", "NFL"].map((s) => kvGet<AutoSlip[]>(`auto:${s}:history`).catch(() => null)));
+  const picks = [...gradedPicks(lists.flatMap((l) => (Array.isArray(l) ? l : []))), ...autoGradedPicks(auto.flatMap((h) => h ?? []))];
+  const cal = buildCalibration(picks);
   await kvSet(KEY, cal);
   memo = { at: Date.now(), cal };
   return cal;
