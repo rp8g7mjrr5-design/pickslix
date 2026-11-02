@@ -5,7 +5,7 @@ import { potdSummary } from "@/lib/potdData.ts";
 import { autoSummary } from "@/lib/autoSlipData.ts";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Checks everyone's open picks and sends phone alerts. Meant to run every 30 minutes: the GitHub
@@ -18,7 +18,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   // Scan and tend the auto slip first, so its alert goes out in the same run.
-  const auto = await autoSummary(Date.now(), true).catch(() => null);
-  const [alerts, potd, lock] = await Promise.all([runAlerts(Date.now(), auto?.slip), potdSummary().catch(() => null), tendLock().catch(() => 0)]);
-  return NextResponse.json({ ...alerts, autoSlip: auto?.slip ? `${auto.slip.legs.length} picks, version ${auto.slip.version}` : null, dailyLockOptions: lock, pickOfTheDay: potd?.pick ? `${potd.pick.player} ${potd.pick.side} ${potd.pick.line} ${potd.pick.stat}` : null });
+  const auto = await autoSummary(Date.now(), true).catch(() => []);
+  const slips = auto.flatMap((a) => (a.slip ? [a.slip] : []));
+  const [alerts, potd, lock] = await Promise.all([runAlerts(Date.now(), slips), potdSummary().catch(() => null), tendLock().catch(() => 0)]);
+  return NextResponse.json({ ...alerts, autoSlips: Object.fromEntries(slips.map((s) => [s.sport, `${s.legs.length} picks, version ${s.version}`])), dailyLockOptions: lock, pickOfTheDay: potd?.pick ? `${potd.pick.player} ${potd.pick.side} ${potd.pick.line} ${potd.pick.stat}` : null });
 }

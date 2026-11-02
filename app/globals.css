@@ -1575,3 +1575,5 @@ button.ghost { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02
   .autorecord .card { padding: 10px; }
   .autorecord .card strong { font-size: 18px; }
 }
+.autotabs { overflow-x: auto; scrollbar-width: none; }
+.autotabs button { flex: 1; min-width: 56px; }

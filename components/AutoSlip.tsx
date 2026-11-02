@@ -1,13 +1,17 @@
 "use client";
-// The home page: today's Pick 6 slip, built and kept up to date by LayLock with no one picking, and its record.
+// The home page: today's Pick 6 slip for each sport, built and kept up to date by LayLock with no one picking, and
+// each sport's record.
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AlertsToggle } from "@/components/Alerts";
 import { slipText, type AutoLeg, type AutoRecord, type AutoSlip } from "@/lib/autoSlip.ts";
 import { pct } from "@/lib/format.ts";
-import { STATS } from "@/lib/types.ts";
+import { STATS, type Sport } from "@/lib/types.ts";
+
+const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CBB", "CFB"];
 
 interface Data {
+  sport: Sport;
   slip: AutoSlip | null;
   record: AutoRecord;
   recent: AutoSlip[];
@@ -24,26 +28,66 @@ const money = (x: number) => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`
 const RESULT = { hit: "Hit ✓", miss: "Missed", push: "Push" } as const;
 
 export default function AutoSlipPage() {
+  const [sport, setSport] = useState<Sport | null>(null);
+  const [today, setToday] = useState<Record<string, number>>({});
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Start on the sport in the link (alerts open ?sport=NFL), else the first one with a slip today.
   useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("sport")?.toUpperCase() as Sport | undefined;
+    fetch("/api/auto")
+      .then((r) => r.json() as Promise<{ sports: { sport: Sport; picks: number }[] }>)
+      .then((d) => {
+        setToday(Object.fromEntries(d.sports.map((x) => [x.sport, x.picks])));
+        setSport((cur) => cur ?? (asked && SPORTS.includes(asked) ? asked : (d.sports.find((x) => x.picks)?.sport ?? "NBA")));
+      })
+      .catch(() => setSport((cur) => cur ?? (asked && SPORTS.includes(asked) ? asked : "NBA")));
+  }, []);
+
+  useEffect(() => {
+    if (!sport) return;
+    let live = true;
+    setData(null);
+    setFailed(false);
     const load = () =>
-      fetch("/api/auto")
+      fetch(`/api/auto?sport=${sport}`)
         .then((r) => (r.ok ? (r.json() as Promise<Data>) : Promise.reject(r.status)))
         .then((d) => {
+          if (!live) return;
           setData(d);
           setFailed(false);
+          setToday((t) => ({ ...t, [sport]: d.slip?.legs.length ?? 0 }));
         })
-        .catch(() => setFailed(true));
+        .catch(() => live && setFailed(true));
     load();
     // Keep it current while the page is open: the slip is re-checked every ten minutes on the server.
     const t = setInterval(load, 5 * 60_000);
-    return () => clearInterval(t);
-  }, []);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [sport]);
 
-  if (!data) return <section className="auto"><p className="muted">{failed ? "Couldn't load today's slip. Reload to try again." : "Loading today's slip…"}</p></section>;
+  const tabs = (
+    <div className="seg autotabs" role="group" aria-label="Sport">
+      {SPORTS.map((x) => (
+        <button key={x} className={sport === x ? "on" : ""} aria-pressed={sport === x} onClick={() => setSport(x)}>
+          {x}
+          {today[x] ? <span className="segcount">{today[x]}</span> : null}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (!data)
+    return (
+      <div className="auto">
+        {tabs}
+        <p className="muted">{failed ? "Couldn't load this slip. Reload to try again." : `Scanning today's ${sport ?? ""} lines…`}</p>
+      </div>
+    );
   const s = data.slip;
   const r = data.record;
   const settled = r.wins + r.losses;
@@ -59,8 +103,9 @@ export default function AutoSlipPage() {
 
   return (
     <div className="auto">
+      {tabs}
       <section className="autohero">
-        <span className="autolabel">Today&apos;s auto slip</span>
+        <span className="autolabel">Today&apos;s {data.sport} auto slip</span>
         {s ? (
           <>
             <h1>
@@ -73,10 +118,10 @@ export default function AutoSlipPage() {
           </>
         ) : (
           <>
-            <h1>No slip yet today</h1>
+            <h1>No {data.sport} slip today</h1>
             <p className="muted">
-              LayLock builds one as soon as Pick 6 posts enough lines it likes, usually by late morning. It checks every 15 minutes, and if you turn
-              on alerts your phone buzzes when the slip is ready.
+              Either there are no {data.sport} games today, or Pick 6 hasn&apos;t posted enough lines LayLock likes yet. It checks every 15 minutes
+              and builds the slip as soon as it can. Turn on alerts and your phone buzzes when it&apos;s ready.
             </p>
           </>
         )}
@@ -142,7 +187,7 @@ export default function AutoSlipPage() {
       </section>
 
       <section className="autorecord">
-        <h2>Track record</h2>
+        <h2>{data.sport} track record</h2>
         {settled + r.refunds === 0 ? (
           <p className="muted">No finished slips yet. Every slip gets graded from the box scores, wins and losses alike.</p>
         ) : (

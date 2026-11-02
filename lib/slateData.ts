@@ -30,7 +30,7 @@ export interface Slate {
   rows: SlateRow[];
 }
 
-const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CBB", "CFB"];
+export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CBB", "CFB"];
 /** Enough lines to find standouts without a slow request. */
 const MAX_GAMES = 8;
 const MAX_PROPS = 80;
@@ -38,13 +38,13 @@ const MAX_PROPS = 80;
 const FRESH_S = 30 * 60;
 
 /** Today's games that haven't started, earliest first. */
-async function todaysGames(date: string, now: number) {
-  const lists = await Promise.all(SPORTS.map((s) => fetchUpcomingGames(s).then((gs) => gs.map((g) => ({ sport: s, g })), () => [])));
+async function todaysGames(date: string, now: number, sports = SPORTS, max = MAX_GAMES) {
+  const lists = await Promise.all(sports.map((s) => fetchUpcomingGames(s).then((gs) => gs.map((g) => ({ sport: s, g })), () => [])));
   return lists
     .flat()
     .filter(({ g }) => g.state === "pre" && Date.parse(g.date) > now + 10 * 60_000 && espnDate(new Date(g.date)) === date)
     .sort((a, b) => a.g.date.localeCompare(b.g.date))
-    .slice(0, MAX_GAMES);
+    .slice(0, max);
 }
 
 const teamName = (t: EspnGame["teams"][number]) => t.name || t.abbr;
@@ -87,24 +87,34 @@ async function gameProps(sport: Sport, g: EspnGame, lines: GameLines): Promise<C
   return out;
 }
 
-async function score(date: string, now: number): Promise<SlateRow[]> {
+/** How one scan reads the board: which sports, how many games and lines, and whether it may spend credits on lines. */
+interface ScanOpts {
+  sports: Sport[];
+  maxGames: number;
+  maxProps: number;
+  /** Fetch every game's lines (credits), rather than only the ones already cached. */
+  spend: boolean;
+}
+const ALL: ScanOpts = { sports: SPORTS, maxGames: MAX_GAMES, maxProps: MAX_PROPS, spend: false };
+
+async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<SlateRow[]> {
   const provider = getProvider();
   if (provider.name === "sample") {
     // The demo slate's dates are fixed; treat it as tonight's.
     const tonight = new Date(now + 6 * 3600_000).toISOString();
-    const rows = await buildBoard(sampleProps().map((p) => ({ ...p, gameTime: tonight })), provider);
+    const rows = await buildBoard(sampleProps().filter((p) => opts.sports.includes(p.sport)).map((p) => ({ ...p, gameTime: tonight })), provider);
     return rows.map((r) => ({ ...r, pick6: true, book: sampleBook(r) }));
   }
   if (provider.name !== "espn" || !oddsEnabled()) return [];
-  const games = await todaysGames(date, now);
+  const games = await todaysGames(date, now, opts.sports, opts.maxGames);
   if (!games.length) return [];
   const linesFor = (x: (typeof games)[number], spend: boolean) => {
     const home = x.g.teams.find((t) => t.home) ?? x.g.teams[0];
     const away = x.g.teams.find((t) => !t.home) ?? x.g.teams[1];
     return fetchGameLines(x.sport, teamName(home), teamName(away), x.g.date, { spend }).catch((): GameLines => ({}));
   };
-  let lines = await Promise.all(games.map((x) => linesFor(x, false)));
-  if (lines.every((l) => !Object.keys(l).length) && !(await kvGet(`potd:spent:${date}`).catch(() => null))) {
+  let lines = await Promise.all(games.map((x) => linesFor(x, opts.spend)));
+  if (!opts.spend && lines.every((l) => !Object.keys(l).length) && !(await kvGet(`potd:spent:${date}`).catch(() => null))) {
     await kvSet(`potd:spent:${date}`, 1, 2 * 86400).catch(() => {});
     lines = [await linesFor(games[0], true), ...lines.slice(1)];
   }
@@ -112,7 +122,7 @@ async function score(date: string, now: number): Promise<SlateRow[]> {
     .flat()
     // Lines the books priced too come first: the model has a market to check itself against.
     .sort((a, b) => Number(b.priced) - Number(a.priced))
-    .slice(0, MAX_PROPS);
+    .slice(0, opts.maxProps);
   if (!candidates.length) return [];
   const meta = new Map(candidates.map((c) => [c.id, c]));
   const props = candidates.map(({ priced: _, pick6: __, open: ___, book: ____, ...p }): Prop => p);
@@ -155,4 +165,31 @@ export async function todaysSlate(now = Date.now()): Promise<Slate> {
     inflight.set(date, run().finally(() => inflight.delete(date)));
   }
   return inflight.get(date)!;
+}
+
+/** Games per sport the auto slip scans: enough to find the best lines, few enough to keep the Odds API bill sane. */
+const SPORT_GAMES = 12;
+const SPORT_PROPS = 160;
+const sportInflight = new Map<string, Promise<Slate>>();
+
+/**
+ * One sport's slate for its auto slip: every game today (up to 12), with lines fetched for each (this spends Odds
+ * API credits; each game's lines are then cached for six hours), scored like the main slate.
+ */
+export async function sportSlate(sport: Sport, now = Date.now()): Promise<Slate> {
+  const date = espnDate(new Date(now));
+  const key = `slate:${sport}:${date}`;
+  const saved = await kvGet<Slate>(key).catch(() => null);
+  if (saved && now - Date.parse(saved.at) < FRESH_S * 1000) return saved;
+  const id = `${sport}:${date}`;
+  if (!sportInflight.has(id)) {
+    const run = async (): Promise<Slate> => {
+      const rows = await score(date, now, { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true }).catch(() => [] as SlateRow[]);
+      const slate = { date, at: new Date(now).toISOString(), rows: rows.length || !saved ? rows : saved.rows };
+      if (getProvider().name !== "sample") await kvSet(key, slate, 2 * 86400).catch(() => {});
+      return slate;
+    };
+    sportInflight.set(id, run().finally(() => sportInflight.delete(id)));
+  }
+  return sportInflight.get(id)!;
 }
