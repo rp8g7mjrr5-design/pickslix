@@ -59,11 +59,6 @@ const icons = {
   ),
 };
 
-const LINKS = [
-  { href: "/", label: "Board", icon: icons.board, count: "slip" },
-  { href: "/tracker", label: "Tracker", icon: icons.tracker, count: "open" },
-] as const;
-
 /** Picks in the slip being built, and saved picks still waiting on a result. */
 function useCounts() {
   const [counts, setCounts] = useState({ slip: 0, open: 0 });
@@ -96,20 +91,14 @@ export default function Nav({ bottom = false }: { bottom?: boolean }) {
   // The Pro tab only shows once Pro is set up on this site.
   const showPro = Boolean(pro?.required);
   const account = useAccount();
+  // LayLock is the auto slip now; the other pages (board, tracker, books, lock, crews, leaders) are hidden, not deleted.
   const items: Item[] = [
-    ...LINKS.map((l) => ({ ...l, exact: true, primary: true })),
-    { href: "/books", label: "Books", icon: icons.books, primary: true },
-    { href: "/lock", label: "Lock", icon: icons.lock, primary: true },
-    // The site-wide leaderboard and Crews are separate tabs; each crew keeps its own standings inside Crews.
-    ...(account.enabled
-      ? [
-          { href: "/crews", label: "Crews", icon: icons.crews, primary: true },
-          { href: "/leaderboard", label: "Leaders", icon: icons.leaders, primary: true },
-        ]
-      : []),
+    { href: "/", label: "Today", icon: icons.board, exact: true, primary: true },
     ...(account.admin ? [{ href: "/admin", label: "Admin", icon: icons.admin }] : []),
   ];
   const shown = bottom ? items.filter((l) => l.primary) : items;
+  // One tab is no tab bar.
+  if (bottom && shown.length < 2) return null;
   return (
     <nav className={bottom ? "tabbar" : "mainnav"} aria-label={bottom ? "Tabs" : "Main"}>
       {shown.map((l) => {

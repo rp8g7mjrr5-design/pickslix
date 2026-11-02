@@ -1538,3 +1538,40 @@ button.ghost { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02
 .promoinputs label { flex: 1 1 140px; }
 .promoinputs input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .betswrap { margin-top: 18px; }
+
+/* Auto slip (home page) */
+.auto { display: grid; gap: 16px; max-width: 760px; margin: 0 auto; }
+.autohero h1 { margin: 6px 0 4px; font-size: 28px; }
+.autohero p { margin: 0; }
+.autolabel { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.autolegs { display: grid; gap: 10px; }
+.autoleg { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.autoleg.hit { border-color: #2f6b3a; }
+.autoleg.miss { border-color: #6b2f3a; }
+.autolegmain { display: grid; gap: 3px; min-width: 0; }
+.autolegmain strong { font-size: 17px; }
+.autoline { font-size: 15px; }
+.autolegmain small { color: var(--muted); }
+.autowhy { color: #c9d1d9 !important; }
+.autolegside { display: grid; justify-items: end; flex: none; }
+.autolegside strong { font-size: 24px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.autolegside small { color: var(--muted); font-size: 12px; }
+.autosum { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 16px 12px; }
+.autoactions { display: flex; gap: 10px; flex-wrap: wrap; }
+.autoactions button, .autoactions a.button { flex: 1; min-width: 140px; padding: 12px 16px; font-size: 15px; font-weight: 800; }
+.autoactions a.button.ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+.autochanges h2, .autorecord h2 { font-size: 18px; margin: 0 0 8px; }
+.autochanges ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: #c9d1d9; }
+.autorecord .cards { grid-template-columns: repeat(3, 1fr); margin-bottom: 10px; }
+.autopast { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.autodots { display: flex; gap: 5px; }
+.autodots i { width: 10px; height: 10px; border-radius: 50%; background: var(--panel-3); }
+.autodots i.hit { background: var(--over); }
+.autodots i.miss { background: var(--under); }
+.autodots i.push { background: var(--warn); }
+@media (max-width: 560px) {
+  .autohero h1 { font-size: 23px; }
+  .autorecord .cards { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .autorecord .card { padding: 10px; }
+  .autorecord .card strong { font-size: 18px; }
+}

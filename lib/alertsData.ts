@@ -1,5 +1,6 @@
 // Phone alerts (server only): who has turned them on, and the job that checks their open picks and sends.
 // Push goes through the browser's own push service (Web Push), signed with this site's VAPID keys.
+import type { AutoSlip } from "./autoSlip.ts";
 import webpush from "web-push";
 import { alertsFor, legKey, openLegs, type OpenLeg } from "./alerts.ts";
 import type { Price } from "./clv.ts";
@@ -123,7 +124,15 @@ async function ownerHasPro(id: string): Promise<boolean> {
 }
 
 /** The scheduled job: check everyone with alerts on and send what's new. */
-export async function runAlerts(now = Date.now()) {
+/** The phone alert for a new or changed auto slip. */
+export function autoAlert(s: AutoSlip): { id: string; title: string; body: string; url: string } {
+  const picks = s.legs.map((l) => `${l.player} ${l.side === "OVER" ? "more" : "less"} ${l.line}`).join(", ");
+  return s.version === 1
+    ? { id: `auto:${s.date}:1`, title: `Today's ${s.legs.length}-pick slip is ready`, body: picks, url: "/" }
+    : { id: `auto:${s.date}:${s.version}`, title: "Your slip changed", body: s.changes[s.changes.length - 1] ?? picks, url: "/" };
+}
+
+export async function runAlerts(now = Date.now(), auto?: AutoSlip | null) {
   if (!alertsEnabled()) return { enabled: false };
   configure();
   const keys = await kvKeys("push:");
@@ -169,6 +178,12 @@ export async function runAlerts(now = Date.now()) {
       const fresh = pool.slice(0, Math.max(0, Math.min(EDGES_PER_RUN, EDGES_PER_DAY - used))).map(edgeAlert);
       if (fresh.length) await kvSet(dayKey, used + fresh.length, 2 * 86400).catch(() => {});
       alerts.push(...fresh);
+    }
+
+    // Everyone with alerts on hears when the day's auto slip is ready or a pick on it is swapped.
+    if (auto && auto.legs.some((l) => Date.parse(l.gameTime) > now)) {
+      const a = autoAlert(auto);
+      if (!already.has(a.id)) alerts.unshift(a);
     }
 
     for (const a of alerts) sent += await sendAll(id, subs, { title: a.title, body: a.body, url: a.url, tag: a.id });
