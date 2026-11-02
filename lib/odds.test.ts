@@ -170,5 +170,5 @@ test("oddsPlan defaults to free and reads ODDS_PLAN", async () => {
   if (was === undefined) delete process.env.ODDS_PLAN;
   else process.env.ODDS_PLAN = was;
   assert.deepEqual(FREE_MARKETS.NBA, ["player_points"]);
-  assert.equal(FREE_MARKETS.NFL?.length, 2);
+  assert.equal(FREE_MARKETS.NFL?.length, 3);
 });

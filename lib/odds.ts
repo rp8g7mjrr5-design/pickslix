@@ -383,7 +383,7 @@ export async function canSpend(cost: number): Promise<boolean> {
 
 /**
  * Which Odds API plan to budget for. "free" (the default, 500 credits a month): the auto slips read NBA points and
- * NFL receiving and passing yards, once per game on game day, and nothing else spends. "paid" (ODDS_PLAN=paid): every market, refreshed
+ * NFL receiving, passing and rushing yards, once per game on game day, and nothing else spends. "paid" (ODDS_PLAN=paid): every market, refreshed
  * every six hours.
  */
 export const oddsPlan = (): "free" | "paid" => (process.env.ODDS_PLAN?.toLowerCase() === "paid" ? "paid" : "free");
@@ -392,7 +392,7 @@ export const oddsPlan = (): "free" | "paid" => (process.env.ODDS_PLAN?.toLowerCa
  * The stats the auto slip reads on the free plan: the ones easiest to call, which Pick 6 posts for nearly every
  * player. Each costs a credit per game.
  */
-export const FREE_MARKETS: Partial<Record<Sport, string[]>> = { NBA: ["player_points"], NFL: ["player_reception_yds", "player_pass_yds"] };
+export const FREE_MARKETS: Partial<Record<Sport, string[]>> = { NBA: ["player_points"], NFL: ["player_reception_yds", "player_pass_yds", "player_rush_yds"] };
 
 export interface LineOpts {
   /** false: cached lines only, no credits. */
