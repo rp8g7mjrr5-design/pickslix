@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchGameLines, oddsEnabled, withAltLines } from "@/lib/odds.ts";
+import { fetchGameLines, oddsEnabled, oddsPlan, withAltLines } from "@/lib/odds.ts";
 import { checkPass, proRequired } from "@/lib/pro.ts";
 import { toSport } from "@/lib/types.ts";
 
@@ -20,7 +20,8 @@ export async function GET(req: Request) {
   try {
     const sport = toSport(q.get("sport"));
     const date = q.get("date") ?? new Date().toISOString();
-    let lines = await fetchGameLines(sport, home, away, date);
+    // On the free plan only the auto slip spends credits; opening a game shows what it already fetched.
+    let lines = await fetchGameLines(sport, home, away, date, { spend: oddsPlan() === "paid" });
     // ?alt=prizepicks adds that app's alternate lines (our safety and stretch lines).
     const alt = q.get("alt");
     if (alt) lines = await withAltLines(sport, home, away, date, alt, lines).catch(() => lines);

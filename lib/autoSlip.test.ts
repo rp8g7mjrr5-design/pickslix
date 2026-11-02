@@ -32,7 +32,7 @@ test("builds the slip size that pays best on average, one pick per game", () => 
   const names = s.legs.map((l) => l.player);
   assert.ok(!names.includes("B") && !names.includes("D") && !names.includes("H"));
   assert.deepEqual(names.slice(0, 3), ["A", "C", "E"]);
-  assert.ok(s.legs.length >= 2 && s.legs.length <= 6);
+  assert.ok(s.legs.length >= 2 && s.legs.length <= 8);
   assert.ok(s.expected > 1, "only builds a slip worth playing at these chances");
   assert.equal(s.version, 1);
 });
@@ -81,4 +81,12 @@ test("each sport builds from its own lines; a one-game night can take two picks 
   const s = buildSlip(rows, "NFL", "20261102", NOW)!;
   assert.equal(s.sport, "NFL");
   assert.deepEqual(s.legs.map((l) => l.player), ["Q", "R"]);
+});
+
+test("goes up to 8 picks when the board is deep enough", () => {
+  const teams = ["BOS", "NYK", "LAL", "GSW", "MIA", "CHI", "DEN", "PHX", "DAL", "HOU", "SAC", "POR", "ATL", "ORL", "SEA", "UTA", "MIL", "IND"];
+  const deep = Array.from({ length: 9 }, (_, i) => row(`P${i}`, teams[2 * i], teams[2 * i + 1], 0.8));
+  const s = buildSlip(deep, "NBA", "20261102", NOW)!;
+  assert.equal(s.legs.length, 8);
+  assert.equal(s.multiplier, 150);
 });

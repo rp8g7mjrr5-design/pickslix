@@ -159,3 +159,16 @@ test("the Odds API key is found inside whatever was pasted", () => {
   assert.match(oddsKeyProblem(`ODDS_API_KEY=${k}`) ?? "", /using the key found inside it/);
   assert.match(oddsKeyProblem("x".repeat(9000)) ?? "", /9000 characters/);
 });
+
+test("oddsPlan defaults to free and reads ODDS_PLAN", async () => {
+  const { oddsPlan, FREE_MARKETS } = await import("./odds.ts");
+  const was = process.env.ODDS_PLAN;
+  delete process.env.ODDS_PLAN;
+  assert.equal(oddsPlan(), "free");
+  process.env.ODDS_PLAN = "Paid";
+  assert.equal(oddsPlan(), "paid");
+  if (was === undefined) delete process.env.ODDS_PLAN;
+  else process.env.ODDS_PLAN = was;
+  assert.deepEqual(FREE_MARKETS.NBA, ["player_points"]);
+  assert.equal(FREE_MARKETS.NFL?.length, 3);
+});

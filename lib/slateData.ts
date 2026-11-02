@@ -7,7 +7,7 @@ import { kvGet, kvSet } from "./db.ts";
 import { espnDate, fetchTeamPlayers, fetchUpcomingGames, type EspnGame } from "./espn.ts";
 import { propContexts } from "./gameContext.ts";
 import { normName } from "./names.ts";
-import { fetchGameLines, oddsEnabled, type GameLines } from "./odds.ts";
+import { FREE_MARKETS, fetchGameLines, oddsEnabled, oddsPlan, type GameLines } from "./odds.ts";
 import { getProvider, propId } from "./providers.ts";
 import { toAmerican, type PropBook } from "./books.ts";
 import { sampleProps } from "./sampleData.ts";
@@ -94,6 +94,12 @@ interface ScanOpts {
   maxProps: number;
   /** Fetch every game's lines (credits), rather than only the ones already cached. */
   spend: boolean;
+  markets?: string[];
+  /** Only spend on games starting within this long (Pick 6 posts lines on game day). */
+  spendWithinMs?: number;
+  /** Seconds before a fetch without Pick 6's lines is tried again. */
+  linesRetry?: number;
+  linesTtl?: number;
 }
 const ALL: ScanOpts = { sports: SPORTS, maxGames: MAX_GAMES, maxProps: MAX_PROPS, spend: false };
 
@@ -111,10 +117,12 @@ async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<S
   const linesFor = (x: (typeof games)[number], spend: boolean) => {
     const home = x.g.teams.find((t) => t.home) ?? x.g.teams[0];
     const away = x.g.teams.find((t) => !t.home) ?? x.g.teams[1];
-    return fetchGameLines(x.sport, teamName(home), teamName(away), x.g.date, { spend }).catch((): GameLines => ({}));
+    return fetchGameLines(x.sport, teamName(home), teamName(away), x.g.date, { spend, markets: opts.markets, ttl: opts.linesTtl, retry: opts.linesRetry }).catch((): GameLines => ({}));
   };
-  let lines = await Promise.all(games.map((x) => linesFor(x, opts.spend)));
-  if (!opts.spend && lines.every((l) => !Object.keys(l).length) && !(await kvGet(`potd:spent:${date}`).catch(() => null))) {
+  const soon = (x: (typeof games)[number]) => !opts.spendWithinMs || Date.parse(x.g.date) - now <= opts.spendWithinMs;
+  let lines = await Promise.all(games.map((x) => linesFor(x, opts.spend && soon(x))));
+  // On the free plan only the auto slips spend credits.
+  if (!opts.spend && oddsPlan() === "paid" && lines.every((l) => !Object.keys(l).length) && !(await kvGet(`potd:spent:${date}`).catch(() => null))) {
     await kvSet(`potd:spent:${date}`, 1, 2 * 86400).catch(() => {});
     lines = [await linesFor(games[0], true), ...lines.slice(1)];
   }
@@ -184,7 +192,12 @@ export async function sportSlate(sport: Sport, now = Date.now()): Promise<Slate>
   const id = `${sport}:${date}`;
   if (!sportInflight.has(id)) {
     const run = async (): Promise<Slate> => {
-      const rows = await score(date, now, { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true }).catch(() => [] as SlateRow[]);
+      // Free plan: one stat, fetched once per game within six hours of the start and kept all day (~350 credits a month).
+      const free = oddsPlan() === "free";
+      const opts: ScanOpts = free
+        ? { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true, markets: FREE_MARKETS[sport], spendWithinMs: 4 * 3600_000, linesTtl: 20 * 3600, linesRetry: 2 * 3600 }
+        : { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true };
+      const rows = await score(date, now, opts).catch(() => [] as SlateRow[]);
       const slate = { date, at: new Date(now).toISOString(), rows: rows.length || !saved ? rows : saved.rows };
       if (getProvider().name !== "sample") await kvSet(key, slate, 2 * 86400).catch(() => {});
       return slate;

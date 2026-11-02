@@ -382,10 +382,34 @@ export async function canSpend(cost: number): Promise<boolean> {
 }
 
 /**
+ * Which Odds API plan to budget for. "free" (the default, 500 credits a month): the auto slips read NBA points and
+ * NFL receiving, passing and rushing yards, once per game on game day, and nothing else spends. "paid" (ODDS_PLAN=paid): every market, refreshed
+ * every six hours.
+ */
+export const oddsPlan = (): "free" | "paid" => (process.env.ODDS_PLAN?.toLowerCase() === "paid" ? "paid" : "free");
+
+/**
+ * The stats the auto slip reads on the free plan: the ones easiest to call, which Pick 6 posts for nearly every
+ * player. Each costs a credit per game.
+ */
+export const FREE_MARKETS: Partial<Record<Sport, string[]>> = { NBA: ["player_points"], NFL: ["player_reception_yds", "player_pass_yds", "player_rush_yds"] };
+
+export interface LineOpts {
+  /** false: cached lines only, no credits. */
+  spend?: boolean;
+  /** Ask for these markets instead of the sport's full list (each market costs a credit). */
+  markets?: string[];
+  /** How long found lines are kept. */
+  ttl?: number;
+  /** How long a fetch that came back without Pick 6's lines is kept before trying again (default an hour). */
+  retry?: number;
+}
+
+/**
  * Lines for one game, found by team names and start time. Empty when the game isn't listed yet.
  * With `spend: false` only cached lines come back, so no credits are used.
  */
-export async function fetchGameLines(sport: Sport, home: string, away: string, date: string, opts: { spend?: boolean } = {}): Promise<GameLines> {
+export async function fetchGameLines(sport: Sport, home: string, away: string, date: string, opts: LineOpts = {}): Promise<GameLines> {
   // Once a game starts, Pick 6 has closed it: don't spend credits on it. No markets (UFC), nothing to fetch.
   if (Date.parse(date) < Date.now() || !FETCH_MARKETS[sport].length) return {};
   const key = SPORT_KEYS[sport];
@@ -404,7 +428,7 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
   const cached = await kvGet<GameLines>(cacheKey).catch(() => null);
   if (cached) return cached;
   if (opts.spend === false) return {};
-  const markets = FETCH_MARKETS[sport];
+  const markets = opts.markets ?? FETCH_MARKETS[sport];
   if (!(await canSpend(markets.length))) return {};
   const json = await oddsJson(
     `/sports/${key}/events/${event.id}/odds?bookmakers=${BOOKS.join(",")}&markets=${markets.join(",")}&oddsFormat=american`,
@@ -415,8 +439,9 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
   const openers = (await kvGet<Record<string, number>>(openKey).catch(() => null)) ?? {};
   const moved = withOpeners(parseEventLines(json, sport), openers);
   const lines = moved.lines;
+  const pick6 = Object.values(lines).some((stats) => Object.values(stats).some((l) => l?.book === "Pick 6"));
   await Promise.all([
-    kvSet(cacheKey, lines, LINES_TTL).catch(() => {}),
+    kvSet(cacheKey, lines, pick6 ? (opts.ttl ?? LINES_TTL) : Math.min(opts.ttl ?? LINES_TTL, opts.retry ?? 3600)).catch(() => {}),
     kvSet(openKey, moved.openers, OPENERS_TTL).catch(() => {}),
     recordCloses(sport, event.commence_time, lines).catch(() => {}),
   ]);

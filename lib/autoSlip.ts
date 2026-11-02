@@ -43,7 +43,7 @@ export interface AutoSlip {
 }
 
 export const MIN_LEGS = 2;
-export const MAX_LEGS = 6;
+export const MAX_LEGS = 8;
 /** A thin sample, a coin flip or a game about to start, and it isn't picked. */
 const MIN_GAMES = 8;
 const MIN_PROB = 0.56;
@@ -114,7 +114,7 @@ export function price(legs: AutoLeg[]): Pick<AutoSlip, "multiplier" | "chance" |
   return { multiplier: tiers[legs.length] ?? 0, chance: dist[legs.length] ?? 0, expected: expectedReturn(dist, tiers) };
 }
 
-/** The best slip on the board: the number of picks (2 to 6) whose entry returns the most on average. */
+/** The best slip on the board: the number of picks (2 to 8) whose entry returns the most on average. */
 export function buildSlip(rows: PropWithProjection[], sport: Sport, date: string, now = Date.now()): AutoSlip | null {
   const pool = candidates(rows.filter((r) => r.sport === sport), now);
   const perGame = perGameFor(rows.filter((r) => r.sport === sport));
