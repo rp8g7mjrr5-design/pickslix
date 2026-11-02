@@ -127,12 +127,13 @@ async function ownerHasPro(id: string): Promise<boolean> {
 /** The phone alert for a new or changed auto slip. */
 export function autoAlert(s: AutoSlip): { id: string; title: string; body: string; url: string } {
   const picks = s.legs.map((l) => `${l.player} ${l.side === "OVER" ? "more" : "less"} ${l.line}`).join(", ");
+  const url = `/?sport=${s.sport}`;
   return s.version === 1
-    ? { id: `auto:${s.date}:1`, title: `Today's ${s.legs.length}-pick slip is ready`, body: picks, url: "/" }
-    : { id: `auto:${s.date}:${s.version}`, title: "Your slip changed", body: s.changes[s.changes.length - 1] ?? picks, url: "/" };
+    ? { id: `auto:${s.sport}:${s.date}:1`, title: `Today's ${s.sport} slip is ready (${s.legs.length} picks)`, body: picks, url }
+    : { id: `auto:${s.sport}:${s.date}:${s.version}`, title: `Your ${s.sport} slip changed`, body: s.changes[s.changes.length - 1] ?? picks, url };
 }
 
-export async function runAlerts(now = Date.now(), auto?: AutoSlip | null) {
+export async function runAlerts(now = Date.now(), auto: AutoSlip[] = []) {
   if (!alertsEnabled()) return { enabled: false };
   configure();
   const keys = await kvKeys("push:");
@@ -180,9 +181,10 @@ export async function runAlerts(now = Date.now(), auto?: AutoSlip | null) {
       alerts.push(...fresh);
     }
 
-    // Everyone with alerts on hears when the day's auto slip is ready or a pick on it is swapped.
-    if (auto && auto.legs.some((l) => Date.parse(l.gameTime) > now)) {
-      const a = autoAlert(auto);
+    // Everyone with alerts on hears when a sport's auto slip is ready or a pick on it is swapped.
+    for (const s of auto) {
+      if (!s.legs.some((l) => Date.parse(l.gameTime) > now)) continue;
+      const a = autoAlert(s);
       if (!already.has(a.id)) alerts.unshift(a);
     }
 

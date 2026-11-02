@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
-import { autoSummary } from "@/lib/autoSlipData.ts";
+import { AUTO_SPORTS, savedToday, sportSummary } from "@/lib/autoSlipData.ts";
+import type { Sport } from "@/lib/types.ts";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-/** Today's auto slip, its record and the last two weeks of slips. Free and shared: everyone sees the same slip. */
-export async function GET() {
-  return NextResponse.json(await autoSummary());
+/**
+ * ?sport=NBA: that sport's auto slip for today (scanned if it's stale), its record and recent slips.
+ * No sport: which sports have a slip today, from what's saved (no scan), for the tabs.
+ */
+export async function GET(req: Request) {
+  const sport = new URL(req.url).searchParams.get("sport")?.toUpperCase() as Sport | undefined;
+  if (!sport) return NextResponse.json({ sports: await savedToday() });
+  if (!AUTO_SPORTS.includes(sport)) return NextResponse.json({ error: "unknown sport" }, { status: 400 });
+  return NextResponse.json(await sportSummary(sport));
 }

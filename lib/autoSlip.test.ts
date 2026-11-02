@@ -27,7 +27,7 @@ const board = [
 ];
 
 test("builds the slip size that pays best on average, one pick per game", () => {
-  const s = buildSlip(board, "20261102", NOW)!;
+  const s = buildSlip(board, "NBA", "20261102", NOW)!;
   assert.ok(s);
   const names = s.legs.map((l) => l.player);
   assert.ok(!names.includes("B") && !names.includes("D") && !names.includes("H"));
@@ -38,11 +38,11 @@ test("builds the slip size that pays best on average, one pick per game", () => 
 });
 
 test("no slip when nothing on the board is good enough", () => {
-  assert.equal(buildSlip([row("A", "BOS", "NYK", 0.52), row("C", "LAL", "GSW", 0.54)], "20261102", NOW), null);
+  assert.equal(buildSlip([row("A", "BOS", "NYK", 0.52), row("C", "LAL", "GSW", 0.54)], "NBA", "20261102", NOW), null);
 });
 
 test("a pick whose player is ruled out gets swapped before the game; started games stay put", () => {
-  const s = buildSlip(board.slice(0, 5), "20261102", NOW)!;
+  const s = buildSlip(board.slice(0, 5), "NBA", "20261102", NOW)!;
   assert.deepEqual(s.legs.map((l) => l.player).sort(), ["A", "C", "E"]);
   const after = board.map((r) => (r.player === "C" ? row("C", "LAL", "GSW", 0.7, { injury: "out" }) : r));
   const t = tendSlip(s, [...after, row("Z", "SEA", "UTA", 0.64)], NOW + 3600_000);
@@ -58,7 +58,7 @@ test("a pick whose player is ruled out gets swapped before the game; started gam
 });
 
 test("settles like the app: a miss loses, a push shrinks the entry, all hits win", () => {
-  const base = buildSlip(board.slice(0, 5), "20261102", NOW)!;
+  const base = buildSlip(board.slice(0, 5), "NBA", "20261102", NOW)!;
   const graded = (results: ("hit" | "miss" | "push" | undefined)[]): AutoSlip => ({ ...base, legs: base.legs.map((l, i) => ({ ...l, result: results[i] })) });
   assert.equal(settle(graded(["hit", "miss", undefined])), "loss");
   assert.equal(settle(graded(["hit", "hit", undefined])), undefined);
@@ -73,4 +73,12 @@ test("settles like the app: a miss loses, a push shrinks the entry, all hits win
   assert.equal(rec.legsGraded, 6);
   assert.equal(rec.profit10, 10 * (won.multiplier - 1) - 10);
   assert.match(slipText(won), /^A: More than 20 Points/);
+});
+
+test("each sport builds from its own lines; a one-game night can take two picks from it", () => {
+  const nfl = (player: string, team: string, opponent: string, p: number) => ({ ...row(player, team, opponent, p), sport: "NFL" as const, stat: "PASS_YDS" as const });
+  const rows = [...board, nfl("Q", "DAL", "NYG", 0.7), nfl("R", "NYG", "DAL", 0.68)];
+  const s = buildSlip(rows, "NFL", "20261102", NOW)!;
+  assert.equal(s.sport, "NFL");
+  assert.deepEqual(s.legs.map((l) => l.player), ["Q", "R"]);
 });

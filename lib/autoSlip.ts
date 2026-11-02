@@ -23,6 +23,8 @@ export interface AutoLeg {
 }
 
 export interface AutoSlip {
+  /** Every sport gets its own slip. */
+  sport: Sport;
   /** US Eastern date the slip is for, YYYYMMDD. */
   date: string;
   builtAt: string;
@@ -83,20 +85,27 @@ export const toLeg = (r: PropWithProjection): AutoLeg => ({
   marketProb: r.projection.marketProb,
 });
 
-/** Take the best lines in order, one per player and one per game (picks in the same game move together). */
-function fill(pool: PropWithProjection[], n: number, taken: AutoLeg[]): AutoLeg[] {
+/**
+ * Take the best lines in order, one per player and one per game (picks in the same game move together). On a
+ * night with only one or two games, two picks may share a game.
+ */
+function fill(pool: PropWithProjection[], n: number, taken: AutoLeg[], perGame = 1): AutoLeg[] {
   const players = new Set(taken.map((l) => l.player));
-  const games = new Set(taken.map(gameOf));
+  const games = new Map<string, number>();
+  for (const l of taken) games.set(gameOf(l), (games.get(gameOf(l)) ?? 0) + 1);
   const out: AutoLeg[] = [];
   for (const r of pool) {
     if (out.length >= n) break;
-    if (players.has(r.player) || games.has(gameOf(r))) continue;
+    if (players.has(r.player) || (games.get(gameOf(r)) ?? 0) >= perGame) continue;
     players.add(r.player);
-    games.add(gameOf(r));
+    games.set(gameOf(r), (games.get(gameOf(r)) ?? 0) + 1);
     out.push(toLeg(r));
   }
   return out;
 }
+
+/** Picks allowed per game: one, unless the day has fewer than three games to spread them over. */
+const perGameFor = (rows: PropWithProjection[]) => (new Set(rows.map(gameOf)).size >= 3 ? 1 : 2);
 
 /** Price a set of picks at Pick 6's payout. */
 export function price(legs: AutoLeg[]): Pick<AutoSlip, "multiplier" | "chance" | "expected"> {
@@ -106,12 +115,13 @@ export function price(legs: AutoLeg[]): Pick<AutoSlip, "multiplier" | "chance" |
 }
 
 /** The best slip on the board: the number of picks (2 to 6) whose entry returns the most on average. */
-export function buildSlip(rows: PropWithProjection[], date: string, now = Date.now()): AutoSlip | null {
-  const pool = candidates(rows, now);
+export function buildSlip(rows: PropWithProjection[], sport: Sport, date: string, now = Date.now()): AutoSlip | null {
+  const pool = candidates(rows.filter((r) => r.sport === sport), now);
+  const perGame = perGameFor(rows.filter((r) => r.sport === sport));
   let best: AutoLeg[] | null = null;
   let bestEv = 0;
   for (let n = MIN_LEGS; n <= MAX_LEGS; n++) {
-    const legs = fill(pool, n, []);
+    const legs = fill(pool, n, [], perGame);
     if (legs.length < n) break;
     const ev = price(legs).expected;
     if (ev > bestEv + 0.005) {
@@ -121,7 +131,7 @@ export function buildSlip(rows: PropWithProjection[], date: string, now = Date.n
   }
   if (!best) return null;
   const at = new Date(now).toISOString();
-  return { date, builtAt: at, updatedAt: at, version: 1, legs: best, ...price(best), changes: [] };
+  return { sport, date, builtAt: at, updatedAt: at, version: 1, legs: best, ...price(best), changes: [] };
 }
 
 /** Why a pick on the slip should come off, or undefined while it still holds. */
@@ -155,8 +165,9 @@ export function tendSlip(prev: AutoSlip, rows: PropWithProjection[], now = Date.
     else legs.push({ ...l, line: row!.line, prob: Math.round(row!.projection.pickProb * 1000) / 1000, reasons: row!.projection.reasons.slice(0, 3), marketProb: row!.projection.marketProb });
   }
   if (!out.length) return { ...prev, legs, ...price(legs), updatedAt: new Date(now).toISOString() };
-  const pool = candidates(rows, now).filter((r) => !out.some((o) => o.leg.player === r.player));
-  const fresh = fill(pool, out.length, legs);
+  const mine = rows.filter((r) => r.sport === prev.sport);
+  const pool = candidates(mine, now).filter((r) => !out.some((o) => o.leg.player === r.player));
+  const fresh = fill(pool, out.length, legs, perGameFor(mine));
   out.forEach((o, i) => {
     const sub = fresh[i];
     const name = `${o.leg.player} ${o.leg.side === "OVER" ? "more" : "less"} than ${o.leg.line} ${STATS[o.leg.stat].label.toLowerCase()}`;
