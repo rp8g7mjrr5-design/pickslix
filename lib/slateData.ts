@@ -97,6 +97,8 @@ interface ScanOpts {
   markets?: string[];
   /** Only spend on games starting within this long (Pick 6 posts lines on game day). */
   spendWithinMs?: number;
+  /** Seconds before a fetch without Pick 6's lines is tried again. */
+  linesRetry?: number;
   linesTtl?: number;
 }
 const ALL: ScanOpts = { sports: SPORTS, maxGames: MAX_GAMES, maxProps: MAX_PROPS, spend: false };
@@ -115,7 +117,7 @@ async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<S
   const linesFor = (x: (typeof games)[number], spend: boolean) => {
     const home = x.g.teams.find((t) => t.home) ?? x.g.teams[0];
     const away = x.g.teams.find((t) => !t.home) ?? x.g.teams[1];
-    return fetchGameLines(x.sport, teamName(home), teamName(away), x.g.date, { spend, markets: opts.markets, ttl: opts.linesTtl }).catch((): GameLines => ({}));
+    return fetchGameLines(x.sport, teamName(home), teamName(away), x.g.date, { spend, markets: opts.markets, ttl: opts.linesTtl, retry: opts.linesRetry }).catch((): GameLines => ({}));
   };
   const soon = (x: (typeof games)[number]) => !opts.spendWithinMs || Date.parse(x.g.date) - now <= opts.spendWithinMs;
   let lines = await Promise.all(games.map((x) => linesFor(x, opts.spend && soon(x))));
@@ -193,7 +195,7 @@ export async function sportSlate(sport: Sport, now = Date.now()): Promise<Slate>
       // Free plan: one stat, fetched once per game within six hours of the start and kept all day (~350 credits a month).
       const free = oddsPlan() === "free";
       const opts: ScanOpts = free
-        ? { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true, markets: FREE_MARKETS[sport], spendWithinMs: 6 * 3600_000, linesTtl: 20 * 3600 }
+        ? { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true, markets: FREE_MARKETS[sport], spendWithinMs: 4 * 3600_000, linesTtl: 20 * 3600, linesRetry: 2 * 3600 }
         : { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true };
       const rows = await score(date, now, opts).catch(() => [] as SlateRow[]);
       const slate = { date, at: new Date(now).toISOString(), rows: rows.length || !saved ? rows : saved.rows };

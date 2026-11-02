@@ -382,22 +382,27 @@ export async function canSpend(cost: number): Promise<boolean> {
 }
 
 /**
- * Which Odds API plan to budget for. "free" (the default, 500 credits a month): the auto slips read one stat per
- * sport, once per game on game day, and nothing else spends. "paid" (ODDS_PLAN=paid): every market, refreshed
+ * Which Odds API plan to budget for. "free" (the default, 500 credits a month): the auto slips read NBA points and
+ * rebounds and NFL receiving yards, once per game on game day, and nothing else spends. "paid" (ODDS_PLAN=paid): every market, refreshed
  * every six hours.
  */
 export const oddsPlan = (): "free" | "paid" => (process.env.ODDS_PLAN?.toLowerCase() === "paid" ? "paid" : "free");
 
-/** The one stat per sport the auto slip reads on the free plan: the line Pick 6 posts for nearly every player. */
-export const FREE_MARKETS: Partial<Record<Sport, string[]>> = { NBA: ["player_points"], NFL: ["player_reception_yds"] };
+/**
+ * The stats the auto slip reads on the free plan: the ones easiest to call, which Pick 6 posts for nearly every
+ * player. Each costs a credit per game.
+ */
+export const FREE_MARKETS: Partial<Record<Sport, string[]>> = { NBA: ["player_points", "player_rebounds"], NFL: ["player_reception_yds"] };
 
 export interface LineOpts {
   /** false: cached lines only, no credits. */
   spend?: boolean;
   /** Ask for these markets instead of the sport's full list (each market costs a credit). */
   markets?: string[];
-  /** How long found lines are kept. A fetch that comes back without Pick 6's lines is kept an hour, to try again. */
+  /** How long found lines are kept. */
   ttl?: number;
+  /** How long a fetch that came back without Pick 6's lines is kept before trying again (default an hour). */
+  retry?: number;
 }
 
 /**
@@ -436,7 +441,7 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
   const lines = moved.lines;
   const pick6 = Object.values(lines).some((stats) => Object.values(stats).some((l) => l?.book === "Pick 6"));
   await Promise.all([
-    kvSet(cacheKey, lines, pick6 ? (opts.ttl ?? LINES_TTL) : Math.min(opts.ttl ?? LINES_TTL, 3600)).catch(() => {}),
+    kvSet(cacheKey, lines, pick6 ? (opts.ttl ?? LINES_TTL) : Math.min(opts.ttl ?? LINES_TTL, opts.retry ?? 3600)).catch(() => {}),
     kvSet(openKey, moved.openers, OPENERS_TTL).catch(() => {}),
     recordCloses(sport, event.commence_time, lines).catch(() => {}),
   ]);
