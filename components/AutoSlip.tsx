@@ -8,7 +8,7 @@ import { slipText, type AutoLeg, type AutoRecord, type AutoSlip } from "@/lib/au
 import { pct } from "@/lib/format.ts";
 import { STATS, type Sport } from "@/lib/types.ts";
 
-const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CBB", "CFB"];
+const SPORTS: Sport[] = ["NBA", "NFL"];
 
 interface Data {
   sport: Sport;
