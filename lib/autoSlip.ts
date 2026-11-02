@@ -43,7 +43,6 @@ export interface AutoSlip {
 }
 
 export const MIN_LEGS = 2;
-export const MAX_LEGS = 6;
 /** A thin sample, a coin flip or a game about to start, and it isn't picked. */
 const MIN_GAMES = 8;
 const MIN_PROB = 0.56;
@@ -68,8 +67,8 @@ export function candidates(rows: (PropWithProjection & { pick6?: boolean })[], n
     .sort((a, b) => score(b) - score(a));
 }
 
-// The model's chance, nudged toward picks the books agree with.
-const score = (r: PropWithProjection) => r.projection.pickProb + (r.projection.marketProb !== undefined ? 0.02 : 0);
+// The easiest to hit first: the model's chance, with the books agreeing breaking ties.
+const score = (r: PropWithProjection) => r.projection.pickProb + (r.projection.marketProb !== undefined ? 0.001 : 0);
 
 export const toLeg = (r: PropWithProjection): AutoLeg => ({
   sport: r.sport,
@@ -114,24 +113,16 @@ export function price(legs: AutoLeg[]): Pick<AutoSlip, "multiplier" | "chance" |
   return { multiplier: tiers[legs.length] ?? 0, chance: dist[legs.length] ?? 0, expected: expectedReturn(dist, tiers) };
 }
 
-/** The best slip on the board: the number of picks (2 to 6) whose entry returns the most on average. */
+/**
+ * The safest slip on the board: the two picks most likely to hit, as a 2-pick Power Play. Fewer picks and the
+ * likeliest ones means the best chance the whole entry cashes.
+ */
 export function buildSlip(rows: PropWithProjection[], sport: Sport, date: string, now = Date.now()): AutoSlip | null {
   const pool = candidates(rows.filter((r) => r.sport === sport), now);
-  const perGame = perGameFor(rows.filter((r) => r.sport === sport));
-  let best: AutoLeg[] | null = null;
-  let bestEv = 0;
-  for (let n = MIN_LEGS; n <= MAX_LEGS; n++) {
-    const legs = fill(pool, n, [], perGame);
-    if (legs.length < n) break;
-    const ev = price(legs).expected;
-    if (ev > bestEv + 0.005) {
-      best = legs;
-      bestEv = ev;
-    }
-  }
-  if (!best) return null;
+  const legs = fill(pool, MIN_LEGS, [], perGameFor(rows.filter((r) => r.sport === sport)));
+  if (legs.length < MIN_LEGS) return null;
   const at = new Date(now).toISOString();
-  return { sport, date, builtAt: at, updatedAt: at, version: 1, legs: best, ...price(best), changes: [] };
+  return { sport, date, builtAt: at, updatedAt: at, version: 1, legs, ...price(legs), changes: [] };
 }
 
 /** Why a pick on the slip should come off, or undefined while it still holds. */
