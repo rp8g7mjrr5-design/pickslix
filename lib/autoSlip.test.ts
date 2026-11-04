@@ -101,3 +101,14 @@ test("the books have to back a pick, and an unpriced pick needs a higher bar", (
   const s = buildSlip(rows, "NBA", "20261102", NOW);
   assert.deepEqual(s?.legs.map((l) => l.player), ["F", "E"]);
 });
+
+test("Pick 6 only takes More, so Less picks are skipped and swapped off", () => {
+  const unders = [row("U", "BOS", "NYK", 0.8, { pick: "UNDER" }), row("V", "LAL", "GSW", 0.79, { pick: "UNDER" })];
+  const s = buildSlip([...unders, ...board], "NBA", "20261102", NOW)!;
+  assert.ok(s.legs.every((l) => l.side === "OVER"));
+  assert.ok(!s.legs.some((l) => l.player === "U" || l.player === "V"));
+  const old: AutoSlip = { ...s, legs: [{ ...s.legs[0], player: "U", team: "BOS", opponent: "NYK", side: "UNDER" }, ...s.legs.slice(1)] };
+  const tended = tendSlip(old, [...unders, ...board], NOW);
+  assert.ok(tended.legs.every((l) => l.side === "OVER"));
+  assert.match(tended.changes.at(-1) ?? "", /only offers More/);
+});
