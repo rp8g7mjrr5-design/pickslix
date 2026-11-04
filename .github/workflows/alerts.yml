@@ -10,7 +10,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - name: Check open picks and send alerts
         env:
@@ -18,4 +18,11 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$SITE_URL" ]; then echo "SITE_URL secret not set; skipping."; exit 0; fi
-          curl -fsS -m 90 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/alerts"
+          # Follow any redirect (http → https, bare domain → www) first, without the secret, so the real call
+          # lands on the final address with its Authorization header intact.
+          url=$(curl -sSL -o /dev/null -m 30 -w '%{url_effective}' "${SITE_URL%/}/api/cron/alerts")
+          echo "Calling $url"
+          body=$(curl -fsS -m 290 -H "Authorization: Bearer $CRON_SECRET" "$url")
+          echo "$body" | head -c 2000; echo
+          # A page instead of the JSON answer means the check never ran: fail so it shows up red.
+          case "$body" in "{"*) ;; *) echo "::error::Expected JSON from /api/cron/alerts; check the SITE_URL secret."; exit 1;; esac
