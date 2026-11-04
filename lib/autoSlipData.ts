@@ -3,9 +3,9 @@
 import { kvGet, kvSet } from "./db.ts";
 import { espnDate } from "./espn.ts";
 import { gradeLeg } from "./grade.ts";
-import { autoRecord, buildSlip, settle, tendSlip, type AutoSlip } from "./autoSlip.ts";
+import { autoRecord, buildSlip, candidates, settle, tendSlip, type AutoSlip } from "./autoSlip.ts";
 import { getProvider } from "./providers.ts";
-import { sportSlate } from "./slateData.ts";
+import { sportSlate, type ScanReport } from "./slateData.ts";
 import type { Sport } from "./types.ts";
 
 /** Only NBA and NFL get an auto slip: the sports the model knows best, and the Odds API bill stays small. */
@@ -17,6 +17,8 @@ const KEEP_S = 400 * 86400;
 const SCAN_S = 10 * 60;
 
 const inflight = new Map<string, Promise<AutoSlip | null>>();
+/** What each sport's latest scan found, for the scheduled check's log. */
+export const lastScans = new Map<Sport, ScanReport & { candidates: number }>();
 
 async function save(s: AutoSlip) {
   if (getProvider().name === "sample") return;
@@ -39,7 +41,9 @@ export async function todaysSlip(sport: Sport, now = Date.now(), force = false):
   const id = `${sport}:${date}`;
   if (!inflight.has(id)) {
     const run = async () => {
-      const rows = (await sportSlate(sport, now)).rows;
+      const slate = await sportSlate(sport, now);
+      const rows = slate.rows;
+      lastScans.set(sport, { ...(slate.report ?? { games: 0, inWindow: 0, gamesWithLines: 0, lines: 0, pick6Lines: 0, rows: 0, stopped: "cached scan" }), rows: rows.length, candidates: candidates(rows.filter((r) => r.sport === sport), now).length });
       const next = saved ? tendSlip(saved, rows, now) : buildSlip(rows, sport, date, now);
       if (next) await save(next);
       return next ?? saved;
