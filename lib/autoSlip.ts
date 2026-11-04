@@ -160,7 +160,7 @@ function why(l: AutoLeg, row: PropWithProjection | undefined): string | undefine
   const p = row.projection;
   if (p.injury === "out" || p.status === "out") return "ruled out";
   if (p.injury) return "listed as questionable";
-  if (p.pick !== l.side) return `the model now likes ${p.pick === "OVER" ? "more" : "less"}`;
+  if (p.pick !== l.side) return "the model now likes less";
   if (p.pickProb < KEEP_PROB) return "the model cooled on it";
   return undefined;
 }
