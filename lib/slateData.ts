@@ -28,6 +28,21 @@ export interface Slate {
   date: string;
   at: string;
   rows: SlateRow[];
+  /** What the last scan found at each step, so an empty slip can be explained. */
+  report?: ScanReport;
+}
+
+export interface ScanReport {
+  games: number;
+  /** Games inside the free plan's fetch window. */
+  inWindow: number;
+  gamesWithLines: number;
+  lines: number;
+  pick6Lines: number;
+  rows: number;
+  /** Why the scan stopped early, when it did. */
+  stopped?: string;
+  error?: string;
 }
 
 export const SPORTS: Sport[] = ["NBA", "NFL", "NHL", "MLB", "CBB", "CFB"];
@@ -103,7 +118,7 @@ interface ScanOpts {
 }
 const ALL: ScanOpts = { sports: SPORTS, maxGames: MAX_GAMES, maxProps: MAX_PROPS, spend: false };
 
-async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<SlateRow[]> {
+async function score(date: string, now: number, opts: ScanOpts = ALL, report?: ScanReport): Promise<SlateRow[]> {
   const provider = getProvider();
   if (provider.name === "sample") {
     // The demo slate's dates are fixed; treat it as tonight's.
@@ -111,9 +126,16 @@ async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<S
     const rows = await buildBoard(sampleProps().filter((p) => opts.sports.includes(p.sport)).map((p) => ({ ...p, gameTime: tonight })), provider);
     return rows.map((r) => ({ ...r, pick6: true, book: sampleBook(r) }));
   }
-  if (provider.name !== "espn" || !oddsEnabled()) return [];
+  if (provider.name !== "espn" || !oddsEnabled()) {
+    if (report) report.stopped = provider.name !== "espn" ? `data source is ${provider.name}` : "no Odds API key";
+    return [];
+  }
   const games = await todaysGames(date, now, opts.sports, opts.maxGames);
-  if (!games.length) return [];
+  if (report) report.games = games.length;
+  if (!games.length) {
+    if (report) report.stopped = "no games left today";
+    return [];
+  }
   const linesFor = (x: (typeof games)[number], spend: boolean) => {
     const home = x.g.teams.find((t) => t.home) ?? x.g.teams[0];
     const away = x.g.teams.find((t) => !t.home) ?? x.g.teams[1];
@@ -121,6 +143,13 @@ async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<S
   };
   const soon = (x: (typeof games)[number]) => !opts.spendWithinMs || Date.parse(x.g.date) - now <= opts.spendWithinMs;
   let lines = await Promise.all(games.map((x) => linesFor(x, opts.spend && soon(x))));
+  if (report) {
+    report.inWindow = games.filter(soon).length;
+    report.gamesWithLines = lines.filter((l) => Object.keys(l).length).length;
+    const all = lines.flatMap((l) => Object.values(l).flatMap((stats) => Object.values(stats)));
+    report.lines = all.length;
+    report.pick6Lines = all.filter((l) => l?.book === "Pick 6").length;
+  }
   // On the free plan only the auto slips spend credits.
   if (!opts.spend && oddsPlan() === "paid" && lines.every((l) => !Object.keys(l).length) && !(await kvGet(`potd:spent:${date}`).catch(() => null))) {
     await kvSet(`potd:spent:${date}`, 1, 2 * 86400).catch(() => {});
@@ -131,11 +160,15 @@ async function score(date: string, now: number, opts: ScanOpts = ALL): Promise<S
     // Lines the books priced too come first: the model has a market to check itself against.
     .sort((a, b) => Number(b.priced) - Number(a.priced))
     .slice(0, opts.maxProps);
-  if (!candidates.length) return [];
+  if (!candidates.length) {
+    if (report) report.stopped = report.gamesWithLines ? "lines found but no players matched the rosters" : report.inWindow ? "no lines came back for games in the window" : "no games within 4 hours yet";
+    return [];
+  }
   const meta = new Map(candidates.map((c) => [c.id, c]));
   const props = candidates.map(({ priced: _, pick6: __, open: ___, book: ____, ...p }): Prop => p);
   const contexts = await propContexts(props, { spend: false }).catch(() => new Map());
   const rows = await buildBoard(props, provider, contexts, await loadCalibration());
+  if (report) report.rows = rows.length;
   return rows.map((r) => ({ ...r, pick6: meta.get(r.id)?.pick6 ?? false, open: meta.get(r.id)?.open, book: meta.get(r.id)?.book }));
 }
 
@@ -197,8 +230,12 @@ export async function sportSlate(sport: Sport, now = Date.now()): Promise<Slate>
       const opts: ScanOpts = free
         ? { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true, markets: FREE_MARKETS[sport], spendWithinMs: 4 * 3600_000, linesTtl: 20 * 3600, linesRetry: 2 * 3600 }
         : { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true };
-      const rows = await score(date, now, opts).catch(() => [] as SlateRow[]);
-      const slate = { date, at: new Date(now).toISOString(), rows: rows.length || !saved ? rows : saved.rows };
+      const report: ScanReport = { games: 0, inWindow: 0, gamesWithLines: 0, lines: 0, pick6Lines: 0, rows: 0 };
+      const rows = await score(date, now, opts, report).catch((e: unknown) => {
+        report.error = String((e as Error)?.message ?? e).slice(0, 300);
+        return [] as SlateRow[];
+      });
+      const slate = { date, at: new Date(now).toISOString(), rows: rows.length || !saved ? rows : saved.rows, report };
       if (getProvider().name !== "sample") await kvSet(key, slate, 2 * 86400).catch(() => {});
       return slate;
     };
