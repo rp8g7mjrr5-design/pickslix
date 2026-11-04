@@ -204,19 +204,19 @@ export interface OddsEvent {
 export async function oddsJson(path: string, revalidate: number): Promise<any> {
   const sep = path.includes("?") ? "&" : "?";
   const res = await fetch(`${BASE}${path}${sep}apiKey=${encodeURIComponent(oddsKey())}`, { next: { revalidate } } as RequestInit);
-  if (res.status === 401 || res.status === 429) {
-    // Out of credits (or rate limited): stop asking for an hour instead of failing on every game opened.
-    await kvSet(PAUSE_KEY, { status: res.status, at: new Date().toISOString() }, 3600).catch(() => {});
-  }
+  // Credits left this month, for the setup page (error answers carry it too).
+  const remaining = res.headers.get("x-requests-remaining");
+  if (remaining !== null) kvSet("odds:remaining", { remaining: Number(remaining), at: new Date().toISOString() }).catch(() => {});
   if (!res.ok) {
     // The body says what was wrong ({ message, error_code }); keep it for the error shown on the page.
     const body = await res.json().catch(() => null);
     const why = [body?.error_code, body?.message].filter(Boolean).join(": ").slice(0, 200);
+    if (res.status === 401 || res.status === 429) {
+      // Bad key, out of credits or rate limited: stop asking for an hour instead of failing on every game.
+      await kvSet(PAUSE_KEY, { status: res.status, why, at: new Date().toISOString() }, 3600).catch(() => {});
+    }
     throw new Error(`Odds API ${res.status}${why ? ` (${why})` : ""} for ${path}`);
   }
-  // Credits left this month, for the setup page.
-  const remaining = res.headers.get("x-requests-remaining");
-  if (remaining !== null) kvSet("odds:remaining", { remaining: Number(remaining), at: new Date().toISOString() }).catch(() => {});
   return res.json();
 }
 

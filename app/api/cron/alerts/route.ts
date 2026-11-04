@@ -22,6 +22,6 @@ export async function GET(req: Request) {
   const auto = await autoSummary(Date.now(), true).catch(() => []);
   const slips = auto.flatMap((a) => (a.slip ? [a.slip] : []));
   const [alerts, potd, lock] = await Promise.all([runAlerts(Date.now(), slips), potdSummary().catch(() => null), tendLock().catch(() => 0)]);
-  const [remaining, paused] = await Promise.all([kvGet<{ remaining: number }>("odds:remaining").catch(() => null), kvGet("odds:paused").catch(() => null)]);
-  return NextResponse.json({ ...alerts, oddsCreditsLeft: remaining?.remaining ?? null, oddsPaused: Boolean(paused), scans: Object.fromEntries(lastScans), autoSlips: Object.fromEntries(slips.map((s) => [s.sport, `${s.legs.length} picks, version ${s.version}`])), dailyLockOptions: lock, pickOfTheDay: potd?.pick ? `${potd.pick.player} ${potd.pick.side} ${potd.pick.line} ${potd.pick.stat}` : null });
+  const [remaining, paused] = await Promise.all([kvGet<{ remaining: number }>("odds:remaining").catch(() => null), kvGet<{ status: number; why?: string; at: string }>("odds:paused").catch(() => null)]);
+  return NextResponse.json({ ...alerts, oddsCreditsLeft: remaining?.remaining ?? null, oddsPaused: paused ?? false, scans: Object.fromEntries(lastScans), autoSlips: Object.fromEntries(slips.map((s) => [s.sport, `${s.legs.length} picks, version ${s.version}`])), dailyLockOptions: lock, pickOfTheDay: potd?.pick ? `${potd.pick.player} ${potd.pick.side} ${potd.pick.line} ${potd.pick.stat}` : null });
 }
