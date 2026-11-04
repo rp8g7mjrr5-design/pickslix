@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin.ts";
 import { kvDel, kvGet, kvKeys, kvSet } from "@/lib/db.ts";
 import { ADMIN_CODES, adminCodes, lifetimeCodes, newLifetimeCode, type AdminCode, type ProPass } from "@/lib/pro.ts";
+import { activePause } from "@/lib/odds.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export async function GET() {
   }
   const accounts = (await kvKeys("account:").catch(() => [] as string[])).length;
   const odds = await kvGet<{ remaining: number; at: string }>("odds:remaining").catch(() => null);
-  const paused = await kvGet<{ status: number; at: string }>("odds:paused").catch(() => null);
+  const paused = await activePause();
 
   return NextResponse.json({ codes, stats: { plans, accounts, odds, oddsPaused: paused } });
 }

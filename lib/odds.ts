@@ -141,6 +141,23 @@ const OPENERS_TTL = 5 * 86400;
 /** Credits kept back so a nearly empty month doesn't end in failed, wasted calls. */
 const CREDIT_RESERVE = 5;
 const PAUSE_KEY = "odds:paused";
+/** A short tag for the key in use, so a pause (or credit count) left by an old key doesn't hold up a new one. */
+const keyTag = () => oddsKey().slice(-6);
+interface Pause {
+  status: number;
+  why?: string;
+  at: string;
+  key?: string;
+}
+/** The pause in force for the current key, if any. Fixing the key in Vercel lifts it at once. */
+export async function activePause(): Promise<Pause | null> {
+  const p = await kvGet<Pause>(PAUSE_KEY).catch(() => null);
+  return p && p.key === keyTag() ? p : null;
+}
+async function creditsLeft(): Promise<{ remaining: number } | null> {
+  const left = await kvGet<{ remaining: number; key?: string }>("odds:remaining").catch(() => null);
+  return left && (!left.key || left.key === keyTag()) ? left : null;
+}
 
 /** What the sportsbooks think, with their margin taken out. */
 export interface MarketPrice {
@@ -206,14 +223,14 @@ export async function oddsJson(path: string, revalidate: number): Promise<any> {
   const res = await fetch(`${BASE}${path}${sep}apiKey=${encodeURIComponent(oddsKey())}`, { next: { revalidate } } as RequestInit);
   // Credits left this month, for the setup page (error answers carry it too).
   const remaining = res.headers.get("x-requests-remaining");
-  if (remaining !== null) kvSet("odds:remaining", { remaining: Number(remaining), at: new Date().toISOString() }).catch(() => {});
+  if (remaining !== null) kvSet("odds:remaining", { remaining: Number(remaining), at: new Date().toISOString(), key: keyTag() }).catch(() => {});
   if (!res.ok) {
     // The body says what was wrong ({ message, error_code }); keep it for the error shown on the page.
     const body = await res.json().catch(() => null);
     const why = [body?.error_code, body?.message].filter(Boolean).join(": ").slice(0, 200);
     if (res.status === 401 || res.status === 429) {
       // Bad key, out of credits or rate limited: stop asking for an hour instead of failing on every game.
-      await kvSet(PAUSE_KEY, { status: res.status, why, at: new Date().toISOString() }, 3600).catch(() => {});
+      await kvSet(PAUSE_KEY, { status: res.status, why, at: new Date().toISOString(), key: keyTag() }, 3600).catch(() => {});
     }
     throw new Error(`Odds API ${res.status}${why ? ` (${why})` : ""} for ${path}`);
   }
@@ -366,18 +383,15 @@ export function withOpeners(lines: GameLines, openers: Record<string, number>): 
 /** Can we afford a call costing this many credits right now? */
 /** Why odds calls are on hold, for pages that come back empty: a 401/429 pause, or credits down to the reserve. */
 export async function oddsHold(): Promise<{ reason: "paused" | "credits"; status?: number; remaining?: number } | null> {
-  const [paused, left] = await Promise.all([
-    kvGet<{ status: number }>(PAUSE_KEY).catch(() => null),
-    kvGet<{ remaining: number }>("odds:remaining").catch(() => null),
-  ]);
+  const [paused, left] = await Promise.all([activePause(), creditsLeft()]);
   if (paused) return { reason: "paused", status: paused.status, remaining: left?.remaining };
   if (left && left.remaining - 3 < CREDIT_RESERVE) return { reason: "credits", remaining: left.remaining };
   return null;
 }
 
 export async function canSpend(cost: number): Promise<boolean> {
-  if (await kvGet(PAUSE_KEY).catch(() => null)) return false;
-  const left = await kvGet<{ remaining: number }>("odds:remaining").catch(() => null);
+  if (await activePause()) return false;
+  const left = await creditsLeft();
   return !left || left.remaining - cost >= CREDIT_RESERVE;
 }
 
@@ -417,7 +431,7 @@ export async function fetchGameLines(sport: Sport, home: string, away: string, d
   const eventsKey = `odds:events:${sport}`;
   let events = await kvGet<OddsEvent[]>(eventsKey).catch(() => null);
   if (!events) {
-    if (await kvGet(PAUSE_KEY).catch(() => null)) return {};
+    if (await activePause()) return {};
     events = (await oddsJson(`/sports/${key}/events`, EVENTS_TTL)) as OddsEvent[];
     await kvSet(eventsKey, events, EVENTS_TTL).catch(() => {});
   }
