@@ -210,6 +210,7 @@ export async function todaysSlate(now = Date.now()): Promise<Slate> {
 
 /** Games per sport the auto slip scans: enough to find the best lines, few enough to keep the Odds API bill sane. */
 const SPORT_GAMES = 12;
+const EMPTY_FRESH_S = 5 * 60;
 const SPORT_PROPS = 160;
 const sportInflight = new Map<string, Promise<Slate>>();
 
@@ -221,7 +222,8 @@ export async function sportSlate(sport: Sport, now = Date.now()): Promise<Slate>
   const date = espnDate(new Date(now));
   const key = `slate:${sport}:${date}`;
   const saved = await kvGet<Slate>(key).catch(() => null);
-  if (saved && now - Date.parse(saved.at) < FRESH_S * 1000) return saved;
+  // An empty scan (no lines yet, a failed fetch) is only trusted for five minutes, so a fix shows up fast.
+  if (saved && now - Date.parse(saved.at) < (saved.rows.length ? FRESH_S : EMPTY_FRESH_S) * 1000) return saved;
   const id = `${sport}:${date}`;
   if (!sportInflight.has(id)) {
     const run = async (): Promise<Slate> => {
