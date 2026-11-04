@@ -172,3 +172,23 @@ test("oddsPlan defaults to free and reads ODDS_PLAN", async () => {
   assert.deepEqual(FREE_MARKETS.NBA, ["player_points"]);
   assert.equal(FREE_MARKETS.NFL?.length, 3);
 });
+
+test("a pause left by an old key doesn't hold up a new one", async () => {
+  const { activePause, canSpend } = await import("./odds.ts");
+  const { kvSet } = await import("./db.ts");
+  const was = process.env.ODDS_API_KEY;
+  process.env.ODDS_API_KEY = "0123456789abcdef0123456789abcdef";
+  try {
+    await kvSet("odds:remaining", { remaining: 400, at: new Date().toISOString() });
+    await kvSet("odds:paused", { status: 401, at: new Date().toISOString(), key: "zzzzzz" }, 3600);
+    assert.equal(await activePause(), null);
+    assert.equal(await canSpend(1), true);
+    await kvSet("odds:paused", { status: 401, at: new Date().toISOString(), key: "abcdef" }, 3600);
+    assert.ok(await activePause());
+    assert.equal(await canSpend(1), false);
+  } finally {
+    if (was === undefined) delete process.env.ODDS_API_KEY;
+    else process.env.ODDS_API_KEY = was;
+    await kvSet("odds:paused", null as never, 1).catch(() => {});
+  }
+});
