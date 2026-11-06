@@ -66,6 +66,8 @@ export function candidates(rows: (PropWithProjection & { pick6?: boolean })[], n
   return rows
     .filter((r) => {
       const p = r.projection;
+      // Pick 6 only takes More on most props, so the slip never leans on a Less it can't enter.
+      if (p.pick !== "OVER") return false;
       if (r.pick6 === false || p.status !== "ok" || p.injury || p.confidence === "low" || p.sampleSize < MIN_GAMES) return false;
       if (STATS[r.stat].sport === "UFC" || !r.gameTime || Date.parse(r.gameTime) - now <= LEAD_MS) return false;
       if (p.marketProb === undefined) return p.pickProb >= MIN_PROB_UNPRICED;
@@ -153,11 +155,12 @@ export function buildSlip(rows: PropWithProjection[], sport: Sport, date: string
 
 /** Why a pick on the slip should come off, or undefined while it still holds. */
 function why(l: AutoLeg, row: PropWithProjection | undefined): string | undefined {
+  if (l.side === "UNDER") return "Pick 6 only offers More on it";
   if (!row) return "its line was taken down";
   const p = row.projection;
   if (p.injury === "out" || p.status === "out") return "ruled out";
   if (p.injury) return "listed as questionable";
-  if (p.pick !== l.side) return `the model now likes ${p.pick === "OVER" ? "more" : "less"}`;
+  if (p.pick !== l.side) return "the model now likes less";
   if (p.pickProb < KEEP_PROB) return "the model cooled on it";
   return undefined;
 }
