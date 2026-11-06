@@ -4,6 +4,7 @@ import { kvGet, kvSet } from "./db.ts";
 import { espnDate } from "./espn.ts";
 import { gradeLeg } from "./grade.ts";
 import { autoRecord, buildSlip, candidates, settle, tendSlip, type AutoSlip } from "./autoSlip.ts";
+import { logBoard } from "./boardLogData.ts";
 import { getProvider } from "./providers.ts";
 import { sportSlate, type ScanReport } from "./slateData.ts";
 import type { Sport } from "./types.ts";
@@ -43,6 +44,8 @@ export async function todaysSlip(sport: Sport, now = Date.now(), force = false):
     const run = async () => {
       const slate = await sportSlate(sport, now);
       const rows = slate.rows;
+      // Every line the model scored goes on the board it learns from, whether or not it makes the slip.
+      await logBoard(sport, date, rows, now);
       lastScans.set(sport, { ...(slate.report ?? { games: 0, inWindow: 0, gamesWithLines: 0, lines: 0, pick6Lines: 0, rows: 0, stopped: "cached scan" }), rows: rows.length, candidates: candidates(rows.filter((r) => r.sport === sport), now).length });
       const next = saved ? tendSlip(saved, rows, now) : buildSlip(rows, sport, date, now);
       if (next) await save(next);

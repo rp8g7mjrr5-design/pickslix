@@ -67,7 +67,7 @@ export async function refreshAll() {
   const rated = await Promise.allSettled(RATED_SPORTS.map(refreshRatings));
   const ufc = await refreshUfcFights().then((f) => `${f.size} fights`, (e) => `failed: ${e}`);
   const calibration = await refreshCalibration().then(
-    (c) => `${c.all.n} graded picks, a=${c.all.a.toFixed(2)} b=${c.all.b.toFixed(2)}`,
+    (c) => `${c.all.n} graded picks (${c.boardLines ?? 0} from the board), a=${c.all.a.toFixed(2)} b=${c.all.b.toFixed(2)}, blends ${JSON.stringify(c.blends ?? {})}`,
     (e) => `failed: ${e}`,
   );
   return {
