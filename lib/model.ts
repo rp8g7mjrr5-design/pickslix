@@ -268,7 +268,8 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
   let marketMean: number | undefined;
   if (market && market.pOver > 0 && market.pOver < 1 && market.line > 0) {
     marketMean = impliedMean(market, dispersion);
-    const w = market.sharp ? SHARP_WEIGHT : MARKET_WEIGHT;
+    // Once enough graded lines show how much the books should count, that learned weight replaces the default.
+    const w = calibration?.blends?.[`${prop.sport}:${market.sharp ? "sharp" : "books"}`]?.w ?? (market.sharp ? SHARP_WEIGHT : MARKET_WEIGHT);
     mean = (1 - w) * modelMean + w * marketMean;
   } else {
     mean = (1 - LINE_WEIGHT) * modelMean + LINE_WEIGHT * prop.line;
@@ -348,7 +349,7 @@ export function project({ prop, logs, defense, news, market, env, adjust, ufc, c
     modelMean,
     marketMean,
     marketProb,
-    market: market && marketMean !== undefined ? { line: market.line, pOver: market.pOver } : undefined,
+    market: market && marketMean !== undefined ? { line: market.line, pOver: market.pOver, ...(market.sharp ? { sharp: true } : {}) } : undefined,
     dispersion,
   };
 }

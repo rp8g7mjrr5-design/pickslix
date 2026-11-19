@@ -142,7 +142,7 @@ export interface Projection {
   /** The books' chance for `pick` at the Pick 6 line, when they've priced this prop. */
   marketProb?: number;
   /** The books' price itself (no-vig over at their line), saved with picks for the closing-line check. */
-  market?: { line: number; pOver: number };
+  market?: { line: number; pOver: number; sharp?: boolean };
   /** Variance over mean of the projection, to restate a price at another line. */
   dispersion?: number;
 }

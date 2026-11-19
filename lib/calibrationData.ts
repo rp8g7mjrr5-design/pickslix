@@ -1,6 +1,8 @@
 // Building and caching the model's tuning (server only). The daily refresh rebuilds it from every saved slip.
 import { autoGradedPicks, gradedPicks } from "./accuracy.ts";
 import type { AutoSlip } from "./autoSlip.ts";
+import { boardPicks, fitBlends } from "./boardLog.ts";
+import { gradeBoards, gradedBoard } from "./boardLogData.ts";
 import { buildCalibration, type Calibration } from "./calibration.ts";
 import { kvGet, kvKeys, kvSet } from "./db.ts";
 import type { SavedSlip } from "./storage.ts";
@@ -14,8 +16,16 @@ export async function refreshCalibration(): Promise<Calibration> {
   const lists = await Promise.all(keys.map((k) => kvGet<SavedSlip[]>(k).catch(() => null)));
   // The auto slips' own graded picks count too, so the model learns from every slip it builds.
   const auto = await Promise.all(["NBA", "NFL"].map((s) => kvGet<AutoSlip[]>(`auto:${s}:history`).catch(() => null)));
-  const picks = [...gradedPicks(lists.flatMap((l) => (Array.isArray(l) ? l : []))), ...autoGradedPicks(auto.flatMap((h) => h ?? []))];
-  const cal = buildCalibration(picks);
+  // Last night's whole board, graded: 100+ lines a night, so the model learns in days rather than months.
+  await gradeBoards(["NBA", "NFL"]).catch(() => ({}));
+  const board = await gradedBoard(["NBA", "NFL"]);
+  const blends = fitBlends(board);
+  const picks = [
+    ...gradedPicks(lists.flatMap((l) => (Array.isArray(l) ? l : []))),
+    ...autoGradedPicks(auto.flatMap((h) => h ?? [])),
+    ...boardPicks(board, blends),
+  ];
+  const cal = { ...buildCalibration(picks), blends, boardLines: board.length };
   await kvSet(KEY, cal);
   memo = { at: Date.now(), cal };
   return cal;

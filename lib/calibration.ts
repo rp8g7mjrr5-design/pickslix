@@ -8,6 +8,7 @@
 // (positive) or unders. Both start at "change nothing" (a = 1, b = 0) and only move as graded picks pile up, and
 // each sport starts from the all-sports fit, so a sport with a few dozen picks barely moves. Pure.
 import type { GradedPick } from "./accuracy.ts";
+import type { Blend } from "./boardLog.ts";
 import type { Sport } from "./types.ts";
 
 export interface Tune {
@@ -25,6 +26,10 @@ export interface Calibration {
   sports: Partial<Record<Sport, Tune>>;
   /** Per stat ("NBA:PTS"), once a stat has enough graded picks: points and rebounds don't miss the same way. */
   stats?: Record<string, Tune>;
+  /** How much to trust the books over the model's own stats, learned from graded board lines ("NBA:sharp"). */
+  blends?: Record<string, Blend>;
+  /** Graded board lines behind the fits. */
+  boardLines?: number;
 }
 
 /** How hard each number holds to its starting point, in the units of a pick's log-likelihood. About 200 picks move them halfway. */
