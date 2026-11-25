@@ -112,3 +112,15 @@ test("Pick 6 only takes More, so Less picks are skipped and swapped off", () => 
   assert.ok(tended.legs.every((l) => l.side === "OVER"));
   assert.match(tended.changes.at(-1) ?? "", /only offers More/);
 });
+
+test("games whose lines come up later get added to the slip", () => {
+  const early = buildSlip([row("A", "BOS", "NYK", 0.7), row("C", "LAL", "GSW", 0.68)], "NBA", "20261102", NOW)!;
+  assert.equal(early.legs.length, 2);
+  const later = tendSlip(early, [row("A", "BOS", "NYK", 0.7), row("C", "LAL", "GSW", 0.68), row("E", "DEN", "PHX", 0.66), row("B", "NYK", "BOS", 0.9)], NOW);
+  // E's game is new; B shares A's game, so it stays out.
+  assert.deepEqual(later.legs.map((l) => l.player).sort(), ["A", "C", "E"]);
+  assert.equal(later.version, 2);
+  assert.match(later.changes.at(-1) ?? "", /Added E/);
+  // Nothing new: nothing changes.
+  assert.equal(tendSlip(later, [row("A", "BOS", "NYK", 0.7), row("C", "LAL", "GSW", 0.68), row("E", "DEN", "PHX", 0.66)], NOW).version, 2);
+});

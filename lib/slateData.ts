@@ -161,7 +161,7 @@ async function score(date: string, now: number, opts: ScanOpts = ALL, report?: S
     .sort((a, b) => Number(b.priced) - Number(a.priced))
     .slice(0, opts.maxProps);
   if (!candidates.length) {
-    if (report) report.stopped = report.gamesWithLines ? "lines found but no players matched the rosters" : report.inWindow ? "no lines came back for games in the window" : "no games within 4 hours yet";
+    if (report) report.stopped = report.gamesWithLines ? "lines found but no players matched the rosters" : report.inWindow ? "no lines came back for games in the window" : "no games within 14 hours yet";
     return [];
   }
   const meta = new Map(candidates.map((c) => [c.id, c]));
@@ -230,7 +230,7 @@ export async function sportSlate(sport: Sport, now = Date.now()): Promise<Slate>
       // Free plan: one stat, fetched once per game within six hours of the start and kept all day (~350 credits a month).
       const free = oddsPlan() === "free";
       const opts: ScanOpts = free
-        ? { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true, markets: FREE_MARKETS[sport], spendWithinMs: 4 * 3600_000, linesTtl: 20 * 3600, linesRetry: 2 * 3600 }
+        ? { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true, markets: FREE_MARKETS[sport], spendWithinMs: 14 * 3600_000, linesTtl: 20 * 3600, linesRetry: 3 * 3600 }
         : { sports: [sport], maxGames: SPORT_GAMES, maxProps: SPORT_PROPS, spend: true };
       const report: ScanReport = { games: 0, inWindow: 0, gamesWithLines: 0, lines: 0, pick6Lines: 0, rows: 0 };
       const rows = await score(date, now, opts, report).catch((e: unknown) => {
