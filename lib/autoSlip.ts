@@ -174,8 +174,18 @@ export function tendSlip(prev: AutoSlip, rows: PropWithProjection[], now = Date.
     // Still good: keep it, at the line and chance Pick 6 shows now.
     else legs.push({ ...l, line: row!.line, prob: Math.round(row!.projection.pickProb * 1000) / 1000, rawProb: rawOf(row!), reasons: row!.projection.reasons.slice(0, 3), marketProb: row!.projection.marketProb });
   }
-  if (!out.length) return { ...prev, legs, ...price(legs), updatedAt: new Date(now).toISOString() };
   const mine = rows.filter((r) => r.sport === prev.sport);
+  // Games whose lines came up after the slip was built get their best pick too, up to Pick 6's 8.
+  const added = out.length ? [] : fill(candidates(mine, now), MAX_LEGS - legs.length, legs, 1);
+  for (const a of added) {
+    legs.push(a);
+    changes.push(`Added ${a.player} ${a.side === "OVER" ? "more" : "less"} than ${a.line} ${STATS[a.stat].label.toLowerCase()}: its game's lines came up`);
+  }
+  if (!out.length && !added.length) return { ...prev, legs, ...price(legs), updatedAt: new Date(now).toISOString() };
+  if (!out.length) {
+    const kept = legs.sort((a, b) => a.gameTime.localeCompare(b.gameTime));
+    return { ...prev, legs: kept, ...price(kept), version: prev.version + 1, changes: [...prev.changes, ...changes], updatedAt: new Date(now).toISOString() };
+  }
   const pool = candidates(mine, now).filter((r) => !out.some((o) => o.leg.player === r.player));
   const fresh = fill(pool, out.length, legs, perGameFor(mine));
   out.forEach((o, i) => {
