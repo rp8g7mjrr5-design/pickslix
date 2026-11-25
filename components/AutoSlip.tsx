@@ -13,6 +13,8 @@ const SPORTS: Sport[] = ["NBA", "NFL"];
 interface Data {
   sport: Sport;
   slip: AutoSlip | null;
+  /** The best More pick in every game, including any past Pick 6's 8. */
+  perGame?: AutoLeg[];
   record: AutoRecord;
   recent: AutoSlip[];
 }
@@ -182,6 +184,20 @@ export default function AutoSlipPage() {
         </>
       )}
 
+      {(data.perGame?.length ?? 0) > 0 && (
+        <section className="autopergame">
+          <h2>Best pick in every game</h2>
+          <p className="fine">
+            The model&apos;s strongest More in each game still to start. A slip holds 8 at most, so build your own from these if you like.
+          </p>
+          <div className="autolegs">
+            {data.perGame!.map((l) => (
+              <Leg key={`${l.player}|${l.stat}`} l={l} onSlip={s?.legs.some((x) => x.player === l.player && x.stat === l.stat)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="autoalerts">
         <AlertsToggle />
       </section>
@@ -236,7 +252,7 @@ export default function AutoSlipPage() {
   );
 }
 
-function Leg({ l }: { l: AutoLeg }) {
+function Leg({ l, onSlip }: { l: AutoLeg; onSlip?: boolean }) {
   const live = !l.result && Date.parse(l.gameTime) < Date.now();
   return (
     <div className={`autoleg ${l.result ?? ""}`}>
@@ -249,6 +265,7 @@ function Leg({ l }: { l: AutoLeg }) {
           {l.sport} · {l.team} vs {l.opponent} · {when(l.gameTime)}
         </small>
         {l.reasons[0] && <small className="autowhy">{l.reasons[0]}</small>}
+        {onSlip && <small className="autowhy">On today&apos;s slip</small>}
       </div>
       <div className="autolegside">
         {l.result ? <span className={`potdresult ${l.result}`}>{RESULT[l.result]}</span> : live ? <span className="potdresult">Playing</span> : <strong>{pct(l.prob)}</strong>}

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { autoRecord, buildSlip, settle, slipText, tendSlip, toLeg as toLegFor, type AutoSlip } from "./autoSlip.ts";
+import { autoRecord, bestPerGame, buildSlip, settle, slipText, tendSlip, toLeg as toLegFor, type AutoSlip } from "./autoSlip.ts";
 import type { PropWithProjection } from "./types.ts";
 
 const NOW = Date.parse("2026-11-02T15:00:00Z");
@@ -133,4 +133,11 @@ test("two picks from one game: the weaker comes off, even on a slip built earlie
   const t = tendSlip(old, rows, NOW);
   assert.deepEqual(t.legs.map((l) => l.player).sort(), ["A", "C", "E"]);
   assert.ok(t.changes.some((c) => /Swapped B .* same game/.test(c)));
+});
+
+test("the per-game list has every game's best More, past the slip's 8", () => {
+  const teams = ["BOS", "NYK", "LAL", "GSW", "MIA", "CHI", "DEN", "PHX", "DAL", "HOU", "SAC", "POR", "ATL", "ORL", "SEA", "UTA", "MIL", "IND"];
+  const rows = Array.from({ length: 9 }, (_, i) => row(`P${i}`, teams[2 * i], teams[2 * i + 1], 0.6 + i / 100));
+  assert.equal(bestPerGame([...rows, row("X", "NYK", "BOS", 0.55)], "NBA", NOW).length, 9);
+  assert.equal(buildSlip(rows, "NBA", "20261102", NOW)!.legs.length, 8);
 });
