@@ -121,7 +121,8 @@ function fill(pool: PropWithProjection[], n: number, taken: AutoLeg[], perGame =
 }
 
 /** Picks allowed per game: one, unless the day has fewer than three games to spread them over. */
-const perGameFor = (rows: PropWithProjection[]) => (new Set(rows.map(gameOf)).size >= 3 ? 1 : 2);
+/** One pick per game, always: picks in the same game rise and fall together. */
+const perGameFor = (_rows: PropWithProjection[]) => 1;
 
 /** Price a set of picks at Pick 6's payout. */
 export function price(legs: AutoLeg[]): Pick<AutoSlip, "multiplier" | "chance" | "expected"> {
@@ -163,29 +164,21 @@ export function tendSlip(prev: AutoSlip, rows: PropWithProjection[], now = Date.
   const legs: AutoLeg[] = [];
   const changes: string[] = [];
   const out: { leg: AutoLeg; reason: string }[] = [];
-  for (const l of prev.legs) {
+  const seen = new Set(prev.legs.filter((l) => l.result || started(l, now)).map(gameOf));
+  // Strongest first, so when two picks share a game the weaker one comes off.
+  for (const l of [...prev.legs].sort((a, b) => b.prob - a.prob)) {
     if (l.result || started(l, now)) {
       legs.push(l);
       continue;
     }
     const row = rows.find((r) => same(l, r));
-    const reason = why(l, row);
+    const reason = seen.has(gameOf(l)) ? "another pick from the same game is stronger" : why(l, row);
+    seen.add(gameOf(l));
     if (reason) out.push({ leg: l, reason });
     // Still good: keep it, at the line and chance Pick 6 shows now.
     else legs.push({ ...l, line: row!.line, prob: Math.round(row!.projection.pickProb * 1000) / 1000, rawProb: rawOf(row!), reasons: row!.projection.reasons.slice(0, 3), marketProb: row!.projection.marketProb });
   }
   const mine = rows.filter((r) => r.sport === prev.sport);
-  // Games whose lines came up after the slip was built get their best pick too, up to Pick 6's 8.
-  const added = out.length ? [] : fill(candidates(mine, now), MAX_LEGS - legs.length, legs, 1);
-  for (const a of added) {
-    legs.push(a);
-    changes.push(`Added ${a.player} ${a.side === "OVER" ? "more" : "less"} than ${a.line} ${STATS[a.stat].label.toLowerCase()}: its game's lines came up`);
-  }
-  if (!out.length && !added.length) return { ...prev, legs, ...price(legs), updatedAt: new Date(now).toISOString() };
-  if (!out.length) {
-    const kept = legs.sort((a, b) => a.gameTime.localeCompare(b.gameTime));
-    return { ...prev, legs: kept, ...price(kept), version: prev.version + 1, changes: [...prev.changes, ...changes], updatedAt: new Date(now).toISOString() };
-  }
   const pool = candidates(mine, now).filter((r) => !out.some((o) => o.leg.player === r.player));
   const fresh = fill(pool, out.length, legs, perGameFor(mine));
   out.forEach((o, i) => {
@@ -202,7 +195,13 @@ export function tendSlip(prev: AutoSlip, rows: PropWithProjection[], now = Date.
       changes.push(`Heads up on ${name}: ${o.reason}, and no other line was good enough to swap in`);
     }
   });
+  // Games whose lines came up after the slip was built get their best pick too, up to Pick 6's 8.
+  for (const a of fill(pool, MAX_LEGS - legs.length, legs, 1)) {
+    legs.push(a);
+    changes.push(`Added ${a.player} ${a.side === "OVER" ? "more" : "less"} than ${a.line} ${STATS[a.stat].label.toLowerCase()}: its game's lines came up`);
+  }
   const kept = legs.sort((a, b) => a.gameTime.localeCompare(b.gameTime));
+  if (!changes.length) return { ...prev, legs: kept, ...price(kept), updatedAt: new Date(now).toISOString() };
   return { ...prev, legs: kept, ...price(kept), version: prev.version + 1, changes: [...prev.changes, ...changes], updatedAt: new Date(now).toISOString() };
 }
 

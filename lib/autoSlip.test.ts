@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { autoRecord, buildSlip, settle, slipText, tendSlip, type AutoSlip } from "./autoSlip.ts";
+import { autoRecord, buildSlip, settle, slipText, tendSlip, toLeg as toLegFor, type AutoSlip } from "./autoSlip.ts";
 import type { PropWithProjection } from "./types.ts";
 
 const NOW = Date.parse("2026-11-02T15:00:00Z");
@@ -75,12 +75,13 @@ test("settles like the app: a miss loses, a push shrinks the entry, all hits win
   assert.match(slipText(won), /^A: More than 20 Points/);
 });
 
-test("each sport builds from its own lines; a one-game night can take two picks from it", () => {
+test("each sport builds from its own lines; a one-game night makes no slip", () => {
   const nfl = (player: string, team: string, opponent: string, p: number) => ({ ...row(player, team, opponent, p), sport: "NFL" as const, stat: "PASS_YDS" as const });
   const rows = [...board, nfl("Q", "DAL", "NYG", 0.7), nfl("R", "NYG", "DAL", 0.68)];
-  const s = buildSlip(rows, "NFL", "20261102", NOW)!;
+  assert.equal(buildSlip(rows, "NFL", "20261102", NOW), null);
+  const s = buildSlip([...rows, nfl("S", "KC", "BUF", 0.66)], "NFL", "20261102", NOW)!;
   assert.equal(s.sport, "NFL");
-  assert.deepEqual(s.legs.map((l) => l.player), ["Q", "R"]);
+  assert.deepEqual(s.legs.map((l) => l.player).sort(), ["Q", "S"]);
 });
 
 test("goes up to 8 picks when the board is deep enough", () => {
@@ -123,4 +124,13 @@ test("games whose lines come up later get added to the slip", () => {
   assert.match(later.changes.at(-1) ?? "", /Added E/);
   // Nothing new: nothing changes.
   assert.equal(tendSlip(later, [row("A", "BOS", "NYK", 0.7), row("C", "LAL", "GSW", 0.68), row("E", "DEN", "PHX", 0.66)], NOW).version, 2);
+});
+
+test("two picks from one game: the weaker comes off, even on a slip built earlier", () => {
+  const rows = [row("A", "BOS", "NYK", 0.7), row("B", "NYK", "BOS", 0.6), row("C", "LAL", "GSW", 0.65), row("E", "DEN", "PHX", 0.62)];
+  assert.deepEqual(buildSlip(rows.slice(0, 2), "NBA", "20261102", NOW), null);
+  const old = { ...buildSlip([rows[0], rows[2]], "NBA", "20261102", NOW)!, legs: [rows[0], rows[1], rows[2]].map(toLegFor) };
+  const t = tendSlip(old, rows, NOW);
+  assert.deepEqual(t.legs.map((l) => l.player).sort(), ["A", "C", "E"]);
+  assert.ok(t.changes.some((c) => /Swapped B .* same game/.test(c)));
 });
