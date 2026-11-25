@@ -26,19 +26,19 @@ const board = [
   row("H", "ATL", "ORL", 0.65, { sampleSize: 4 }),
 ];
 
-test("builds the slip size that pays best on average, one pick per game", () => {
+test("takes the best More pick from every game", () => {
   const s = buildSlip(board, "NBA", "20261102", NOW)!;
   assert.ok(s);
   const names = s.legs.map((l) => l.player);
   assert.ok(!names.includes("B") && !names.includes("D") && !names.includes("H"));
   assert.deepEqual(names.slice(0, 3), ["A", "C", "E"]);
-  assert.ok(s.legs.length >= 2 && s.legs.length <= 8);
-  assert.ok(s.expected > 1, "only builds a slip worth playing at these chances");
+  // Every game with a healthy More pick gets one: BOS-NYK, LAL-GSW, DEN-PHX, DAL-HOU, SAC-POR (MIA-CHI is questionable, ATL-ORL too thin).
+  assert.deepEqual([...names].sort(), ["A", "C", "E", "F", "G"]);
   assert.equal(s.version, 1);
 });
 
-test("no slip when nothing on the board is good enough", () => {
-  assert.equal(buildSlip([row("A", "BOS", "NYK", 0.52), row("C", "LAL", "GSW", 0.54)], "NBA", "20261102", NOW), null);
+test("no slip when fewer than two games have a More worth taking", () => {
+  assert.equal(buildSlip([row("A", "BOS", "NYK", 0.5), row("C", "LAL", "GSW", 0.54, { marketProb: 0.46 })], "NBA", "20261102", NOW), null);
 });
 
 test("a pick whose player is ruled out gets swapped before the game; started games stay put", () => {
@@ -91,15 +91,15 @@ test("goes up to 8 picks when the board is deep enough", () => {
   assert.equal(s.multiplier, 150);
 });
 
-test("the books have to back a pick, and an unpriced pick needs a higher bar", () => {
+test("a pick needs the model leaning More and the books not leaning Less", () => {
   const rows = [
-    row("A", "BOS", "NYK", 0.62, { marketProb: 0.51 }), // books barely agree: out
-    row("C", "LAL", "GSW", 0.58), // no price, under 60%: out
-    row("E", "DEN", "PHX", 0.61), // no price, over 60%: in
-    row("F", "DAL", "HOU", 0.58, { marketProb: 0.6 }), // books agree: in, and ranked first
+    row("A", "BOS", "NYK", 0.62, { marketProb: 0.48 }), // books lean Less: out
+    row("C", "LAL", "GSW", 0.5), // coin flip: out
+    row("E", "DEN", "PHX", 0.53), // no price, leans More: in
+    row("F", "DAL", "HOU", 0.58, { marketProb: 0.6 }), // books agree: in
   ];
   const s = buildSlip(rows, "NBA", "20261102", NOW);
-  assert.deepEqual(s?.legs.map((l) => l.player), ["F", "E"]);
+  assert.deepEqual(s?.legs.map((l) => l.player).sort(), ["E", "F"]);
 });
 
 test("Pick 6 only takes More, so Less picks are skipped and swapped off", () => {
