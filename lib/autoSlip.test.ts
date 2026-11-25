@@ -93,9 +93,9 @@ test("goes up to 8 picks when the board is deep enough", () => {
 
 test("the books have to back a pick, and an unpriced pick needs a higher bar", () => {
   const rows = [
-    row("A", "BOS", "NYK", 0.62, { marketProb: 0.51 }), // books barely agree: out
-    row("C", "LAL", "GSW", 0.58), // no price, under 60%: out
-    row("E", "DEN", "PHX", 0.61), // no price, over 60%: in
+    row("A", "BOS", "NYK", 0.62, { marketProb: 0.5 }), // books on the fence: out
+    row("C", "LAL", "GSW", 0.57), // no price, under 58%: out
+    row("E", "DEN", "PHX", 0.59), // no price, over 58%: in
     row("F", "DAL", "HOU", 0.58, { marketProb: 0.6 }), // books agree: in, and ranked first
   ];
   const s = buildSlip(rows, "NBA", "20261102", NOW);

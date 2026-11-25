@@ -48,11 +48,11 @@ export const MIN_LEGS = 2;
 export const MAX_LEGS = 8;
 /** A thin sample, a coin flip or a game about to start, and it isn't picked. */
 const MIN_GAMES = 8;
-const MIN_PROB = 0.56;
+const MIN_PROB = 0.54;
 /** With no sportsbook price to check the model against, a pick has to clear a higher bar. */
-const MIN_PROB_UNPRICED = 0.6;
+const MIN_PROB_UNPRICED = 0.58;
 /** When the books have priced it, they have to agree with some conviction, not just barely. */
-const MIN_MARKET = 0.53;
+const MIN_MARKET = 0.51;
 /** Below this a pick already on the slip gets swapped out. */
 const KEEP_PROB = 0.53;
 const LEAD_MS = 20 * 60_000;
