@@ -1,4 +1,4 @@
-// The auto slip: LayLock's own Pick 6 entry for the day, built from the scored slate with no one picking. It is
+// The auto slip: LayLock's own Pick 6 entry for the day, the best More pick from each game on the scored slate. It is
 // built once, then tended on every scan: a pick whose player is ruled out, whose line is pulled or that the model
 // turns against is swapped for the next best one until its game starts. Graded in public like the pick of the day.
 // Pure: loading, saving and grading are in autoSlipData.ts.
@@ -48,13 +48,11 @@ export const MIN_LEGS = 2;
 export const MAX_LEGS = 8;
 /** A thin sample, a coin flip or a game about to start, and it isn't picked. */
 const MIN_GAMES = 8;
-const MIN_PROB = 0.56;
-/** With no sportsbook price to check the model against, a pick has to clear a higher bar. */
-const MIN_PROB_UNPRICED = 0.6;
-/** When the books have priced it, they have to agree with some conviction, not just barely. */
-const MIN_MARKET = 0.53;
-/** Below this a pick already on the slip gets swapped out. */
-const KEEP_PROB = 0.53;
+/** The model has to lean More, and the books (when they've priced it) can't lean Less. */
+const MIN_PROB = 0.5;
+const MIN_MARKET = 0.5;
+/** Below this a pick already on the slip gets swapped out: the model no longer leans More. */
+const KEEP_PROB = 0.5;
 const LEAD_MS = 20 * 60_000;
 
 const gameOf = (l: { team: string; opponent: string }) => [l.team, l.opponent].sort().join("-");
@@ -70,8 +68,7 @@ export function candidates(rows: (PropWithProjection & { pick6?: boolean })[], n
       if (p.pick !== "OVER") return false;
       if (r.pick6 === false || p.status !== "ok" || p.injury || p.confidence === "low" || p.sampleSize < MIN_GAMES) return false;
       if (STATS[r.stat].sport === "UFC" || !r.gameTime || Date.parse(r.gameTime) - now <= LEAD_MS) return false;
-      if (p.marketProb === undefined) return p.pickProb >= MIN_PROB_UNPRICED;
-      return p.marketProb >= MIN_MARKET && p.pickProb >= MIN_PROB;
+      return p.pickProb > MIN_PROB && (p.marketProb === undefined || p.marketProb >= MIN_MARKET);
     })
     .sort((a, b) => score(b) - score(a));
 }
@@ -133,24 +130,17 @@ export function price(legs: AutoLeg[]): Pick<AutoSlip, "multiplier" | "chance" |
   return { multiplier: tiers[legs.length] ?? 0, chance: dist[legs.length] ?? 0, expected: expectedReturn(dist, tiers) };
 }
 
-/** The best slip on the board: the number of picks (2 to 8) whose entry returns the most on average. */
+/**
+ * The slip: the best More pick from every game (by the model's chance, which weighs the matchup, nudged by the
+ * books), up to Pick 6's 8. Two picks may share a game only on a night too short to fill a slip otherwise.
+ */
 export function buildSlip(rows: PropWithProjection[], sport: Sport, date: string, now = Date.now()): AutoSlip | null {
-  const pool = candidates(rows.filter((r) => r.sport === sport), now);
-  const perGame = perGameFor(rows.filter((r) => r.sport === sport));
-  let best: AutoLeg[] | null = null;
-  let bestEv = 0;
-  for (let n = MIN_LEGS; n <= MAX_LEGS; n++) {
-    const legs = fill(pool, n, [], perGame);
-    if (legs.length < n) break;
-    const ev = price(legs).expected;
-    if (ev > bestEv + 0.005) {
-      best = legs;
-      bestEv = ev;
-    }
-  }
-  if (!best) return null;
+  const mine = rows.filter((r) => r.sport === sport);
+  const legs = fill(candidates(mine, now), MAX_LEGS, [], perGameFor(mine));
+  if (legs.length < MIN_LEGS) return null;
+  legs.sort((a, b) => a.gameTime.localeCompare(b.gameTime));
   const at = new Date(now).toISOString();
-  return { sport, date, builtAt: at, updatedAt: at, version: 1, legs: best, ...price(best), changes: [] };
+  return { sport, date, builtAt: at, updatedAt: at, version: 1, legs, ...price(legs), changes: [] };
 }
 
 /** Why a pick on the slip should come off, or undefined while it still holds. */
