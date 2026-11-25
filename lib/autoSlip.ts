@@ -144,6 +144,11 @@ export function buildSlip(rows: PropWithProjection[], sport: Sport, date: string
   return { sport, date, builtAt: at, updatedAt: at, version: 1, legs, ...price(legs), changes: [] };
 }
 
+/** The best More pick in every game that hasn't started, slip or not (a slip stops at 8), in start order. */
+export function bestPerGame(rows: PropWithProjection[], sport: Sport, now = Date.now()): AutoLeg[] {
+  return fill(candidates(rows.filter((r) => r.sport === sport), now), Infinity, [], 1).sort((a, b) => a.gameTime.localeCompare(b.gameTime));
+}
+
 /** Why a pick on the slip should come off, or undefined while it still holds. */
 function why(l: AutoLeg, row: PropWithProjection | undefined): string | undefined {
   if (l.side === "UNDER") return "Pick 6 only offers More on it";

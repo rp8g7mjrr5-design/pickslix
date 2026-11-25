@@ -3,7 +3,7 @@
 import { kvGet, kvSet } from "./db.ts";
 import { espnDate } from "./espn.ts";
 import { gradeLeg } from "./grade.ts";
-import { autoRecord, buildSlip, candidates, settle, tendSlip, type AutoSlip } from "./autoSlip.ts";
+import { autoRecord, bestPerGame, buildSlip, candidates, settle, tendSlip, type AutoSlip } from "./autoSlip.ts";
 import { logBoard } from "./boardLogData.ts";
 import { getProvider } from "./providers.ts";
 import { sportSlate, type ScanReport } from "./slateData.ts";
@@ -80,7 +80,10 @@ export async function slipHistory(sport: Sport, now = Date.now()): Promise<AutoS
 export async function sportSummary(sport: Sport, now = Date.now(), force = false) {
   const [slip, history] = await Promise.all([todaysSlip(sport, now, force), slipHistory(sport, now)]);
   const today = slip ? (history.find((s) => s.date === slip.date && s.version === slip.version) ?? slip) : null;
-  return { sport, slip: today, record: autoRecord(history), recent: history.filter((s) => s.date !== today?.date).slice(0, 14) };
+  // Reuses the scan the slip just ran (cached), so this costs nothing extra.
+  const slate = await sportSlate(sport, now).catch(() => null);
+  const perGame = slate ? bestPerGame(slate.rows, sport, now) : [];
+  return { sport, slip: today, perGame, record: autoRecord(history), recent: history.filter((s) => s.date !== today?.date).slice(0, 14) };
 }
 
 /** Every sport's slip, scanned side by side. A sport whose scan fails just shows no slip. */
